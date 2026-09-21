@@ -14,6 +14,36 @@ TERMS = {
 }
 
 
+def content_quality(raw, url, tech):
+    """접근 성공과 내용 확보를 구분한다. 의미상 주장의 진실성 검사는 아니다."""
+    paper = urlsplit(url).hostname == 'arxiv.org'
+    title = re.search(r'^#+\s*Title:\s*(.+)$', raw, re.M | re.I)
+    if paper and title and tech.name.casefold() not in title[1].casefold():
+        return 'identity_mismatch', '요청한 논문과 추출 제목이 다름'
+    body = re.split(r'^#+\s*(?:Bibliographic|arXivLabs|References & Citations)', raw, maxsplit=1, flags=re.M)[0]
+    paragraphs = []
+    for block in re.split(r'\n\s*\n', body):
+        text = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', block).strip()
+        if not text or text.startswith(('#', '|')):
+            continue
+        if re.match(r'^(arXivLabs|Both individuals|Have an idea|Watch the latest|Navigation)', text, re.I):
+            continue
+        text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+        if len(re.findall(r'\w+', text)) >= 6 and re.search(r'[.!?。]|다[.\s]', text):
+            paragraphs.append(text)
+    if not paragraphs:
+        return 'metadata_only', '제목·메뉴 외에 분석 가능한 본문을 확보하지 못함'
+    return 'substantive', '문장 형태의 본문 확보; 주장별 검증은 별도'
+
+
+def content_fallback(url):
+    p = urlsplit(url)
+    match = re.fullmatch(r'/abs/(\d{4}\.\d{4,5}(?:v\d+)?)', p.path)
+    if p.hostname == 'arxiv.org' and match:
+        return 'https://arxiv.org/html/' + match[1]
+    return fallback_url(url)
+
+
 def relevance(text, tech, criteria):
     lower = text.casefold()
     direct = 12 if tech.name.casefold() in lower else 0

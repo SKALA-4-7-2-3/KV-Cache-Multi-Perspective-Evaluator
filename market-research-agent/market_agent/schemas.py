@@ -50,6 +50,9 @@ class Evidence(Record):
     tech_ids: list[str] = Field(default_factory=list)
     segments: list[Segment] = Field(default_factory=list)
     access_scope: str = "미확인"
+    content_status: Literal['unchecked', 'substantive', 'metadata_only', 'identity_mismatch'] = 'unchecked'
+    content_reason: str = ''
+    requested_url: str = ''
 
 
 class Technology(Record):

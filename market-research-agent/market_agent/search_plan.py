@@ -28,12 +28,14 @@ def repair_questions(data, rows, proposed, queries):
     pending = {(r.tech_id, r.criterion_id): r for r in rows if r.verdict == 'unknown' or r.gaps}
     result = []
     for tech in data.technologies.values():
-        candidates = [q for q in proposed if q.tech_id == tech.id and (q.tech_id, q.criterion_id) in pending]
-        for criterion in CRITERIA:
+        priorities = list(dict.fromkeys([q.criterion_id for q in proposed if q.tech_id == tech.id
+            and (tech.id, q.criterion_id) in pending] + list(CRITERIA)))
+        candidates = []
+        for criterion in priorities:
             row = pending.get((tech.id, criterion))
             if not row:
                 continue
-            name = tech.name
+            name = f'"{tech.name}" "KV cache"' if tech.approach == 'SW' else f'"{tech.name}" memory'
             if criterion == 'market_size_growth':
                 name = 'KV cache inference optimization' if tech.approach == 'SW' else 'CXL memory pooling'
             candidates.append(Question(tech_id=tech.id, criterion_id=criterion, criteria=[criterion],

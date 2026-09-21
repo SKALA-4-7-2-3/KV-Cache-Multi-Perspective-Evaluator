@@ -5,6 +5,21 @@ from market_agent.sources import select_segments, rank_candidates, fallback_url
 
 
 class SourceTests(unittest.TestCase):
+    def test_metadata_only_paper_is_not_substantive_evidence(self):
+        from market_agent.sources import content_quality
+        raw = '# Title:RDKV: Rate-Distortion Bit Allocation\n\n| Cite as: | arXiv:2605.08317v1 |\n\n# Access Paper\n\narXivLabs is a framework for community collaboration.\n'
+        self.assertEqual(content_quality(raw, self.tech.url, self.tech)[0], 'metadata_only')
+
+    def test_short_product_announcement_is_usable(self):
+        from market_agent.sources import content_quality
+        raw = '# PF-NIC release\n\nPF-NIC supports shared CXL memory for AI inference. Availability is limited to evaluation partners.'
+        self.assertEqual(content_quality(raw, 'https://example.org/release', self.tech)[0], 'substantive')
+
+    def test_wrong_paper_title_is_rejected(self):
+        from market_agent.sources import content_quality
+        raw = '# Title:An unrelated study of language models\n\nAbstract: We evaluate a different model and report experimental results.'
+        self.assertEqual(content_quality(raw, self.tech.url, self.tech)[0], 'identity_mismatch')
+
     def setUp(self):
         self.tech = read_input(Path(__file__).parents[1]/'fixtures/input.md').technologies['SW-01']
 
