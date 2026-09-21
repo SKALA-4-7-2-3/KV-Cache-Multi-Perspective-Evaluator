@@ -1,0 +1,475 @@
+{
+  "role": "domain",
+  "round": 0,
+  "status": "completed",
+  "domain_name": "장문맥 문서 QA 데이터센터·클라우드 서빙",
+  "assessments": [
+    {
+      "technology_id": "SW-01",
+      "technology_name": "RDKV",
+      "status": "completed",
+      "criteria": [
+        {
+          "criterion_id": "capacity",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "최대 문맥 길이와 동시성 목표를 수용할 메모리 용량"
+          ],
+          "evidence_ids": [
+            "SW-01::ev-29dfd536a9e94b95bc3207a5",
+            "SW-01::ev-5b65954365390806363ad12c"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "capacity의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "quality",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "허용 가능한 QA 정확도 저하 범위가 수치로 정의되어야 함"
+          ],
+          "evidence_ids": [
+            "SW-01::ev-2c8145af8dd0a2720dd06f95",
+            "SW-01::ev-56e42bc7c96c4d6550edb67f",
+            "SW-01::ev-5b65954365390806363ad12c",
+            "SW-01::ev-fae3872cc54f2a9da942f986"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "quality의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "latency_predictability",
+          "judgment": "unknown",
+          "target_alignment": "unknown",
+          "conclusion": "공유 근거만으로 판단할 수 없습니다.",
+          "rationale": "이 기준에 연결된 근거가 없습니다.",
+          "conditions": [
+            "목표 부하에서 TTFT·TPOT 꼬리 지연을 측정할 수 있어야 함"
+          ],
+          "evidence_ids": [],
+          "basis": "none",
+          "gaps": [
+            "기준별 근거 없음"
+          ],
+          "need_more": [
+            "latency_predictability의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "throughput",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "동일 모델·하드웨어·동시성 기준 처리량 자료가 필요"
+          ],
+          "evidence_ids": [
+            "SW-01::ev-5b65954365390806363ad12c"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "throughput의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "gpu_compatibility",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "기존 GPU 서빙 경로와의 통합 범위를 확인"
+          ],
+          "evidence_ids": [
+            "SW-01::ev-29dfd536a9e94b95bc3207a5",
+            "SW-01::ev-5b65954365390806363ad12c"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "gpu_compatibility의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "dedicated_hardware_dependency",
+          "judgment": "unknown",
+          "target_alignment": "unknown",
+          "conclusion": "공유 근거만으로 판단할 수 없습니다.",
+          "rationale": "이 기준에 연결된 근거가 없습니다.",
+          "conditions": [
+            "전용 장비·패브릭 의존성과 대체 경로를 확인"
+          ],
+          "evidence_ids": [],
+          "basis": "none",
+          "gaps": [
+            "기준별 근거 없음"
+          ],
+          "need_more": [
+            "dedicated_hardware_dependency의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "deployment_complexity",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "커널·런타임·클러스터 변경 범위와 운영 부담을 확인"
+          ],
+          "evidence_ids": [
+            "SW-01::ev-2c8145af8dd0a2720dd06f95",
+            "SW-01::ev-56e42bc7c96c4d6550edb67f",
+            "SW-01::ev-5b65954365390806363ad12c"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "deployment_complexity의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "maturity",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "원문 구현·통합·운용 증거 범위를 구분"
+          ],
+          "evidence_ids": [
+            "SW-01::ev-d6dcf370cc3e1d621d521ee6",
+            "SW-01::ev-fae3872cc54f2a9da942f986"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "maturity의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "customer_value",
+          "judgment": "unknown",
+          "target_alignment": "unknown",
+          "conclusion": "공유 근거만으로 판단할 수 없습니다.",
+          "rationale": "이 기준에 연결된 근거가 없습니다.",
+          "conditions": [
+            "용량·품질·지연 편익과 도입·운영 비용을 함께 확인"
+          ],
+          "evidence_ids": [],
+          "basis": "none",
+          "gaps": [
+            "기준별 근거 없음"
+          ],
+          "need_more": [
+            "customer_value의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "domain_fit",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "장문맥 문서 QA의 모델·문맥·동시성 조건과 일치"
+          ],
+          "evidence_ids": [
+            "SW-01::ev-29dfd536a9e94b95bc3207a5",
+            "SW-01::ev-56e42bc7c96c4d6550edb67f",
+            "SW-01::ev-5b65954365390806363ad12c",
+            "SW-01::ev-d6dcf370cc3e1d621d521ee6",
+            "SW-01::ev-fae3872cc54f2a9da942f986"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "domain_fit의 동일 조건 측정 자료"
+          ]
+        }
+      ],
+      "overall_summary": "모의 실행 결과이며 기술 결론으로 사용하면 안 됩니다.",
+      "key_tradeoffs": [
+        "근거 범위와 목표 환경의 일치 여부"
+      ]
+    },
+    {
+      "technology_id": "HW-01",
+      "technology_name": "Photonic-CXL",
+      "status": "completed",
+      "criteria": [
+        {
+          "criterion_id": "capacity",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "최대 문맥 길이와 동시성 목표를 수용할 메모리 용량"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-070256973608cac8c63b964e",
+            "HW-01::ev-1184caf20f99504071eea17a",
+            "HW-01::ev-333091a610a056ceba22e8c8",
+            "HW-01::ev-82214d08a0b9a3f1c01d4629",
+            "HW-01::ev-89e5c3436a815934c2104a23",
+            "HW-01::ev-be352b5256907aa41bc1df1d",
+            "HW-01::ev-d1aab11515037ec54425b885",
+            "HW-01::ev-de67db5290fa12183d6a7ef0",
+            "HW-01::ev-f5f5a3518677e81d0c571698"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "capacity의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "quality",
+          "judgment": "unknown",
+          "target_alignment": "unknown",
+          "conclusion": "공유 근거만으로 판단할 수 없습니다.",
+          "rationale": "이 기준에 연결된 근거가 없습니다.",
+          "conditions": [
+            "허용 가능한 QA 정확도 저하 범위가 수치로 정의되어야 함"
+          ],
+          "evidence_ids": [],
+          "basis": "none",
+          "gaps": [
+            "기준별 근거 없음"
+          ],
+          "need_more": [
+            "quality의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "latency_predictability",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "목표 부하에서 TTFT·TPOT 꼬리 지연을 측정할 수 있어야 함"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-333091a610a056ceba22e8c8",
+            "HW-01::ev-82214d08a0b9a3f1c01d4629",
+            "HW-01::ev-be352b5256907aa41bc1df1d"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "latency_predictability의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "throughput",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "동일 모델·하드웨어·동시성 기준 처리량 자료가 필요"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-070256973608cac8c63b964e",
+            "HW-01::ev-be352b5256907aa41bc1df1d",
+            "HW-01::ev-de67db5290fa12183d6a7ef0"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "throughput의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "gpu_compatibility",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "기존 GPU 서빙 경로와의 통합 범위를 확인"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-82214d08a0b9a3f1c01d4629",
+            "HW-01::ev-de67db5290fa12183d6a7ef0",
+            "HW-01::ev-f5f5a3518677e81d0c571698"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "gpu_compatibility의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "dedicated_hardware_dependency",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "전용 장비·패브릭 의존성과 대체 경로를 확인"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-070256973608cac8c63b964e",
+            "HW-01::ev-1184caf20f99504071eea17a",
+            "HW-01::ev-333091a610a056ceba22e8c8",
+            "HW-01::ev-82214d08a0b9a3f1c01d4629",
+            "HW-01::ev-89e5c3436a815934c2104a23",
+            "HW-01::ev-be352b5256907aa41bc1df1d",
+            "HW-01::ev-d1aab11515037ec54425b885",
+            "HW-01::ev-f5f5a3518677e81d0c571698"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "dedicated_hardware_dependency의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "deployment_complexity",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "커널·런타임·클러스터 변경 범위와 운영 부담을 확인"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-070256973608cac8c63b964e",
+            "HW-01::ev-1184caf20f99504071eea17a",
+            "HW-01::ev-333091a610a056ceba22e8c8",
+            "HW-01::ev-82214d08a0b9a3f1c01d4629",
+            "HW-01::ev-89e5c3436a815934c2104a23",
+            "HW-01::ev-be352b5256907aa41bc1df1d",
+            "HW-01::ev-d1aab11515037ec54425b885",
+            "HW-01::ev-f5f5a3518677e81d0c571698"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "deployment_complexity의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "maturity",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "원문 구현·통합·운용 증거 범위를 구분"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-333091a610a056ceba22e8c8",
+            "HW-01::ev-be352b5256907aa41bc1df1d",
+            "HW-01::ev-de67db5290fa12183d6a7ef0",
+            "HW-01::ev-f5f5a3518677e81d0c571698"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "maturity의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "customer_value",
+          "judgment": "unknown",
+          "target_alignment": "unknown",
+          "conclusion": "공유 근거만으로 판단할 수 없습니다.",
+          "rationale": "이 기준에 연결된 근거가 없습니다.",
+          "conditions": [
+            "용량·품질·지연 편익과 도입·운영 비용을 함께 확인"
+          ],
+          "evidence_ids": [],
+          "basis": "none",
+          "gaps": [
+            "기준별 근거 없음"
+          ],
+          "need_more": [
+            "customer_value의 동일 조건 측정 자료"
+          ]
+        },
+        {
+          "criterion_id": "domain_fit",
+          "judgment": "conditional",
+          "target_alignment": "partial",
+          "conclusion": "공유 근거는 적용 가능성을 시사하지만 실배포 판단에는 추가 검증이 필요합니다.",
+          "rationale": "오프라인 모의 실행은 근거 태그 연결과 스키마만 검증합니다.",
+          "conditions": [
+            "장문맥 문서 QA의 모델·문맥·동시성 조건과 일치"
+          ],
+          "evidence_ids": [
+            "HW-01::ev-070256973608cac8c63b964e",
+            "HW-01::ev-333091a610a056ceba22e8c8",
+            "HW-01::ev-82214d08a0b9a3f1c01d4629",
+            "HW-01::ev-be352b5256907aa41bc1df1d",
+            "HW-01::ev-de67db5290fa12183d6a7ef0",
+            "HW-01::ev-f5f5a3518677e81d0c571698"
+          ],
+          "basis": "fact",
+          "gaps": [
+            "실제 요구조건과 동일한 환경의 재현 측정 필요"
+          ],
+          "need_more": [
+            "domain_fit의 동일 조건 측정 자료"
+          ]
+        }
+      ],
+      "overall_summary": "모의 실행 결과이며 기술 결론으로 사용하면 안 됩니다.",
+      "key_tradeoffs": [
+        "근거 범위와 목표 환경의 일치 여부"
+      ]
+    }
+  ],
+  "cross_technology_tradeoffs": [
+    "모의 실행에서는 실제 기술 우열을 판단하지 않습니다."
+  ],
+  "unresolved_questions": [
+    "실제 기술 조사 결과로 다시 실행해야 합니다."
+  ],
+  "disclaimer": "공개·공유 근거 기반의 조건부 평가이며 실제 배포 검증이 아닙니다."
+}
