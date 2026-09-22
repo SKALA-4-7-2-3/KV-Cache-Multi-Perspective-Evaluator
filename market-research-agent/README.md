@@ -66,9 +66,9 @@ python -m market_agent.cli --input \
 
 통합 에이전트에는 `deliverables/market_handoff.md` 한 개를 전달합니다. 선정 기술의 판정과 관련 제품·기술군 정보를 구분하고 각 주장에 인용·조건을 연결합니다. 실행별 자동 결과와 원문은 outputs/ 및 .cache/에 별도로 보존합니다.
 
-**최신 4파일 검증 결과:** 12개 직접 판정은 미확인, 관련 정보 5개·출처 4개입니다. 원문 조회 실패 및 수치 후보 제외가 남아 실행 상태는 partial입니다. 자세한 내용은 검증 기록에 있습니다.
+**최신 4파일 검증 결과(v1.3):** 조건부 평가 3개·미확인 9개, 보조 정보 1개·인용 출처 3개입니다. SW/HW 고객 가치와 HW 관련 생태계 지원을 조건부로 해석했습니다. 원문 조회 실패 1건·후보 인용 연결 오류 2건이 남아 실행 상태는 partial입니다. 마지막 평가는 같은 원문을 재사용한 실제 LLM 3회와 API 없는 로컬 재검증으로 수행했습니다. 자세한 내용은 검증 기록에 있습니다.
 
-내부 계약은 **0.4**입니다. `execution_status=completed/partial/failed`는 처리 완료 여부이며, 기존 `status=completed/unknown/failed`와 각 항목의 verdict는 시장 평가 결과입니다. 정상 조사 후에도 직접 근거가 없으면 unknown일 수 있습니다. 부분 처리 결과는 유효 항목을 보존하지만 자동으로 완료 결과로 취급하지 않습니다. CLI 종료 코드는 완료 0 / 부분 처리 3 / 치명적 실패 2입니다.
+내부 계약은 **0.4**입니다. `execution_status=completed/partial/failed`는 처리 완료 여부이며, 기존 `status=completed/unknown/failed`와 각 항목의 verdict는 시장 평가 결과입니다. 정상 조사 후에도 항목별 판단에 필요한 근거가 없으면 unknown일 수 있습니다. 제품화·채택은 직접 근거를 요구하고, 다른 네 항목은 관련 근거로 조건부 추론할 수 있습니다. 부분 처리 결과는 유효 항목을 보존하지만 자동으로 완료 결과로 취급하지 않습니다. CLI 종료 코드는 완료 0 / 부분 처리 3 / 치명적 실패 2입니다.
 
 `fixture`는 실제 시장 조사가 아닙니다. 라이브 검증 결과·남은 한계는 [검증 기록](market_agent/LIVE_VALIDATION.md)에 기록합니다. 논문의 메모리·속도 효과는 실제 고객의 비용 절감이나 도입 실적을 자동으로 입증하지 않습니다.
 
@@ -79,4 +79,4 @@ python -m unittest discover -s market_agent/tests -v
 python -m compileall -q market_agent
 ```
 
-현재 **130개 회귀 테스트와 compileall**을 통과했습니다. JSON 인용 경계·조사 분기·주장 의미·부분 상태의 회귀 검사와 compileall로 검증합니다. 라이브 결과의 내용 검토는 아래 검증 기록에서 별도로 확인합니다. 이관 검증과 원본 추적 정보는 [이관 기록](MIGRATION.md), 실제 조사 한계는 [라이브 검증 기록](market_agent/LIVE_VALIDATION.md)에 있습니다.
+현재 **148개 회귀 테스트와 compileall**을 통과했습니다. JSON 인용 경계·조사 분기·주장 의미·부분 상태의 회귀 검사와 compileall로 검증합니다. 라이브 결과의 내용 검토는 아래 검증 기록에서 별도로 확인합니다. 이관 검증과 원본 추적 정보는 [이관 기록](MIGRATION.md), 실제 조사 한계는 [라이브 검증 기록](market_agent/LIVE_VALIDATION.md)에 있습니다.

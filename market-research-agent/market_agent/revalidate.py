@@ -7,6 +7,7 @@ from pathlib import Path
 from .claims import criterion_supported, validate_claims, materialize, pool_dispositions
 from .cli import file_hash, fingerprint, save_run
 from .parser import InputError
+from .policy import assessment_eligible
 from .research import annotate
 from .schemas import MarketInput, MarketResult, Evidence, Claim, DraftAnalysis, DraftAssessment
 from .tools import Budget
@@ -22,7 +23,7 @@ def revalidate(saved, sources):
     pool={k:c for k,c in validated.items() if criterion_supported(c)}
     rows=[]
     for r in result.assessments:
-        ids=[k for k,c in pool.items() if (c.tech_id,c.criterion_id,c.relation_to_technology)==(r.tech_id,r.criterion_id,'exact')
+        ids=[k for k,c in pool.items() if (c.tech_id,c.criterion_id)==(r.tech_id,r.criterion_id) and assessment_eligible(c)
             and any(x.evidence_id==c.citation.evidence_id and normalized(x.quote)==normalized(c.citation.quote) for x in r.citations)]
         rows.append(DraftAssessment(tech_id=r.tech_id,criterion_id=r.criterion_id,judgment=r.judgment,
             verdict=r.verdict,basis=r.basis,claim_ids=ids,conditions=r.conditions,gaps=r.gaps))

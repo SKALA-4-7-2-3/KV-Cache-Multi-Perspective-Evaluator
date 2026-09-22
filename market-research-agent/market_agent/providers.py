@@ -1,7 +1,6 @@
 """실제 LLM과 명시적으로 가상인 오프라인 제공자."""
 
 import json
-import copy
 from datetime import date
 
 from langchain_core.exceptions import OutputParserException
@@ -9,6 +8,9 @@ from pydantic import ValidationError
 
 from .prompts import EXTRACTION_PROMPT, COMPOSITION_PROMPT
 from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment, SelectedExtraction, ClaimReview, ReviewedDraftAnalysis
+from .extraction_contract import extraction_schema, flatten_extraction
+from .premises import technical_evidence
+from .policy import assessment_eligible, CONDITIONAL_CRITERIA
 from .quotes import quote_bank, resolve_quotes
 from .tools import ProviderError
 from .json_input import model_background
@@ -59,8 +61,9 @@ class OpenAIAnalyst:
         parsed = response.get('parsed')
         if isinstance(parsed, dict):
             try:
+                if schema is SelectedExtraction:parsed=flatten_extraction(parsed)
                 parsed = schema.model_validate(parsed)
-            except ValidationError:
+            except (ValidationError,ValueError):
                 raise ProviderError('invalid_structured_output') from None
         if not isinstance(parsed, schema) or response.get('parsing_error'):
             raise ProviderError('invalid_structured_output')
@@ -70,45 +73,27 @@ class OpenAIAnalyst:
         return parsed
 
     def extract(self, data, evidence, previous=None, issues=None):
-        bank=quote_bank(evidence)
+        technical=technical_evidence(data,evidence)
+        bank=quote_bank(evidence,technical_ids=technical)
         if not bank:
             return Extraction(claims=[], reviews=[])
         material = []
         for e in evidence.values():
-            if not (e.access_status=='full_text' and e.content_status=='substantive'):
+            if e.id not in technical and not (e.access_status=='full_text' and e.content_status=='substantive'):
                 continue
             item={'evidence_id':e.id,'title':e.title,'url':e.url,'published_at':str(e.published_at) if e.published_at else None,
-                'scope':e.access_scope,'technology_candidates':e.tech_ids,'requested_criteria':e.criteria,
+                'scope':e.access_scope,'access_status':e.access_status,'technology_candidates':e.tech_ids,'requested_criteria':e.criteria,
                 'quotes':{k:v for k,v in bank.items() if v['evidence_id']==e.id}}
             material.append(item)
         payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
             'criteria':CRITERIA,'comparison_constraints':comparison_background(data),
             'technologies': {k:{'name':v.name,'paper_url':v.url,
-                **({'technical_context':model_background(data,v),'technical_context_truncated':len(v.summary)>6000,
+                **({'technical_context':model_background(data,v)[:2000],'technical_context_truncated':len(v.summary)>2000,
                     'input_warnings':v.issues} if data.input_format!='markdown' else {})}
                 for k,v in data.technologies.items()},
             'evidence': material, 'previous_claims': {k:{'tech_id':v.tech_id,'criterion_id':v.criterion_id,'statement':v.statement} for k,v in (previous or {}).items()},
-            'validation_issues':issues or []}
-        schema=strict_schema(SelectedExtraction)
-        base=schema['$defs'].pop('SelectedClaim')
-        variants=[]
-        for tech_id,tech in data.technologies.items():
-            choices={key:q for key,q in bank.items() if tech_id in evidence[q['evidence_id']].tech_ids}
-            if not choices:
-                continue
-            branch=copy.deepcopy(base)
-            props=branch['properties']
-            props['tech_id']={'type':'string','enum':[tech_id]}
-            props['quote_id']={'type':'string','enum':list(choices)}
-            subjects=list(dict.fromkeys(s for q in choices.values() for s in q['subjects']))
-            # 선택지 자체는 원문의 연속 문자열이며, 인용별 연결은 로컬에서 재검사한다.
-            if subjects:props['subject']={'type':'string','enum':subjects}
-            if not any(tech.name.casefold() in (q['text']+' '+q['context']).casefold() for q in choices.values()):
-                props['relation_to_technology']={'type':'string','enum':['method_family','adjacent']}
-            variants.append(branch)
-        if not variants:
-            return Extraction(claims=[],reviews=[])
-        schema['properties']['claims']['items']={'anyOf':variants}
+            'validation_issues':[{k:v for k,v in issue.items() if k!='candidate'} for issue in (issues or [])]}
+        schema=extraction_schema(strict_schema(SelectedExtraction),data,evidence,bank,technical)
         extractor=self._llm.with_structured_output(schema,method='json_schema',strict=True,include_raw=True)
         selected=self._invoke('extract',extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
         return resolve_quotes(data,selected,bank,evidence)
@@ -116,10 +101,11 @@ class OpenAIAnalyst:
     def compose(self, data, claims, previous=None, issues=None, *, audit=False):
         payload = {'scope':{'domain':data.domain,'as_of':str(data.as_of)},
             'technologies':{k:v.name for k,v in data.technologies.items()}, 'criteria':CRITERIA,
+            'conditional_criteria':CONDITIONAL_CRITERIA,
             'expected_assessment_count':len(data.technologies)*len(CRITERIA),
             'claims':{k:v.model_dump(mode='json') for k,v in claims.items()},
-            'allowed_exact_claims':{t:{c:[k for k,v in claims.items() if
-                (v.tech_id,v.criterion_id,v.relation_to_technology)==(t,c,'exact')] for c in CRITERIA}
+            'allowed_assessment_claims':{t:{c:[k for k,v in claims.items() if
+                (v.tech_id,v.criterion_id)==(t,c) and assessment_eligible(v)] for c in CRITERIA}
                 for t in data.technologies},
             'previous':previous.model_dump(mode='json') if previous else None,'validation_issues':issues or []}
         prompt=COMPOSITION_PROMPT

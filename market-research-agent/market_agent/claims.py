@@ -4,6 +4,8 @@ import re
 from collections import Counter
 
 from .schemas import Analysis, Assessment, ContextFinding, CRITERIA, unknown, Claim, DraftAnalysis, DraftAssessment
+from .quantities import numeric_tokens
+from .policy import assessment_eligible, conditional_scope, quote_relevant
 from .validation import valid_citations, identity_supported, metric_supported, quantitative_claim, normalized
 
 
@@ -29,7 +31,7 @@ def previous_draft(previous,pool,fallback):
     for row in fallback.assessments:
         r=old.get((row.tech_id,row.criterion_id))
         if r and r.basis!='unknown':
-            ids=[k for k,c in pool.items() if (c.tech_id,c.criterion_id,c.relation_to_technology)==(r.tech_id,r.criterion_id,'exact')
+            ids=[k for k,c in pool.items() if (c.tech_id,c.criterion_id)==(r.tech_id,r.criterion_id) and assessment_eligible(c)
                 and any(c.citation.evidence_id==x.evidence_id and normalized(c.citation.quote)==normalized(x.quote) for x in r.citations)]
             covered={(pool[k].citation.evidence_id,normalized(pool[k].citation.quote)) for k in ids}
             expected={(c.evidence_id,normalized(c.quote)) for c in r.citations}
@@ -85,25 +87,14 @@ def criterion_supported(claim):
     """시장 역할에 명백히 맞지 않는 기술 설명을 의미 검토의 독립 최소 조건으로 거른다."""
     quote=re.sub(r'no cost to efficiency','',claim.citation.quote,flags=re.I)
     # 버전/거리 등 수치도 주변 문장만으로 덧붙이지 않는다. FP8 같은 이름의 숫자는 제외한다.
-    numbers=lambda text:set(re.findall(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?',text))
+    numbers=numeric_tokens
     quote_numbers=numbers(quote)
     months='January February March April May June July August September October November December'.split()
     for number,month in enumerate(months,1):
-        if re.search(r'\b'+month+r'\s+\d{1,4}\b',quote):quote_numbers.add(str(number))
+        if re.search(r'\b'+month+r'\s+\d{1,4}\b',quote):quote_numbers.update(numbers(str(number)))
     if not numbers(claim.statement)<=quote_numbers:
         return False
-    if claim.criterion_id=='standardization':
-        return bool(re.search(r'standard|specification|consortium|IEEE|JEDEC|표준|규격',quote,re.I))
-    if claim.criterion_id=='commercialization':
-        return bool(re.search(r'product|commercial|launch|releas|licen[cs]e|available|repository|github|제품|출시|라이선스',quote,re.I))
-    if claim.criterion_id=='adoption':
-        return bool(re.search(r'customer|production|deployed|adopted|uses? |using |고객|도입|운영',quote,re.I))
-    if claim.criterion_id=='ecosystem_support':
-        return bool(re.search(r'support|integrat|compatib|framework|library|runtime|interoperab|지원|통합',quote,re.I))
-    if claim.criterion_id=='business_value':
-        return bool(re.search(r'cost|price|memory efficiency|energy efficiency|latency|throughput|speedup|speed.up|footprint|'
-            r'reduc.{0,45}memory|memory.{0,45}(reduc|sav|capac|utiliz)|utilization|energy|비용|메모리.{0,20}절약',quote,re.I))
-    return True
+    return quote_relevant(claim.criterion_id,quote)
 
 
 def review_claims(pool, reviews):
@@ -169,16 +160,18 @@ def materialize(data, draft, pool):
             scoped = {k:c for k,c in pool.items() if c.tech_id==tech and c.criterion_id==criterion}
             row = unknown(tech,criterion,'이번 조사에서 선정 기술 자체를 판단할 직접 근거를 확인하지 못함')
             code = None
-            if not any(c.relation_to_technology=='exact' for c in scoped.values()):
+            if not any(assessment_eligible(c) for c in scoped.values()):
                 # 직접 근거가 없는 행의 판정은 모델에 맡기지 않는다.
                 # 관련 정보는 아래에서 연결하고 후보의 제외 사유는 별도로 기록한다.
                 row.gaps=['선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인']
             elif d is None or counts[tech,criterion] != 1:
                 code = 'missing_or_duplicate_assessment'
-            elif any(k not in scoped or scoped[k].relation_to_technology!='exact' for k in d.claim_ids):
+            elif any(k not in scoped or not assessment_eligible(scoped[k]) for k in d.claim_ids):
                 code = 'claim_scope_mismatch'
             elif d.basis != 'unknown' and not d.claim_ids:
                 code = 'missing_claim_reference'
+            elif any(scoped[k].relation_to_technology!='exact' for k in d.claim_ids) and (d.basis=='unknown' or not d.conditions or d.verdict!='conditional'):
+                row.gaps=['관련 근거를 선정 기술의 사실로 확정할 수 없음: 적용 조건을 갖춘 추론 필요']
             elif d.basis == 'unknown':
                 row.judgment, row.gaps = d.judgment, d.gaps
                 row.conditions = d.conditions
@@ -186,15 +179,25 @@ def materialize(data, draft, pool):
                 selected = [scoped[k] for k in dict.fromkeys(d.claim_ids)]
                 citations = [c.citation.model_copy(deep=True) for c in selected]
                 basis='inference' if any(c.basis=='inference' for c in selected) else d.basis
-                row = Assessment(tech_id=tech,criterion_id=criterion,judgment=' '.join(dict.fromkeys(c.statement for c in selected)),verdict=d.verdict,
-                    basis=basis,relation_to_technology='exact',evidence_ids=list(dict.fromkeys(c.evidence_id for c in citations)),
-                    citations=citations,conditions=list(dict.fromkeys([*d.conditions,*(x for c in selected for x in c.conditions)])),
+                relation=next((r for r in ('adjacent','method_family') if any(c.relation_to_technology==r for c in selected)),'exact')
+                judgment=' '.join(dict.fromkeys(c.statement for c in selected))
+                conditions=list(dict.fromkeys([*d.conditions,*(x for c in selected for x in c.conditions)]))
+                if relation!='exact':
+                    prefix,condition=conditional_scope(criterion,relation)
+                    judgment=f'{prefix}: {judgment}'
+                    conditions=list(dict.fromkeys([*conditions,condition]))
+                    basis='inference'
+                row = Assessment(tech_id=tech,criterion_id=criterion,judgment=judgment,verdict=d.verdict,
+                    basis=basis,relation_to_technology=relation,evidence_ids=list(dict.fromkeys(c.evidence_id for c in citations)),
+                    citations=citations,conditions=conditions,
                     gaps=d.gaps,metric=next((c.metric for c in selected if c.metric),None))
             if code:
                 errors.append(dict(stage='compose',code=code,tech_id=tech,criterion_id=criterion))
                 row.gaps = ['평가 작성 결과의 근거 연결 오류로 선정 기술 결론을 보류함']
             # 평가 모델이 보조 정보 배열을 쓰는지에 의존하지 않는다.
-            related = [c for c in scoped.values() if c.relation_to_technology!='exact']
+            used={(c.evidence_id,normalized(c.quote)) for c in row.citations}
+            related = [c for c in scoped.values() if c.relation_to_technology!='exact'
+                and (c.citation.evidence_id,normalized(c.citation.quote)) not in used]
             related.sort(key=lambda c:(c.basis!='fact', c.relation_to_technology!='method_family'))
             row.context_findings = [ContextFinding(statement=c.statement,basis=c.basis,
                 relation_to_technology=c.relation_to_technology,citations=[c.citation.model_copy(deep=True)],

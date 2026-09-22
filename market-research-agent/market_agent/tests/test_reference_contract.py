@@ -27,10 +27,14 @@ class ReferenceContractTests(unittest.TestCase):
         provider.extract(data,{**data.evidence,'MKT-X':self.source()})
         request=requests[0]
         schema=request['response_format']['json_schema']['schema']
-        branch=schema['properties']['claims']['items']['anyOf'][0]['properties']
-        self.assertEqual(branch['tech_id']['enum'],['HW-01'])
+        cells=schema['properties']['claims']['properties']
+        self.assertEqual(len(cells),6)
+        self.assertTrue(all(c['maxItems']<=2 for c in cells.values()))
+        self.assertEqual(cells['HW-01::standardization']['maxItems'],0)
+        branch=schema['$defs'][cells['HW-01::ecosystem_support']['items']['anyOf'][0]['$ref'].rsplit('/',1)[-1]]['properties']
+        self.assertNotIn('tech_id',branch)
         self.assertNotIn('exact',branch['relation_to_technology']['enum'])
-        self.assertIn('Product-X',branch['subject']['enum'])
+        self.assertIn('Product-X',schema['$defs'][branch['subject']['$ref'].rsplit('/',1)[-1]]['enum'])
         enums=[]
         def walk(value):
             if isinstance(value,dict):
@@ -41,11 +45,30 @@ class ReferenceContractTests(unittest.TestCase):
                 for item in value:walk(item)
         walk(schema)
         self.assertTrue(enums and all(enums))
+        self.assertLessEqual(len(enums),6)
         payload=json.loads(request['messages'][1]['content'])
         self.assertEqual(set(enums[0]),set(payload['evidence'][0]['quotes']))
         background=json.dumps(payload['technologies'])
         for eid in data.evidence:self.assertNotIn(eid,background)
         self.assertIn('적용 조건',json.dumps(payload['technologies'],ensure_ascii=False))
+
+    def test_grouped_response_becomes_scoped_internal_claims_and_reviews(self):
+        def handler(request):
+            wire=json.loads(request.content)
+            schema=wire['response_format']['json_schema']['schema']
+            claims={key:[] for key in schema['properties']['claims']['properties']}
+            ref=schema['properties']['claims']['properties']['HW-01::ecosystem_support']['items']['anyOf'][0]['$ref']
+            props=schema['$defs'][ref.rsplit('/',1)[-1]]['properties']
+            claims['HW-01::ecosystem_support']=[dict(statement='공유 메모리를 지원한다고 발표함',basis='fact',
+                relation_to_technology='method_family',quote_id=props['quote_id']['enum'][0],subject='Product-X',
+                conditions=['선정 구현과 호환성 검증 필요'],metric=None,evidence_level='publisher_statement')]
+            reviews={key:dict(outcome='claims_extracted',reason='합성 검토',criteria=['ecosystem_support'])
+                for key in schema['properties']['reviews']['properties']}
+            return self.completion(json.dumps(dict(claims=claims,reviews=reviews)))
+        result=self.provider(handler).extract(self.data,{'MKT-X':self.source()})
+        self.assertEqual(len(result.claims),1)
+        self.assertEqual((result.claims[0].tech_id,result.claims[0].criterion_id),('HW-01','ecosystem_support'))
+        self.assertEqual(result.reviews[0].evidence_id,'MKT-X')
 
     def test_no_quotes_means_no_model_call(self):
         def handler(_):

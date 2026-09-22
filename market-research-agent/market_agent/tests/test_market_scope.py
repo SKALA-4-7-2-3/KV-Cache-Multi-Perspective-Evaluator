@@ -38,3 +38,7 @@ class MarketScopeTests(unittest.TestCase):
         c=self.check('business_value','RDKV reduces memory usage for long context inference.')['A']
         self.assertEqual(c.basis,'inference')
         self.assertIn('실제 고객',str(c.conditions))
+
+    def test_hardware_supported_bit_widths_are_not_ecosystem_integration(self):
+        self.assertFalse(self.check('ecosystem_support',
+            'We allocate hardware-supported bit-widths and realize memory savings with our packed decode kernel.'))

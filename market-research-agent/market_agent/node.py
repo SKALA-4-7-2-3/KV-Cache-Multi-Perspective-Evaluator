@@ -11,6 +11,7 @@ from .collection import collect_sources
 from .search_plan import initial_questions, repair_questions
 from .research import annotate
 from .validation import validate_analysis
+from .premises import technical_evidence
 from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft, review_claims, limit_claims
 from .sources import content_quality
 
@@ -89,6 +90,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     def extract(state):
         update={'history':state['history']+['extract']}
         eligible={k:e for k,e in state['evidence'].items() if e.access_status=='full_text' and e.content_status=='substantive'}
+        eligible.update(technical_evidence(data,state['evidence']))
         fresh={k for k,e in eligible.items() if k not in state['reviews']
             or not set(e.criteria)<=set(state['reviews'][k].get('criteria',[]))}
         if state['fatal'] or not eligible or not budget.remaining('llm') or (not fresh and not state['extraction_errors']):

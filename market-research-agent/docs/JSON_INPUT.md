@@ -93,3 +93,8 @@ python -m market_agent.cli --input technical_sw.json technical_hw.json --domain 
 - 실제 첨부 두 파일에서 기술 2개 및 원래 근거 25개를 읽었다(SW 13, HW 12).
 - 첨부 파일로 `--mode fixture`에서 입력 → Graph → 12행 MD → JSON 내부 저장을 확인했다. **실제 시장 결과를 생성하는 live 호출은 이번 입력 변경 검증에서 수행하지 않았다.**
 - 검증 출력 위치: `market_agent/outputs/20260922_json_input_fixture/market_handoff.md`. 가상 결과이므로 통합 보고서의 시장 근거로 사용하지 않는다.
+
+
+### 기술적 전제 사용 (v1.3)
+
+등록된 발췌 중 자원·운영 효과를 서술하는 후보를 기술당 최대 2개 선택해 business_value의 조건부 추론에 제공합니다. 입력 자료의 access_status는 provided_summary로 유지하며, 원문 구절·위치·논문 소유 관계와 한계를 함께 검증합니다. 제품화·채택·시장 규모를 입증하는 근거로 전용하지 않습니다. 전체 비교의 not_comparable 제한도 유지됩니다.

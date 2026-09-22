@@ -50,7 +50,8 @@ def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, re
             failures = [e for e in errors if e.get('tech_id') == row.tech_id and e.get('criterion_id') in {None, row.criterion_id}]
             if any(e['stage'] == 'extract' and not e['code'].startswith('budget_') for e in failures):
                 row.unknown_reasons.append('source_inaccessible')
-            if any(e['code'].startswith('budget_') for e in failures) or not budget.remaining('llm') or (not scoped and (not budget.remaining('search') or not budget.remaining('extract'))):
+            if any(e['code'].startswith('budget_') and error_applies(e,row,evidence) for e in errors) or (
+                    row.research_status!='reviewed' and not scoped and (not budget.remaining('llm') or not budget.remaining('search') or not budget.remaining('extract'))):
                 row.unknown_reasons.append('budget_exhausted')
             if row.reviewed_evidence_ids:
                 row.unknown_reasons.append('insufficient_evidence')

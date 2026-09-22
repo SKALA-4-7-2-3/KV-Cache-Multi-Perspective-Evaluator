@@ -4,6 +4,8 @@ import math
 import re
 from collections import Counter
 
+from .quantities import metric_matches_quote
+from .policy import CONDITIONAL_CRITERIA
 from .schemas import Analysis, CRITERIA, unknown
 
 
@@ -20,22 +22,7 @@ def metric_supported(metric, citations, evidence):
         return False
     if any(c.evidence_id not in evidence or evidence[c.evidence_id].access_status != 'full_text' for c in citations):
         return False
-    for c in citations:
-        text=normalized(c.quote)
-        numbers=[float(n.replace(',','')) for n in re.findall(r'\d[\d,]*(?:\.\d+)?',text)]
-        if metric.value not in numbers:
-            continue
-        if not all(normalized(v) in text for v in [metric.unit,metric.year,metric.market_definition,metric.geography]):
-            continue
-        if metric.currency and normalized(metric.currency) not in text:
-            aliases={'USD':r'\$|us dollars?','EUR':r'€|euros?','KRW':r'₩|원'}
-            if not re.search(aliases.get(metric.currency.upper(),r'(?!)'),text):
-                continue
-        forecast=bool(re.search(r'forecast|projected|expected|predict|전망|예상',text))
-        if forecast != (metric.actual_or_forecast=='forecast'):
-            continue
-        return True
-    return False
+    return any(metric_matches_quote(metric,c.quote) for c in citations)
 
 
 def valid_citations(citations, evidence, as_of):
@@ -70,12 +57,12 @@ def identity_supported(tech, citations, evidence):
     tokens = [tech.name, *ids]
     for c in citations:
         e = evidence[c.evidence_id]
+        if e.access_status=='provided_summary' and e.id in tech.evidence_ids and tech.id in e.tech_ids:
+            continue  # 파서가 검증한 논문별 참조 소유권. 시장 사실을 입증하지는 않는다.
         if not any(normalized(t) in normalized(c.subject) for t in tokens):
             return False
         text = normalized(c.identity_quote or c.quote)
         if any(normalized(t) in text for t in tokens):
-            continue
-        if e.access_status == 'provided_summary' and tech.id in e.tech_ids:
             continue
         return False
     return bool(citations)
@@ -138,7 +125,7 @@ def validate_analysis(data, analysis, evidence):
                         code = "missing_technology_relation"
                 if row.metric:
                     metric = row.metric
-                    if row.basis != "fact" or not web or not math.isfinite(metric.value) or not all(
+                    if row.basis == "unknown" or not web or not math.isfinite(metric.value) or not all(
                         [metric.unit, metric.year, metric.market_definition, metric.geography]):
                         code = "unsupported_metric"
                 if not code and row.basis != 'unknown':
@@ -146,8 +133,12 @@ def validate_analysis(data, analysis, evidence):
                         code = 'missing_or_invalid_quote'
                     elif set(row.evidence_ids) != {c.evidence_id for c in row.citations}:
                         code = 'citation_ids_mismatch'
-                    elif row.relation_to_technology != 'exact' or not identity_supported(data.technologies[tech_id], row.citations, evidence):
+                    elif row.relation_to_technology == 'exact' and not identity_supported(data.technologies[tech_id], row.citations, evidence):
                         code = 'identity_unverified'
+                    elif row.relation_to_technology != 'exact' and not (criterion in CONDITIONAL_CRITERIA
+                            and row.basis=='inference' and row.verdict=='conditional' and row.conditions
+                            and all(tech_id in evidence[c.evidence_id].tech_ids for c in row.citations)):
+                        code = 'related_scope_requires_conditional_inference'
                     elif row.basis == 'inference' and not row.conditions:
                         code = 'inference_requires_conditions'
                     elif (row.metric or quantitative_claim(row.judgment)) and not metric_supported(row.metric, row.citations, evidence):

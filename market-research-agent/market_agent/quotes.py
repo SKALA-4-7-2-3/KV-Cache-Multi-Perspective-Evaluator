@@ -12,11 +12,12 @@ def subject_options(text):
     return list(dict.fromkeys(n for n in names if n not in stop and len(n)>1))[:30]
 
 
-def quote_bank(evidence):
+def quote_bank(evidence, *, technical_ids=()):
     bank={}
     keywords=r'product|announc|introduc|support|license|available|customer|deploy|cost|standard|cxl|memory|inference|시장|지원|제품'
     for e in evidence.values():
-        if e.access_status!='full_text' or e.content_status!='substantive':
+        provided=e.id in technical_ids and e.access_status=='provided_summary'
+        if not provided and (e.access_status!='full_text' or e.content_status!='substantive'):
             continue
         candidates=[]
         bodies=[(s.text,s.locator) for s in e.segments] or [(e.excerpt,e.locator)]
@@ -47,7 +48,7 @@ def quote_bank(evidence):
             key='Q-'+hashlib.sha256((e.id+'\n'+text).encode()).hexdigest()[:12]
             bank[key]={'evidence_id':e.id,'text':text,'context':context,'subjects':subject_options(text+' '+context),
                 'locator':locator or '인용 구절로 원문 검색'}
-            if len(seen)>=10:
+            if len(seen)>=(4 if provided else 10):
                 break
     return bank
 
@@ -67,9 +68,14 @@ def resolve_quotes(data, selected, bank, evidence):
             source_character=f'웹 발행자 설명 ({e.publisher or e.url}); 독립 검증 미확인' if e else '잘못된 구절 ID',
             identity_quote=identity,locator=q['locator'] if q else '',context=q.get('context','') if q else '')
         values=item.model_dump(exclude={'quote_id','subject'})
+        if e and e.access_status=='provided_summary':
+            citation.source_character='기술 조사 입력의 등록 발췌; 독립 원문·고객 성과 미검증'
+            values['conditions']=list(dict.fromkeys([*values['conditions'],
+                '상위 조사 발췌에 의존한 기술적 전제: 원문·평가 환경 재현 및 고객 비용 검증 필요']))
         if e:
             # 사실의 주체를 발행자로 고정한다. 독립 재현 또는 고객 실적을 뜻하지 않는다.
-            values['statement']=f"자료 발행자의 설명: {values['statement']}"
+            prefix='기술 조사 입력의 설명' if e.access_status=='provided_summary' else '자료 발행자의 설명'
+            values['statement']=f"{prefix}: {values['statement']}"
         if q and (values['evidence_level'] in {'projection','inference','planned_release'} or
             re.search(r'\b(could|may|might|potential(?:ly)?|expected|plans? to)\b|가능성',q['text'],re.I)):
             values['basis']='inference'
