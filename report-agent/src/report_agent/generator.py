@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Callable
 
 from .compiler import compile_latex
@@ -41,6 +42,14 @@ def _strip_code_fence(text: str) -> str:
     return stripped
 
 
+def drop_unused_references(latex: str) -> str:
+    """Keep only bibliography entries actually cited; never add missing citations."""
+    cited = {key.strip() for group in re.findall(r"\\cite\{([^{}]+)\}", latex)
+             for key in group.split(",")}
+    pattern = r"\\bibitem(?:\[[^\]]*\])?\{([^{}]+)\}[\s\S]*?(?=\\bibitem|\\end\{thebibliography\})"
+    return re.sub(pattern, lambda match: match.group(0) if match.group(1) in cited else "", latex)
+
+
 class ReportAgent:
     def __init__(
         self,
@@ -73,18 +82,18 @@ class ReportAgent:
             raise GenerationError("모델 응답에 output_text가 없습니다.")
         return response.output_text
 
-    def generate(self, source_markdown: str, *, repair_attempts: int = 1) -> GenerationResult:
-        parsed = parse_report_input(source_markdown)
+    def generate(self, source_markdown: str, *, repair_attempts: int = 1, allow_unreviewed: bool = False) -> GenerationResult:
+        parsed = parse_report_input(source_markdown, allow_unreviewed=allow_unreviewed)
         prompt = build_generation_prompt(parsed)
-        candidate = _strip_code_fence(self._responder(SYSTEM_INSTRUCTIONS, prompt))
+        candidate = drop_unused_references(_strip_code_fence(self._responder(SYSTEM_INSTRUCTIONS, prompt)))
         validation = validate_latex(candidate, parsed)
         attempts = 1
 
         while not validation.valid and attempts <= repair_attempts:
             repair_prompt = build_repair_prompt(parsed, candidate, list(validation.issues))
-            candidate = _strip_code_fence(
+            candidate = drop_unused_references(_strip_code_fence(
                 self._responder(SYSTEM_INSTRUCTIONS, repair_prompt)
-            )
+            ))
             validation = validate_latex(candidate, parsed)
             attempts += 1
 

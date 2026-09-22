@@ -46,6 +46,22 @@ CRITERIA = {
     },
 }
 
+# The request may select one operating organization rather than four actor groups.
+# Keep the legacy rubric available for existing handoffs and fixtures.
+OPERATING_ORGANIZATION_CRITERIA = {
+    "benefits": "운영 조직의 기대 편익. 논문 보고·조건부 추론·실제 발언을 구분한다.",
+    "burdens": "운영 조직의 도입·통합·운영 부담과 우려를 근거에 연결한다.",
+    "adoption_conditions": "운영 조직이 도입을 검토할 조건과 미확인 사항을 보존한다.",
+    "observations": "운영 조직과 관련된 실제 발언·평가. 직접 반응이 없으면 미확인이다.",
+}
+
+
+def criteria_for(config=None):
+    config = config or {}
+    if config.get("stakeholder_rubric") == "operating_organization":
+        return {**CRITERIA, "stakeholders": OPERATING_ORGANIZATION_CRITERIA}
+    return CRITERIA
+
 # NASA의 SW/HW 구분을 참고한 팀 적용안이며, 공식 인증 기준이나 실제 TRL 결과가 아니다.
 TRL = {
     1: ("기본 원리 관찰·보고", "기술을 뒷받침하는 이론·원리의 문서화된 근거"),

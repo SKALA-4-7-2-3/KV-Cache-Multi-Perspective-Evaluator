@@ -60,12 +60,12 @@ class Document(StrictModel):
     title: Text
     url: HttpUrl
     version: Text
-    pages: int = Field(ge=1, le=200)
+    pages: int | None = Field(default=None, ge=1, le=200)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     kind: Literal["paper", "web"]
     published_at: str | None = None
     retrieved_at: Text
-    source_type: Literal["paper", "official_product", "standard", "news", "market_report", "community"] | None = None
+    source_type: Literal["paper", "official_product", "standard", "news", "market_report", "community", "unknown"] | None = None
     citation_key: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_]+$")
 
 
@@ -84,6 +84,8 @@ class Evidence(StrictModel):
     independence: Literal["author", "independent", "vendor", "third_party", "unknown"] = "unknown"
     technology_relevance: Literal["direct", "indirect", "unknown"] = "unknown"
     conditions: list[Text] = Field(default_factory=list)
+    source_verification: Literal["current", "inherited_source_record", "collected_excerpt", "unverified"] = "unverified"
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class Metric(StrictModel):
@@ -99,6 +101,20 @@ class Metric(StrictModel):
     concurrency: Annotated[int, Field(gt=0)] | Text | None = None
     workload: Text | None = None
     method: Method = "unspecified"
+
+
+def source_is_available(item: Evidence, doc: Document) -> bool:
+    """Source availability is distinct from a fresh PDF verification or factual audit."""
+    return bool(
+        item.verified_source
+        or (item.source_verification == "inherited_source_record"
+            and item.provenance.get("source_hash") == doc.sha256
+            and item.provenance.get("source_run_status") == "succeeded"
+            and item.provenance.get("original_evidence_id"))
+        or (item.source_verification == "collected_excerpt"
+            and item.provenance.get("quote_matched") is True
+            and item.provenance.get("collector"))
+    )
 
 
 class Assessment(StrictModel):
@@ -118,6 +134,7 @@ class Assessment(StrictModel):
     counter_evidence: list[Text] = Field(default_factory=list)
     analysis_scope: Literal["selected_domain", "global", "mixed"] = "mixed"
     domain_relevance: Literal["direct", "indirect", "unclear"] = "unclear"
+    reported_findings: list[Text] = Field(default_factory=list)
 
 
 class TRLCheck(StrictModel):

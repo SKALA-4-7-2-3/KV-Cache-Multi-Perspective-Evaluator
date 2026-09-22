@@ -127,7 +127,7 @@ def _parse_references(body: str) -> dict[str, str]:
     return mapping
 
 
-def parse_report_input(markdown: str) -> ParsedReportInput:
+def parse_report_input(markdown: str, *, allow_unreviewed: bool = False) -> ParsedReportInput:
     if not markdown.strip():
         raise InputContractError("입력 Markdown이 비어 있습니다.")
 
@@ -144,7 +144,11 @@ def parse_report_input(markdown: str) -> ParsedReportInput:
     status_pair = (metadata.get("review_status"), metadata.get("report_generation"))
     if status_pair not in STATUS_PAIRS:
         raise InputContractError(f"허용되지 않은 상태 조합: {status_pair}")
-    if metadata.get("report_generation") == "blocked":
+    if allow_unreviewed and (metadata.get("demo") is not False
+                            or metadata.get("valid_perspective_cells") != "8/8"
+                            or metadata.get("failed_count") != 0):
+        raise InputContractError("검증 전 초안도 실제 8개 관점 결과와 실패 없는 입력이 필요합니다.")
+    if metadata.get("report_generation") == "blocked" and not allow_unreviewed:
         raise InputContractError("report_generation=blocked 입력은 보고서를 생성할 수 없습니다.")
     if metadata.get("schema_version") != "report-input-v1":
         raise InputContractError("지원하지 않는 schema_version입니다.")
@@ -154,13 +158,13 @@ def parse_report_input(markdown: str) -> ParsedReportInput:
         raise InputContractError("human_review_required는 boolean true여야 합니다.")
     if metadata.get("human_review_scope") != "final_submission_only":
         raise InputContractError("human_review_scope가 최신 계약과 다릅니다.")
-    if metadata.get("semantic_validation_status") != "passed":
+    if metadata.get("semantic_validation_status") != "passed" and not allow_unreviewed:
         raise InputContractError("종합 의견의 자동 의미 검사 통과 기록이 없습니다.")
     if type(metadata.get("demo")) is not bool:
         raise InputContractError("demo는 문자열이 아닌 boolean이어야 합니다.")
     if metadata.get("next") != "render":
         raise InputContractError("next=render인 최신 결과만 보고서를 생성할 수 있습니다.")
-    if metadata.get("synthesis_status") not in {"completed", "partial"}:
+    if metadata.get("synthesis_status") not in {"completed", "partial"} and not allow_unreviewed:
         raise InputContractError("종합 의견이 완료되지 않아 보고서를 생성할 수 없습니다.")
 
     for key in ("unknown_count", "failed_count", "evidence_count", "reference_candidate_count"):
@@ -185,6 +189,9 @@ def parse_report_input(markdown: str) -> ParsedReportInput:
         )
 
     warnings: list[str] = []
+    if allow_unreviewed:
+        metadata["render_mode"] = "unreviewed_draft"
+        warnings.append("검증 전 통합 실행 초안입니다. 종합 검토 통과를 의미하지 않습니다. 반려된 종합 의견은 사용하지 않고 실제 관점별 평가와 미확인 사항만 보고합니다.")
     if metadata.get("report_generation") == "allowed_with_gaps":
         warnings.append("입력이 partial이므로 미확인 사항과 한계를 최종 보고서에 포함해야 합니다.")
     if metadata.get("human_review_required") is True:

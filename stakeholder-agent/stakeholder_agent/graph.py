@@ -390,17 +390,19 @@ def build_graph(config: AgentConfig, model, web):
             try:
                 payload = context(state)
                 indexed_draft = draft.model_dump()
+                candidates = [i for i in range(len(draft.claims)) if i not in bad]
                 indexed_draft["claims"] = [{"claim_index": i, **claim.model_dump()}
-                                           for i, claim in enumerate(draft.claims)]
+                                           for i, claim in enumerate(draft.claims) if i in candidates]
                 payload.update(draft=indexed_draft, mechanical_issues=issues,
-                               review_candidate_indices=[i for i in range(len(draft.claims)) if i not in bad])
+                               review_candidate_indices=candidates)
                 review = ask(state, Review, prompts.REVIEW, payload)
                 if any(i < 0 or i >= len(draft.claims) for i in review.rejected_claim_indices):
                     raise ValueError("invalid_review_index")
                 bad = _unique([*bad, *review.rejected_claim_indices])
                 review_succeeded = True
             except Exception as exc:  # noqa: BLE001 - mark failed semantic validation explicitly
-                errors.append(f"의미 검토 실패 ({type(exc).__name__}); 결과를 부분 완료로 표시")
+                detail = getattr(exc, "public_message", type(exc).__name__)
+                errors.append(f"의미 검토 실패 ({detail}); 결과를 부분 완료로 표시")
         else:
             errors.append("의미 검토 생략: LLM 호출 한도 소진")
         review.issues = _unique([*issues, *review.issues])

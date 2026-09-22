@@ -13,14 +13,14 @@ import socket
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 from urllib.parse import urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
 from langchain_openai import ChatOpenAI
 from markdown_it import MarkdownIt
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, create_model
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
@@ -77,30 +77,90 @@ class OpenAIModel:
 
     def generate(self, schema: type[_T], system: str, payload: dict) -> _T:
         try:
-            from .models import Assessment, CatalogAssessment, OperatorReview, Review
+            from .models import (
+                Assessment, CatalogAssessment, CatalogClaim, CatalogSourceReview,
+                CatalogSupport, OperatorClaimCheck, OperatorReview, Review,
+            )
             operator_mode = payload.get("analysis_mode") == "operator_impact"
+            operator_review = operator_mode and schema is Review
             wire_schema = schema
+            evidence_ids_by_alias = {}
             if operator_mode and schema is Assessment:
                 wire_schema = CatalogAssessment
-            elif operator_mode and schema is Review:
-                wire_schema = OperatorReview
+                # Evidence IDs can contain long page/span/hash locators. Asking
+                # the model to reproduce them as free text caused every finding
+                # to fail reference validation. Select an exact short identifier
+                # on the wire, then restore the original ID before any validation.
+                ids = [item["id"] for item in payload.get("evidence", [])]
+                if len(ids) != len(set(ids)):
+                    raise ValueError("duplicate_evidence_ids")
+                if ids:
+                    evidence_ids_by_alias = {f"SRC{index:03d}": eid
+                                             for index, eid in enumerate(ids, 1)}
+                    aliases = {eid: alias for alias, eid in evidence_ids_by_alias.items()}
+
+                    def remap(value, mapping):
+                        if isinstance(value, str):
+                            return mapping.get(value, value)
+                        if isinstance(value, list):
+                            return [remap(item, mapping) for item in value]
+                        if isinstance(value, dict):
+                            return {key: remap(item, mapping) for key, item in value.items()}
+                        return value
+
+                    payload = remap(payload, aliases)
+                    evidence_choice = Literal[tuple(evidence_ids_by_alias)]
+                    support_schema = create_model(
+                        "SelectedEvidenceSupport", __base__=CatalogSupport,
+                        evidence_id=(evidence_choice, ...),
+                    )
+                    claim_schema = create_model(
+                        "SelectedEvidenceClaim", __base__=CatalogClaim,
+                        supports=(list[support_schema], ...),
+                    )
+                    source_review_schema = create_model(
+                        "SelectedEvidenceSourceReview", __base__=CatalogSourceReview,
+                        evidence_id=(evidence_choice, ...),
+                    )
+                    wire_schema = create_model(
+                        "SelectedEvidenceAssessment", __base__=CatalogAssessment,
+                        claims=(list[claim_schema], ...),
+                        source_reviews=(list[source_review_schema], ...),
+                    )
+                    system += ("\n이번 응답의 evidence_id는 evidence 목록의 id인 SRC### 중에서만 "
+                               "선택한다. 긴 원본 ID를 새로 쓰지 않는다. quote는 선택한 SRC 문서의 "
+                               "quote_options에 있는 Q###만 선택한다. 코드는 두 식별자를 원본에 정확히 연결한다.")
+            elif operator_review:
                 expected = payload.get("review_candidate_indices")
                 if (not isinstance(expected, list)
                         or any(type(index) is not int or index < 0 for index in expected)
                         or len(expected) != len(set(expected))):
-                    raise ValueError("invalid_review_candidates")
+                    raise ProviderError("의미 검토 후보 인덱스 형식 오류 (invalid_review_candidates)")
+                check_schema = OperatorClaimCheck
+                if expected:
+                    check_schema = create_model(
+                        "SelectedOperatorClaimCheck", __base__=OperatorClaimCheck,
+                        claim_index=(Literal[tuple(expected)], ...),
+                    )
+                wire_schema = create_model(
+                    "SelectedOperatorReview", __base__=OperatorReview,
+                    checks=(list[check_schema], Field(min_length=len(expected), max_length=len(expected))),
+                )
+                system += ("\n검토 대상은 draft.claims에 제시된 후보만이다. claim_index를 다시 "
+                           "번호 매기지 말고 제시된 원래 인덱스를 그대로 반환한다. checks는 "
+                           f"정확히 {len(expected)}개이며 review_candidate_indices의 각 값을 한 번씩 사용한다.")
             result = self._client.with_structured_output(
                 wire_schema, method="json_schema", strict=True,
             ).invoke([("system", system), ("human", json.dumps(payload, ensure_ascii=False))])
             if result is None:
                 raise ProviderError("모델이 구조화된 응답을 반환하지 않았습니다.")
             parsed = wire_schema.model_validate(result.model_dump() if isinstance(result, BaseModel) else result)
-            if wire_schema is OperatorReview:
+            if operator_review:
                 received = [check.claim_index for check in parsed.checks]
                 if (len(received) != len(expected) or set(received) != set(expected)
                         or len(received) != len(set(received))
                         or any(not check.reason.strip() for check in parsed.checks)):
-                    raise ValueError("incomplete_claim_review")
+                    raise ProviderError("의미 검토 후보 누락 또는 중복 (incomplete_claim_review)")
                 checks = {check.claim_index: check for check in parsed.checks}
                 rejected = [index for index in expected if not checks[index].supported]
                 return schema.model_validate({
@@ -108,7 +168,10 @@ class OpenAIModel:
                     "issues": [f"주장 {index}: {checks[index].reason.strip()}" for index in rejected],
                     "queries": [query.model_dump() for query in parsed.queries],
                 })
-            return schema.model_validate(parsed.model_dump())
+            result_data = parsed.model_dump()
+            if evidence_ids_by_alias:
+                result_data = remap(result_data, evidence_ids_by_alias)
+            return schema.model_validate(result_data)
         except ProviderError:
             raise
         except Exception as exc:  # noqa: BLE001 - sanitize all third-party errors at the provider boundary
@@ -116,7 +179,13 @@ class OpenAIModel:
             if getattr(exc, "status_code", None) in (401, 403):
                 raise ProviderError("모델 API 인증 또는 접근 권한 오류입니다. 로컬 API 키와 권한을 확인하세요.",
                                     fatal=True) from None
-            raise ProviderError("모델 호출 또는 응답 검증에 실패했습니다.") from None
+            # Exception class/status are safe diagnostics; never include provider
+            # bodies, prompts, source excerpts or credential-bearing messages.
+            status = getattr(exc, "status_code", None)
+            detail = type(exc).__name__
+            if type(status) is int:
+                detail += f", status={status}"
+            raise ProviderError(f"모델 호출 또는 응답 검증에 실패했습니다. ({detail})") from None
 
 
 def _date(value: object) -> str:

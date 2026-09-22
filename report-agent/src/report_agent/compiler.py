@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -8,6 +9,36 @@ from pathlib import Path
 
 class LatexCompileError(RuntimeError):
     pass
+
+
+def find_latex_compiler(name: str) -> str | None:
+    """Find a compiler in PATH, a configured location, or common local installs."""
+
+    configured = os.environ.get(f"{name.upper()}_BIN")
+    if configured:
+        candidate = Path(configured).expanduser()
+        if not candidate.is_file() or not os.access(candidate, os.X_OK):
+            raise LatexCompileError(f"{name.upper()}_BIN 실행 파일을 찾을 수 없습니다: {candidate}")
+        return str(candidate.resolve())
+    found = shutil.which(name)
+    if found:
+        return found
+    locations = [
+        Path("/Library/TeX/texbin"),
+        Path("/opt/homebrew/bin"),
+        Path("/usr/local/bin"),
+        Path.home() / ".local/bin",
+    ]
+    if name == "tectonic":
+        locations.append(
+            Path.home()
+            / ".codex/.tmp/bundled-marketplaces/openai-bundled/plugins/latex/bin"
+        )
+    for location in locations:
+        candidate = location / name
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
 
 
 def compile_latex(tex_path: Path, pdf_path: Path | None = None) -> Path:
@@ -26,8 +57,8 @@ def compile_latex(tex_path: Path, pdf_path: Path | None = None) -> Path:
     final_pdf = (pdf_path or tex_path.with_suffix(".pdf")).resolve()
     final_pdf.parent.mkdir(parents=True, exist_ok=True)
 
-    xelatex = shutil.which("xelatex")
-    tectonic = shutil.which("tectonic")
+    xelatex = find_latex_compiler("xelatex")
+    tectonic = find_latex_compiler("tectonic")
     if not xelatex and not tectonic:
         raise LatexCompileError("xelatex 또는 tectonic이 설치되어 있지 않습니다.")
 

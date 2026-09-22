@@ -1,7 +1,7 @@
 """report-input-v1의 단일 상태 판정. 형식 검사와 의미 검수를 구별한다."""
 
 from datetime import datetime, timezone
-from .rubric import CRITERIA, ROLES, TECHNOLOGIES, VERSION as RUBRIC_VERSION
+from .rubric import CRITERIA, ROLES, TECHNOLOGIES, VERSION as RUBRIC_VERSION, criteria_for
 
 VERSION = "report-input-v1"
 SECTIONS = (
@@ -79,7 +79,8 @@ def report_decision(state, result, *, require_synthesis=True):
             blocked.append(f"한 기술의 평가 전체가 failed다: {tech}")
     unknown = sum(i["judgment"] == "unknown" for cell in cells if cell["status"] != "failed" for i in cell["items"])
     failed = sum(cell["status"] == "failed" or i["judgment"] == "failed" for cell in cells for i in cell["items"])
-    structural_cells = sum({i["criterion_id"] for i in row[t]["items"]} == set(CRITERIA[row["perspective"]]) for row in rows for t in TECHNOLOGIES)
+    criteria = criteria_for(config)
+    structural_cells = sum({i["criterion_id"] for i in row[t]["items"]} == set(criteria[row["perspective"]]) for row in rows for t in TECHNOLOGIES)
     if unknown or failed:
         warnings.append("미확인 항목 또는 실패 결과가 있다.")
     if any(is_missing(domain_requirement(config, k)) for k in REQUIREMENTS):
@@ -109,6 +110,7 @@ def report_decision(state, result, *, require_synthesis=True):
     return {
         "schema_version": VERSION, "rubric_version": RUBRIC_VERSION,
         "reference_schema_version": "reference-v1", "content_language": "ko",
+        "stakeholder_rubric": config.get("stakeholder_rubric", "actor_groups"),
         "run_id": str(config.get("run_id", "invalid")), "generated_at": datetime.now(timezone.utc).isoformat(),
         "evaluation_as_of": config.get("evaluation_as_of") or datetime.now().astimezone().date().isoformat(),
         "review_status": status, "report_generation": gate, "human_review_required": True,

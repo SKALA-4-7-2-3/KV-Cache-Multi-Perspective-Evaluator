@@ -9,8 +9,8 @@ import yaml
 from .contract import (REQUIREMENTS, SECTIONS, VERSION, config_of, report_decision,
                        domain_requirement, evidence_independence, evidence_method, is_missing)
 from .input_markdown import UniqueSafeLoader, render_input_markdown
-from .rubric import CRITERIA, TECHNOLOGIES
-from .schema import Evidence, Review, Synthesis
+from .rubric import CRITERIA, TECHNOLOGIES, criteria_for
+from .schema import Document, Evidence, Review, Synthesis, source_is_available
 
 ROLE_NAMES = {"technical": "기술 성숙도", "market": "시장성", "stakeholders": "이해관계자", "domain": "도메인 적용성"}
 
@@ -196,6 +196,8 @@ def render_review_markdown(state, result):
                 lines.append(f"- 근거 신뢰도: {value['confidence'] if judgment not in ('unknown', 'failed') else 'unavailable'}")
                 listing(lines, "반대 또는 제한 근거", value["counter_evidence"])
                 listing(lines, "미확인 사항", value["gaps"])
+                if value.get("reported_findings"):
+                    listing(lines, "출처 보고 내용 (적합성 판정과 구분)", value["reported_findings"])
                 lines.append(f"- 추가 조사 필요: {str(bool(value['need_more'] or value['gaps'] or judgment in ('unknown', 'failed'))).lower()}")
                 for metric_index, metric in enumerate(value["metrics"], 1):
                     lines += metric_lines(metric, metric_index, state["evidence"])
@@ -309,6 +311,8 @@ def render_review_markdown(state, result):
               "- 공급자 주장과 독립 자료 구분 여부: warn (출처 메타데이터 기반; 미입력은 unknown)",
               "- 사실과 추론 구분 여부: enum 검사; 종합 의견의 의미 대조 결과는 SELF VALIDATION 참조",
               "- 미확인 사항 유지 여부: pass (unknown/TBD 유지)", ""]
+    if cfg.get("source_reuse_notice"):
+        lines += ["### 자료 재사용 범위", "", text(cfg["source_reuse_notice"]), ""]
     section(8)
     for key, label in REQUIREMENTS.items():
         lines.append(f"- {label}: {text(domain_requirement(cfg, key))}")
@@ -322,7 +326,8 @@ def render_review_markdown(state, result):
         for entry in doc["evidence"]:
             eid = entry["id"]
             source = Evidence.model_validate(state["evidence"][eid])
-            if source.doc_id != doc["doc_id"] or source.id != eid or not source.verified_source or source.page != entry["page"] or source.location != entry["location"]:
+            document = Document.model_validate(state["documents"][doc["doc_id"]])
+            if source.doc_id != doc["doc_id"] or source.id != eid or not source_is_available(source, document) or source.page != entry["page"] or source.location != entry["location"]:
                 raise ValueError("출력 출처와 검증 결과가 일치하지 않습니다.")
             lines += [f"### [{eid}]", "", f"- 연결 Reference ID: {doc['doc_id']}", f"- 문서 ID: {doc['doc_id']}",
                       f"- 문서명: {text(doc['title'])}", f"- 출처 유형: {references[doc['doc_id']]['source_type']}",
@@ -332,8 +337,11 @@ def render_review_markdown(state, result):
                       f"- 독립성: {evidence_independence(source.independence)}", f"- 입력 독립성: {source.independence}",
                       f"- 해당 기술과의 관련성: {source.technology_relevance}",
                       f"- 발췌: {text(source.excerpt)}"]
+            lines += [f"- 원문 연결 확인 방식: {source.source_verification}",
+                      "- 이번 실행 PDF 재검증: false" if source.source_verification == "inherited_source_record" else "- 이번 실행 PDF 재검증: 해당 없음"]
             listing(lines, "적용 조건", source.conditions, empty="unknown; 평가자의 조건과 원문 실험 조건을 혼동하지 않는다")
-            lines += [f"- 수집 시각: {text(source.collected_at)}", "- 검증 상태: verified", f"- 합성 발췌: {str(source.synthetic).lower()}", ""]
+            verification = "verified" if source.verified_source else source.source_verification
+            lines += [f"- 수집 시각: {text(source.collected_at)}", f"- 검증 상태: {verification}", f"- 합성 발췌: {str(source.synthetic).lower()}", ""]
     section(10)
     lines += ["검증 결과에서 사용된 후보다. 최종 보고서는 본문에서 실제 인용한 Reference만 남긴다.", ""]
     for doc in syn["references"]:
@@ -462,7 +470,8 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     if positions != sorted(positions):
         raise ValueError("1~12번 섹션 순서를 유지해야 합니다.")
     blocks = re.findall(r"^#### \[(technical|market|stakeholders|domain)\]\[(SW-01|HW-01)\]\[([^\]]+)\]$", body, re.M)
-    required = {(r, t, c) for r in CRITERIA for t in TECHNOLOGIES for c in CRITERIA[r]}
+    criteria = criteria_for(header)
+    required = {(r, t, c) for r in criteria for t in TECHNOLOGIES for c in criteria[r]}
     if len(blocks) != len(required) or set(blocks) != required:
         raise ValueError("8칸의 필수 평가 블록이 없거나 중복되었습니다.")
     section4 = body.split("## 4. 관점별 평가\n", 1)[1].split("## 5. TRL 판정 결과\n", 1)[0]
@@ -504,7 +513,7 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
         for field in reference_fields:
             if not re.search(r"^- " + field + r": \S", block, re.M):
                 raise ValueError("Reference 필수 필드가 비었습니다.")
-        if re.search(r"^- source_type: (.*)$", block, re.M)[1] not in {"paper", "official_product", "standard", "news", "market_report", "community"}:
+        if re.search(r"^- source_type: (.*)$", block, re.M)[1] not in {"paper", "official_product", "standard", "news", "market_report", "community", "unknown"}:
             raise ValueError("Reference 출처 유형이 잘못되었습니다.")
         date.fromisoformat(re.search(r"^- accessed_at: (.*)$", block, re.M)[1])
         if re.search(r"^- language: (.*)$", block, re.M)[1] not in {"ko", "en", "other", "unknown"}:

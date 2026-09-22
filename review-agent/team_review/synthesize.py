@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from .contract import config_of, report_decision
 from .schema import StrictModel, Text, Tech
@@ -17,6 +17,24 @@ from .grounding import (PROMPT_PATH as AUDIT_PROMPT, VERSION as AUDIT_VERSION,
 PROMPT_PATH = Path(__file__).with_name("SYNTHESIS-PROMPT.md")
 DEFAULT_MODEL = "gpt-4.1-mini"
 RELATION_KINDS = ("agreement", "tension", "conditional", "joint")
+
+
+def relation_source_gap(field, ids):
+    """Check code-assigned reference coverage before asking a model for prose."""
+    roles = {aid.split("/")[0] for aid in ids}
+    techs = {aid.split("/")[1] for aid in ids}
+    expected = {"SW-01"} if field.startswith("rdkv_") else {"HW-01"} if field.startswith("photonic_cxl_") else {"SW-01", "HW-01"}
+    missing = []
+    if len(ids) < 2:
+        missing.append(f"연결 가능한 유효 평가가 {len(ids)}개로 최소 2개에 미달")
+    if techs != expected:
+        missing.append("유효 평가가 연결되지 않은 기술: " + ", ".join(sorted(expected - techs)))
+    if field.endswith("opinion") and not {"market", "stakeholders", "domain"}.issubset(roles):
+        missing.append("유효 평가가 연결되지 않은 관점: " + ", ".join(sorted({"market", "stakeholders", "domain"} - roles)))
+    if (field == "agreement" or field.endswith("tension")) and len(roles) < 2:
+        missing.append("서로 다른 두 관점의 유효 평가 연결이 필요함")
+    return ("이번 입력의 관계 분석 보류: " + "; ".join(missing)
+            + ". 관련 자료가 현실에 존재하지 않는다는 판정이 아니라 이번 입력의 연결 범위에 대한 설명입니다.") if missing else None
 
 
 class SynthesisValidationError(ValueError):
@@ -46,7 +64,7 @@ class Opinion(ModelOpinion):
 
 
 class RelationGap(StrictModel):
-    kind: Literal["agreement", "tension", "conditional", "joint"]
+    kind: Literal["opinion", "agreement", "tension", "conditional", "joint"]
     technology_ids: list[Tech] = Field(min_length=1, max_length=2)
     reason: Text
 
@@ -57,26 +75,37 @@ class IntegratedOpinions(StrictModel):
     limitations: list[Text]
 
 
+class DeferredOpinion(StrictModel):
+    reason: Text
+
+
 class ModelSynthesis(StrictModel):
     """모델에는 전용 칸을 주고, 후단에는 기존 flat opinions 계약을 유지한다."""
-    rdkv_opinion: ModelOpinion
-    photonic_cxl_opinion: ModelOpinion
-    agreement: ModelOpinion
-    rdkv_tension: ModelOpinion
-    photonic_cxl_tension: ModelOpinion
-    conditional: ModelOpinion
-    joint: ModelOpinion
+    rdkv_opinion: ModelOpinion | DeferredOpinion
+    photonic_cxl_opinion: ModelOpinion | DeferredOpinion
+    agreement: ModelOpinion | DeferredOpinion
+    rdkv_tension: ModelOpinion | DeferredOpinion
+    photonic_cxl_tension: ModelOpinion | DeferredOpinion
+    conditional: ModelOpinion | DeferredOpinion
+    joint: ModelOpinion | DeferredOpinion
     limitations: list[Text]
 
     def flatten(self, payload):
         available = {a["assessment_id"]: a for a in payload["assessments"]}
-        linked = []
+        linked, pending = [], []
         for field, kind in (("rdkv_opinion", "opinion"), ("photonic_cxl_opinion", "opinion"),
                             ("agreement", "agreement"), ("rdkv_tension", "tension"),
                             ("photonic_cxl_tension", "tension"), ("conditional", "conditional"), ("joint", "joint")):
             opinion = getattr(self, field)
             ids = payload["relation_source_candidates"][field]
             techs = ["SW-01"] if field.startswith("rdkv_") else ["HW-01"] if field.startswith("photonic_cxl_") else ["SW-01", "HW-01"]
+            source_gap = relation_source_gap(field, ids)
+            if source_gap:
+                pending.append({"kind": kind, "technology_ids": techs, "reason": source_gap})
+                continue
+            if isinstance(opinion, DeferredOpinion):
+                pending.append({"kind": kind, "technology_ids": techs, "reason": opinion.reason})
+                continue
             if not set(ids).issubset(available):
                 raise SynthesisValidationError("종합 의견에 유효하지 않은 평가 ID가 있습니다.")
             # 고정 업무별 평가 묶음과 근거를 그대로 계승한다. 모델은 이 범위에서 문장만 작성한다.
@@ -84,7 +113,7 @@ class ModelSynthesis(StrictModel):
             linked.append({**opinion.model_dump(mode="json"), "kind": kind, "technology_ids": techs,
                            "source_assessment_ids": ids, "evidence_ids": evidence_ids})
         return {"opinions": linked,
-                "unresolved_relations": [],
+                "unresolved_relations": pending,
                 "limitations": self.limitations}
 
 
@@ -97,10 +126,11 @@ def synthesis_payload(state, result):
                 assessments.append({"assessment_id": f"{row['perspective']}/{tech}/{item['criterion_id']}", **item,
                                     "usable": row[tech]["status"] != "failed" and item["judgment"] not in ("unknown", "failed") and bool(item["evidence_ids"])})
     cfg = config_of(state)
+    stakeholder_item = "burdens" if cfg.get("stakeholder_rubric") == "operating_organization" else "developers"
     # 고정 업무별 검색 대상처럼, 모델에도 관련 평가 ID를 안내한다. 새로운 근거는 추가하지 않는다.
     requested = {
-        "rdkv_opinion": ["market/SW-01/cost", "stakeholders/SW-01/developers", "domain/SW-01/domain_fit", "domain/SW-01/quality", "domain/SW-01/deployment"],
-        "photonic_cxl_opinion": ["market/HW-01/cost", "stakeholders/HW-01/developers", "domain/HW-01/domain_fit", "domain/HW-01/hardware_dependency", "domain/HW-01/deployment"],
+        "rdkv_opinion": ["market/SW-01/cost", f"stakeholders/SW-01/{stakeholder_item}", "domain/SW-01/domain_fit", "domain/SW-01/quality", "domain/SW-01/deployment"],
+        "photonic_cxl_opinion": ["market/HW-01/cost", f"stakeholders/HW-01/{stakeholder_item}", "domain/HW-01/domain_fit", "domain/HW-01/hardware_dependency", "domain/HW-01/deployment"],
         "agreement": [f"{role}/{tech}/customer_value" for tech in ("SW-01", "HW-01") for role in ("market", "domain")],
         "rdkv_tension": ["technical/SW-01/validation_scope", "market/SW-01/cost", "domain/SW-01/quality", "domain/SW-01/deployment"],
         "photonic_cxl_tension": ["technical/HW-01/validation_scope", "market/HW-01/cost", "domain/HW-01/hardware_dependency", "domain/HW-01/deployment"],
@@ -108,8 +138,11 @@ def synthesis_payload(state, result):
         "joint": [f"{role}/{tech}/{cid}" for tech in ("SW-01", "HW-01") for role, cid in (("technical", "mechanism"), ("domain", "deployment"))],
     }
     usable_ids = {a["assessment_id"] for a in assessments if a["usable"]}
+    candidates = {name: [aid for aid in ids if aid in usable_ids] for name, ids in requested.items()}
     return {"domain": cfg.get("normalized_domain"), "requirements": cfg.get("domain_requirements", {}),
-            "relation_source_candidates": {name: [aid for aid in ids if aid in usable_ids] for name, ids in requested.items()},
+            "relation_source_candidates": candidates,
+            "unavailable_relation_fields": {name: reason for name, ids in candidates.items()
+                                            if (reason := relation_source_gap(name, ids))},
             "assessments": [a for a in assessments if a["usable"]],
             "unconfirmed_assessments": [a for a in assessments if not a["usable"]], "trl": syn["trl"],
             "metric_comparisons": syn["metric_comparisons"],
@@ -142,11 +175,8 @@ def validate_opinions(value, payload):
                 roles = {i.split("/")[0] for i in ids if i.split("/")[1] == tech}
                 if not {"market", "stakeholders", "domain"}.issubset(roles):
                     raise SynthesisValidationError("기술별 종합 의견에는 시장·이해관계자·도메인이 모두 필요합니다.")
-    covered = {t for o in parsed.opinions if o.kind == "opinion" for t in o.technology_ids}
-    if covered != {"SW-01", "HW-01"}:
-        raise SynthesisValidationError("두 기술의 새 종합 의견이 모두 필요합니다. 자료 부족은 미완료로 남깁니다.")
     # 빈 유형을 성공으로 통과시키지 않는다. 근거가 부족하면 기술별 사유를 명시한다.
-    for kind in RELATION_KINDS:
+    for kind in ("opinion", *RELATION_KINDS):
         covered = {t for o in parsed.opinions if o.kind == kind for t in o.technology_ids}
         pending = [t for gap in parsed.unresolved_relations if gap.kind == kind for t in gap.technology_ids]
         if len(pending) != len(set(pending)) or covered.intersection(pending):
@@ -180,6 +210,26 @@ def call_openai(payload, *, model=DEFAULT_MODEL):
     return response.output_parsed.flatten(payload)
 
 
+def defer_rejected_opinions(candidate, checks, payload):
+    """Withhold individual generated statements; never turn a rejection into support."""
+    rejected = {c["item_id"] for c in checks if c["verdict"] != "supported"}
+    if not rejected or "limitations" in rejected:
+        return None
+    retained, pending = [], list(candidate["unresolved_relations"])
+    for index, opinion in enumerate(candidate["opinions"], 1):
+        item_id = f"opinion_{index}"
+        if item_id not in rejected:
+            retained.append(opinion)
+            continue
+        reasons = [c["reason"] for c in checks if c["item_id"] == item_id and c["verdict"] != "supported"]
+        pending.append({"kind": opinion["kind"], "technology_ids": opinion["technology_ids"],
+                        "reason": "생성된 종합 문장이 자동 검토에서 표현 또는 근거 연결을 확인받지 못하여 이번 초안에서는 보류함. "
+                                  "원자료 부재 판정이 아니라 모델 생성 결과의 검토 실패이며 후속 품질 검토가 필요함. " + " / ".join(reasons)})
+    if not retained or len(retained) == len(candidate["opinions"]):
+        return None
+    return validate_opinions({**candidate, "opinions": retained, "unresolved_relations": pending}, payload)
+
+
 def synthesize(state, result, generator=None, auditor=None):
     """주입 테스트는 generator와 auditor 모두 필요. 미검사 출력을 통과시키지 않는다."""
     if result["review"]["next"] == "repair" or report_decision(state, result, require_synthesis=False)["report_generation"] == "blocked":
@@ -206,10 +256,11 @@ def synthesize(state, result, generator=None, auditor=None):
                 "audit_prompt_sha256": audit_hash, "input_hash": digest, "api_calls": 0, "cache_reused": False,
                 "generation_calls": 0, "validation_calls": 0, "repair_attempts": 0}
     attempts, feedback = [], None
+    fast_report = config_of(state).get("fast_report") is True
     try:
         if (generator is None) != (auditor is None):
             raise SynthesisValidationError("테스트 주입에는 생성기와 의미 검사기를 모두 제공해야 합니다.")
-        for round_no in range(2):
+        for round_no in range(1 if fast_report else 2):
             metadata["repair_attempts"] = round_no
             request = {**payload, "repair": feedback} if feedback else payload
             metadata["generation_calls"] += 1
@@ -219,20 +270,47 @@ def synthesize(state, result, generator=None, auditor=None):
                 validated = validate_opinions(raw, payload)
             except ValueError as exc:
                 message = str(exc) if isinstance(exc, SynthesisValidationError) else "출력 스키마가 계약과 다릅니다."
-                attempts.append({"round": round_no, "status": "structural_rejected", "reason": message})
-                feedback = {"issues": [message]}
+                diagnostics = ([{"loc": list(e["loc"]), "type": e["type"], "msg": e["msg"]}
+                                for e in exc.errors(include_input=False, include_url=False)]
+                               if isinstance(exc, ValidationError) else [])
+                attempts.append({"round": round_no, "status": "structural_rejected", "reason": message,
+                                 "schema_errors": diagnostics, "candidate": raw})
+                feedback = {"issues": [message], "schema_errors": diagnostics}
                 continue
             scoped = audit_payload(validated, payload)
             rule_issues = conservative_issues(scoped)
+            withholding_events = []
             if rule_issues:
-                attempts.append({"round": round_no, "status": "rule_rejected", "checks": rule_issues})
+                attempts.append({"round": round_no, "status": "rule_rejected", "checks": rule_issues,
+                                 "candidate": validated})
                 feedback = {"previous_candidate": validated, "issues": rule_issues}
-                continue
+                retained = defer_rejected_opinions(validated, rule_issues, payload) if fast_report else None
+                if retained is None:
+                    continue
+                withholding_events.append({"stage": "rule_check", "rejected_checks": rule_issues})
+                validated = retained
+                scoped = audit_payload(validated, payload)
+                scoped["processing_diagnostics"] = withholding_events
             metadata["validation_calls"] += 1
             metadata["api_calls"] += int(auditor is None)
             raw_audit = call_grounding(scoped, model=model) if auditor is None else auditor(scoped)
             audit = validate_audit(raw_audit, scoped)
             attempts.append({"round": round_no, **audit})
+            if audit["status"] != "passed" and fast_report:
+                rejected_checks = [c for c in audit["checks"] if c["verdict"] != "supported"]
+                retained = defer_rejected_opinions(validated, rejected_checks, payload)
+                if retained is not None:
+                    withholding_events.append({"stage": "semantic_check", "rejected_checks": rejected_checks})
+                    attempts.append({"round": round_no, "status": "partial_retention", "candidate": validated,
+                                     "checks": rejected_checks})
+                    validated = retained
+                    scoped = audit_payload(validated, payload)
+                    scoped["processing_diagnostics"] = withholding_events
+                    metadata["validation_calls"] += 1
+                    metadata["api_calls"] += int(auditor is None)
+                    raw_audit = call_grounding(scoped, model=model) if auditor is None else auditor(scoped)
+                    audit = validate_audit(raw_audit, scoped)
+                    attempts.append({"round": round_no, "stage": "retained_candidate_audit", **audit})
             if audit["status"] == "passed":
                 return {"status": "partial" if validated["unresolved_relations"] else "completed", **metadata, **validated,
                         "semantic_validation": {**audit, "version": AUDIT_VERSION,
@@ -240,7 +318,7 @@ def synthesize(state, result, generator=None, auditor=None):
             feedback = {"previous_candidate": validated,
                         "issues": [c for c in audit["checks"] if c["verdict"] != "supported"]}
         return {"status": "failed", **metadata, "opinions": [], "unresolved_relations": [],
-                "limitations": ["자동 수정 1회 후에도 입력과의 정합성을 확인하지 못해 종합 의견 전달을 차단했습니다."],
+                "limitations": ["제한된 자동 검토 안에서 입력과의 정합성을 확인하지 못해 종합 의견 전달을 차단했습니다."],
                 "semantic_validation": {"status": "rejected", "version": AUDIT_VERSION, "attempts": attempts}}
     except Exception as exc:
         # API/검사기 장애는 사실 판단과 구분한다. 검사를 생략한 채 통과시키지 않는다.

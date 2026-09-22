@@ -4,8 +4,8 @@ from collections import defaultdict
 from itertools import product
 from pydantic import ValidationError
 
-from .rubric import COMMON_CRITERIA, CRITERIA, NOTICE, ROLES, TECHNOLOGIES, TRL, VERSION
-from .schema import Assessment, Config, Document, Evidence, Issue, Review, RoleResult, Synthesis
+from .rubric import COMMON_CRITERIA, CRITERIA, NOTICE, ROLES, TECHNOLOGIES, TRL, VERSION, criteria_for
+from .schema import Assessment, Config, Document, Evidence, Issue, Review, RoleResult, Synthesis, source_is_available
 from .contract import is_missing
 
 
@@ -36,6 +36,7 @@ def review_node(state: dict) -> dict:
     issues: list[Issue] = []
     requests: dict[str, list[str]] = defaultdict(list)
     blocked_roles = set()
+    criteria = criteria_for(state.get("config"))
 
     def flag(code, message, role=None, tech=None, criterion=None, repairable=False):
         issues.append(Issue(code=code, message=message, role=role, technology_id=tech,
@@ -68,11 +69,13 @@ def review_node(state: dict) -> dict:
                 flag("invalid_document", "문서 메타데이터 형식을 확인한다.")
     for tech in TECHNOLOGIES:
         doc = documents.get(tech)
-        if not doc or doc.kind != "paper" or doc.version != "v1":
-            flag("required_document", "선정 논문 2편의 v1 메타데이터가 필요하다.", tech=tech)
+        inherited_version = state.get("config", {}).get("source_reuse") is True and doc and doc.version == "unknown"
+        if not doc or doc.kind != "paper" or (doc.version != "v1" and not inherited_version) or doc.pages is None:
+            flag("required_document", "선정 논문 2편의 원본 메타데이터가 필요하다. 재사용 자료의 미확인 버전은 명시한다.", tech=tech)
     unique_pages = {}
     for doc in documents.values():
-        unique_pages[doc.sha256] = max(unique_pages.get(doc.sha256, 0), doc.pages)
+        if doc.pages is not None:
+            unique_pages[doc.sha256] = max(unique_pages.get(doc.sha256, 0), doc.pages)
     if sum(unique_pages.values()) > 200:
         flag("page_limit", "문서 합계가 200쪽을 초과한다.")
     fatal = bool(issues)
@@ -100,11 +103,11 @@ def review_node(state: dict) -> dict:
                 item = Evidence.model_validate(raw)
                 doc = documents.get(item.doc_id)
                 valid = (
-                    eid == item.id and doc is not None and item.verified_source
+                    eid == item.id and doc is not None and source_is_available(item, doc)
                     and (not item.synthetic or config.demo)
                     and (item.page is not None or bool(item.location and item.location.strip()))
                     and (doc.kind != "paper" or item.page is not None)
-                    and (item.page is None or item.page <= doc.pages)
+                    and (item.page is None or (doc.pages is not None and item.page <= doc.pages))
                     and (doc.kind == "paper" or doc.source_type is not None)
                 )
                 if valid:
@@ -148,7 +151,7 @@ def review_node(state: dict) -> dict:
                 consecutive = False
             checks.append({"level": n, "criterion": criterion, "required_evidence": requirement,
                            "status": status, "reason": reason, "evidence_ids": ids})
-        return {"level": level, "basis_version": "v1", "checks": checks,
+        return {"level": level, "basis_version": documents[tech].version, "checks": checks,
                 "evidence_ids": sorted(used),
                 "next_unconfirmed": next((c for c in checks if c["status"] != "met"), None),
                 "notice": NOTICE}
@@ -179,17 +182,17 @@ def review_node(state: dict) -> dict:
                 if not fatal:
                     flag("missing_cell", "해당 기술의 평가 결과가 없거나 역할 실행이 실패했다.", role, tech, repairable=True)
                 normalized[role][tech] = {"status": "failed", "items": [
-                    _unknown(c, "평가 결과 없음 또는 실패") for c in CRITERIA[role]
+                    _unknown(c, "평가 결과 없음 또는 실패") for c in criteria[role]
                 ]}
                 continue
 
             found = defaultdict(list)
             for item in cell.items:
                 found[item.criterion_id].append(item)
-            for cid in found.keys() - CRITERIA[role].keys():
+            for cid in found.keys() - criteria[role].keys():
                 flag("unknown_criterion", "Rubric에 없는 criterion_id는 종합에서 제외한다.", role, tech, cid, True)
             items = []
-            for cid in CRITERIA[role]:
+            for cid in criteria[role]:
                 candidates = found[cid]
                 if len(candidates) != 1:
                     flag("criterion_count", "필수 기준별 결과는 정확히 1개여야 한다.", role, tech, cid, True)
