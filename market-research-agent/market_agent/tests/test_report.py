@@ -21,8 +21,10 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(text.count(f'`{criterion}`'), 2)
         self.assertIn('합성 기술군', text)
         self.assertIn(e.id, text)
-        self.assertNotIn('E-SW-001', text)
-        self.assertNotIn('E-HW-001', text)
+        self.assertIn('E-SW-001', text)
+        self.assertIn('E-HW-001', text)
+        self.assertIn('## 평가 참고자료', text)
+        self.assertNotIn('| unknown |', text)
         for forbidden in ['## 실행 정보', '## 두 기술 비교', '## 미확인 사항과 보완 질문', 'API', 'SUMMARY']:
             self.assertNotIn(forbidden, text)
         self.assertIn('## 인용 근거', text)

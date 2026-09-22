@@ -53,3 +53,32 @@ def repair_questions(data, rows, proposed, queries):
                 source_type='공식 표준·제품 문서·시장 정의와 방법론을 공개한 자료'))
             seen.add(query.casefold())
     return result[:4]
+
+
+def progressive_questions(data, rows, queries, level):
+    """수준 1=같은 기술군, 수준 2=인접 시장. 모든 목적에 기술별 검색 기회를 준다."""
+    seen = {' '.join(q['query'].casefold().split()) for q in queries}
+    pending = {(r.tech_id, r.criterion_id) for r in rows if r.verdict == 'unknown' or r.gaps}
+    groups = [
+        ('market_size_growth', ['market_size_growth', 'business_value']),
+        ('standardization', ['standardization', 'ecosystem_support']),
+        ('commercialization', ['commercialization', 'adoption']),
+    ]
+    result = []
+    for primary, criteria in groups:
+        for tech in data.technologies.values():
+            if not any((tech.id, c) in pending for c in criteria):
+                continue
+            family = ('KV cache quantization inference software' if tech.approach == 'SW' else 'CXL memory pooling appliance')
+            adjacent = ('AI inference serving software GPU infrastructure' if tech.approach == 'SW' else 'AI server disaggregated memory infrastructure')
+            query = f'{family if level == 1 else adjacent} {SUFFIXES[primary]}'
+            if level == 1 and primary == 'standardization':
+                query = ('site:docs.vllm.ai quantized KV cache support' if tech.approach == 'SW' else
+                         'site:computeexpresslink.org CXL specification memory pooling')
+            if query.casefold() in seen:
+                continue
+            result.append(Question(tech_id=tech.id, criterion_id=primary, criteria=criteria, query=query,
+                reason=('같은 기술군' if level == 1 else '인접 시장') + ' 자료까지 확대; 선정 기술의 실제 실적과 분리',
+                source_type='공식 문서 우선; 관련 업체·산업 분석·사례 자료도 참고자료로 수용'))
+            seen.add(query.casefold())
+    return result

@@ -101,7 +101,7 @@ class Metric(Record):
 
 Basis = Literal["fact", "inference", "unknown"]
 Relation = Literal["exact", "method_family", "adjacent", "unknown"]
-Verdict = Literal["favorable", "conditional", "unfavorable", "unknown", "not_applicable"]
+Verdict = Literal["favorable", "conditional", "unfavorable", "unknown", "not_applicable", "provisional"]
 EvidenceLevel = Literal['research_experiment','simulation','publisher_statement','planned_release','customer_case','projection','inference']
 
 
@@ -124,6 +124,14 @@ class ContextFinding(Record):
     metric: Metric | None = None
 
 
+class SupportingMaterial(Record):
+    evidence_id: str
+    quote: str
+    locator: str
+    review_status: Literal['reference_only', 'provided_context', 'search_excerpt', 'excluded']
+    reason: str
+
+
 class Assessment(Record):
     tech_id: str
     criterion_id: Criterion
@@ -137,6 +145,9 @@ class Assessment(Record):
     verdict: Verdict = "unknown"
     citations: list[Citation] = Field(default_factory=list)
     context_findings: list[ContextFinding] = Field(default_factory=list)
+    evaluation_mode: Literal['grounded', 'provisional', 'scenario', 'research_plan'] = 'grounded'
+    confidence: Literal['high', 'medium', 'low'] = 'low'
+    supporting_materials: list[SupportingMaterial] = Field(default_factory=list)
     research_status: Literal["not_started", "searched", "reviewed"] | None = None
     unknown_reasons: list[str] = Field(default_factory=list)
     next_action: str = ""
@@ -239,9 +250,9 @@ class ReviewedDraftAnalysis(DraftAnalysis):
 
 
 class MarketResult(Record):
-    output_schema_version: str = "0.4"
+    output_schema_version: str = "0.5"
     role: Literal["market"] = "market"
-    status: Literal["completed", "unknown", "failed"]
+    status: Literal["completed", "provisional", "unknown", "failed"]
     round: int
     assessments: list[Assessment]
     followup_questions: list[Question]

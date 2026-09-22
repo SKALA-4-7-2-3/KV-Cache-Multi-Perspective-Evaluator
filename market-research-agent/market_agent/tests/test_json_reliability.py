@@ -154,7 +154,8 @@ class JsonReliabilityTests(unittest.TestCase):
         row = next(row for row in state['result'].assessments
                    if (row.tech_id, row.criterion_id) == ('HW-01', 'business_value'))
 
-        self.assertEqual(row.verdict, 'unknown')
+        self.assertEqual(row.verdict, 'provisional')
+        self.assertEqual(row.basis, 'inference')
         self.assertFalse(row.context_findings)
         self.assertEqual(row.research_status, 'reviewed')
         self.assertIn(e.id, row.reviewed_evidence_ids)

@@ -12,11 +12,11 @@ INPUT = Path(__file__).parents[1] / "fixtures/input.md"
 
 
 class GraphTests(unittest.TestCase):
-    def test_execution_status_is_separate_from_unknown_market_verdicts(self):
+    def test_execution_status_is_separate_from_provisional_delivery(self):
         result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),mode='fixture')['result']
-        self.assertEqual(result.status,'unknown')
+        self.assertEqual(result.status,'provisional')
         self.assertEqual(result.execution_status,'completed')
-        self.assertEqual(result.output_schema_version,'0.4')
+        self.assertEqual(result.output_schema_version,'0.5')
 
     def test_unsearched_criteria_make_execution_partial(self):
         result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),auto_repair=False,mode='fixture')['result']
@@ -98,17 +98,17 @@ class GraphTests(unittest.TestCase):
         self.assertEqual(report.usage["llm"], 2)
         self.assertLessEqual(report.usage["search"], 6)
         self.assertLessEqual(report.usage["extract"], 10)
-        self.assertEqual(report.status, "unknown")
+        self.assertEqual(report.status, "provisional")
         self.assertTrue(result["sources"])
         self.assertEqual(sum(step.startswith('repair_') for step in result['history']), 1)
         self.assertEqual(result['history'][-1], 'finish')
 
-    def test_zero_budget_returns_unknown_without_provider_calls(self):
+    def test_zero_budget_returns_scenarios_without_provider_calls(self):
         data = read_input(INPUT).model_copy(update={"limits": Limits(search=0, extract=0, llm=0)})
         result = run_market(data, FixtureWeb(), FixtureAnalyst(), mode="fixture")
         self.assertEqual(result["result"].usage, {"search": 0, "extract": 0, "llm": 0})
-        self.assertEqual(result["result"].status, "unknown")
-        self.assertTrue(all(a.basis == "unknown" for a in result["result"].assessments))
+        self.assertEqual(result["result"].status, "provisional")
+        self.assertTrue(all(a.basis == "inference" for a in result["result"].assessments))
 
     def test_auth_failure_stops_followup_calls(self):
         class Unauthorized(FixtureWeb):
@@ -153,7 +153,8 @@ class GraphTests(unittest.TestCase):
         data = read_input(INPUT).model_copy(update={"limits": Limits(search=6, extract=0, llm=5)})
         result = run_market(data, FixtureWeb(), FixtureAnalyst())
         self.assertEqual(result["result"].usage["llm"], 0)
-        self.assertEqual(result["result"].status, "unknown")
+        self.assertEqual(result["result"].status, "provisional")
+        self.assertTrue(all(a.basis != "fact" and not a.citations for a in result["result"].assessments))
         self.assertTrue(any(e.access_status == "snippet" for e in result["evidence"].values()))
 
     def test_unrelated_product_pages_are_not_extracted_or_sent_to_model(self):

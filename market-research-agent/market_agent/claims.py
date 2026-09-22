@@ -13,6 +13,8 @@ def recover_previous(previous):
     """부모의 기존 Analysis 계약을 지원한다. 복수 출처 주장을 임의로 쪼개지 않는다."""
     claims=[]
     for row in previous.assessments if previous else []:
+        if row.evaluation_mode != 'grounded':
+            continue
         items=[(row.judgment,row.basis,row.relation_to_technology,row.citations,row.conditions,row.metric)]
         items += [(c.statement,c.basis,c.relation_to_technology,c.citations,c.conditions,c.metric) for c in row.context_findings]
         for statement,basis,relation,citations,conditions,metric in items:

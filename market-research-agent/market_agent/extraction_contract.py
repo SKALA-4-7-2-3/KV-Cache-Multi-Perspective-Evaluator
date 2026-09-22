@@ -19,7 +19,10 @@ def extraction_schema(schema, data, evidence, bank, technical):
             for provided in (False,True):
                 if provided and criterion!='business_value':continue
                 choices={key:q for key,q in bank.items() if tech_id in evidence[q['evidence_id']].tech_ids
-                    and (q['evidence_id'] in technical)==provided and quote_relevant(criterion,q['text'])}
+                    and (q['evidence_id'] in technical)==provided}
+                # 키워드는 우선순위 신호다. 표현 차이만으로 추출 슬롯을 닫지 않는다.
+                choices=dict(sorted(choices.items(), key=lambda item: (quote_relevant(criterion,item[1]['text']),
+                    criterion in evidence[item[1]['evidence_id']].criteria), reverse=True)[:16])
                 if not choices:continue
                 branch=copy.deepcopy(base);props=branch['properties']
                 for field in ('tech_id','criterion_id'):

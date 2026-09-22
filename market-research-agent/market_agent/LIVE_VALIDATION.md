@@ -254,3 +254,26 @@ python -m market_agent.revalidate \
 - 최종 내부 cache: `market_agent/.cache/a24181f90e96adbc31e23eccf2db8f009fa370667d08f162915d5a4102867f91`
 - 전달 MD SHA-256: `058f90b5e8581cffa2394bd94c5bd6f31b51df9a6e3030e4cffe81026c242e67`
 - 원문·실제 API 키·내부 snapshot은 Git에서 제외하고 최종 MD 한 개와 코드·검증 문서만 전달한다.
+
+
+# 2026-09-22 — v1.4 단계별 조사와 12항목 전달 완성
+
+## 현재 검증 결과
+
+- 첨부 입력: evidence_registry.json, comparison.json, dossiers/2605.08317-25836a41.json, dossiers/2607.27187-d6a67efd.json. 파싱 확인: 두 기술·등록 근거 191개.
+- 입력 SHA-256: `921516a0251e1e6315fd3c5c86f1a127847f73a3e4feb542647abbe5a22c8c5e`.
+- **12/12개 평가 제공, unknown 0개.** 근거 기반 조건부 3개 + 관련 자료 잠정평가 9개. 참고자료 18개(행별 중복 제외).
+- 근거 기반: SW 고객 가치, HW 생태계 지원, HW 고객 가치. 나머지는 기준별 도입 판단·조건과 재검토 가능한 자료를 전달한다. 시장 크기·상용 출시·고객 실적을 새로 입증했다는 뜻은 아니다.
+- 결과 상태 `provisional`, 처리 상태 `partial`. 기존 HW 원문 접근 실패 1건과 후보 인용 연결 오류 2건은 남아 있다. 기존 주장 오류 때문에 원자료 자체를 버리지는 않는다.
+- **신규 API 호출 0회.** 기존 v1.3 원문과 검증된 주장을 현재 코드로 재검증했다. 새 라이브 실행 요청은 자동 승인 검토에서 이번 JSON 네 개와 OpenAI·Tavily의 구체적인 전송 승인 확인을 요구하여 거부되었다. 사용자에게 비동기 승인을 요청했으며 우회 실행하지 않았다. 따라서 새 3단계 검색의 실제 외부 API 연결은 이번 변경에서 미검증이다.
+- 통상 3단계 흐름·검색 중복 방지·한도 준수·최종 전달을 fixture로 검증했다. **unittest 157개 및 compileall 통과.** fixture 결과는 시장 사실로 사용하지 않는다.
+- 독립 검토에서 발견한 fallback 상태 오표시와 처리 한계 누락을 수정했다. 최상위 provisional과 실제 execution 상태를 분리하며, 보고서에 오류 건수와 행별 한계가 표시된다.
+- 생성 MD를 읽고 메뉴/무료 샘플 홍보 문구가 발췌에 섞이는 문제를 수정했다. 본문 문단·문장 단위로 선택하고 재검증했다.
+
+## 최종 추적
+
+- 원본: `market_agent/outputs/20260922_bundle_v14_final/market_handoff.md`
+- cache: `market_agent/.cache/88ec81b0e5581f637d64cd686844da196886159b0aad41803ace58f7f775074b`
+- 전달 MD SHA-256: `4cc80ab43252c7223ca1ca16436824a1b9ece9718f651b2eadaf263ed5e45c68`
+- 외부 전달: `deliverables/market_handoff.md` 한 개. 원본 JSON·캐시·전체 원문·키는 커밋하지 않는다.
+- 현재 정책: [PROGRESSIVE_DELIVERY.md](../docs/PROGRESSIVE_DELIVERY.md). 이전 unknown·0.4 결과는 이력이며 현재 계약은 0.5다.

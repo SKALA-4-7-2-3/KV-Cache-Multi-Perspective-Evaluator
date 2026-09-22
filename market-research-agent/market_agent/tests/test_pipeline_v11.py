@@ -31,7 +31,8 @@ class PipelineTests(unittest.TestCase):
         from market_agent.report import render_report
         state=run_market(self.data,ProductWeb(),ProductAnalyst(),mode='fixture')
         row=next(r for r in state['result'].assessments if r.tech_id=='HW-01' and r.criterion_id=='ecosystem_support')
-        self.assertEqual(row.verdict,'unknown')
+        self.assertEqual(row.verdict,'provisional')
+        self.assertEqual(row.basis,'inference')
         self.assertEqual(len(row.context_findings),1)
         self.assertIn('PF-NIC',render_report(state))
         self.assertLessEqual(state['result'].usage['llm'],3)
@@ -57,7 +58,8 @@ class PipelineTests(unittest.TestCase):
             def extract(self,url):return '# Title:RDKV\n\n| Cite as | arXiv:2605.08317v1 |\n\n# Access Paper'
         state=run_market(self.data,Metadata(),ProductAnalyst(),mode='fixture')
         self.assertEqual(state['result'].usage['llm'],0)
-        self.assertTrue(any('본문' in g for r in state['result'].assessments for g in r.gaps))
+        self.assertTrue(any(m.review_status=='excluded' and m.reason for r in state['result'].assessments for m in r.supporting_materials))
+        self.assertTrue(all(not r.citations for r in state['result'].assessments))
 
     def test_composition_repair_rechecks_candidates_after_missing_reviews(self):
         class Repair(ProductAnalyst):

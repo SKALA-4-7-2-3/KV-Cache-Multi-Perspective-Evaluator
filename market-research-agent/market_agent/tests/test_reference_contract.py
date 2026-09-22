@@ -30,7 +30,8 @@ class ReferenceContractTests(unittest.TestCase):
         cells=schema['properties']['claims']['properties']
         self.assertEqual(len(cells),6)
         self.assertTrue(all(c['maxItems']<=2 for c in cells.values()))
-        self.assertEqual(cells['HW-01::standardization']['maxItems'],0)
+        # 표준화 키워드가 없어도 원문 선택은 허용하며 후속 의미 검증은 유지한다.
+        self.assertEqual(cells['HW-01::standardization']['maxItems'],2)
         branch=schema['$defs'][cells['HW-01::ecosystem_support']['items']['anyOf'][0]['$ref'].rsplit('/',1)[-1]]['properties']
         self.assertNotIn('tech_id',branch)
         self.assertNotIn('exact',branch['relation_to_technology']['enum'])

@@ -83,7 +83,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("fixture", text)
             self.assertIn("시장 규모·성장", text)
             snapshot = json.loads((cache_path(output) / "run.json").read_text())
-            self.assertEqual(snapshot["output_schema_version"],"0.4")
+            self.assertEqual(snapshot["output_schema_version"],"0.5")
             self.assertIn("claim_pool",snapshot)
             self.assertIn("source_reviews",snapshot)
             self.assertEqual(snapshot["result"]["usage"]["llm"], 2)

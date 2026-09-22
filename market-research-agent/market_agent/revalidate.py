@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 
+from .delivery import complete_delivery, delivery_coverage, technology_status
 from .claims import criterion_supported, validate_claims, materialize, pool_dispositions
 from .cli import file_hash, fingerprint, save_run
 from .parser import InputError
@@ -35,12 +36,12 @@ def revalidate(saved, sources):
     analysis=annotate(analysis,data,evidence,saved['queries'],errors,budget,True,reviewed=examined)
     dispositions=pool_dispositions(pool,analysis)
     for k in original.keys()-pool.keys():dispositions[k]='rejected: local_scope_revalidation'
-    statuses={t:'completed' if all(r.verdict!='unknown' for r in analysis.assessments if r.tech_id==t) else 'unknown'
-        for t in data.technologies}
+    analysis=complete_delivery(data,analysis,evidence,errors)
+    statuses=technology_status(data,analysis)
     incomplete=bool(errors) or any(r.research_status=='not_started' for r in analysis.assessments)
-    updated=result.model_copy(update={'assessments':analysis.assessments,'errors':errors,
-        'progress':{**result.progress,'errors':errors},'technology_status':statuses,
-        'status':'failed' if result.status=='failed' else ('completed' if all(v=='completed' for v in statuses.values()) else 'unknown'),
+    updated=result.model_copy(update={'output_schema_version':'0.5','assessments':analysis.assessments,'errors':errors,
+        'progress':{**result.progress,'errors':errors,'delivery_coverage':delivery_coverage(analysis)},'technology_status':statuses,
+        'status':'failed' if result.status=='failed' else ('completed' if all(v=='completed' for v in statuses.values()) else 'provisional'),
         'execution_status':'failed' if result.execution_status=='failed' else ('partial' if incomplete else 'completed')})
     return dict(data=data,result=updated,evidence=evidence,sources=sources,queries=saved['queries'],
         events=saved['events'],token_usage=saved['token_usage'],model=saved['model'],

@@ -8,10 +8,11 @@ from langgraph.graph import END, START, StateGraph
 from .schemas import Analysis, CRITERIA, MarketResult, unknown, Extraction, DraftAnalysis, DraftAssessment
 from .tools import Budget, ProviderError
 from .collection import collect_sources
-from .search_plan import initial_questions, repair_questions
+from .search_plan import initial_questions, progressive_questions
 from .research import annotate
 from .validation import validate_analysis
 from .premises import technical_evidence
+from .delivery import complete_delivery, delivery_coverage, technology_status
 from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft, review_claims, limit_claims
 from .sources import content_quality
 
@@ -41,9 +42,10 @@ class RunState(TypedDict, total=False):
     repairs: dict
     examined: dict
     extraction_history: list
+    research_level: int
 
 
-def relevant_candidate(row, tech):
+def relevant_candidate(row, tech, level=0):
     """일반 제품 문서를 걸러내는 최소 검사. 사실성·동일 기술 여부는 별도 평가한다."""
     text = f"{row.get('title', '')} {row.get('content', '')}"
     # 다른 기술 논문의 벤치마크가 시장 자료의 제한된 원문 슬롯을 독점하지 않게 한다.
@@ -52,6 +54,8 @@ def relevant_candidate(row, tech):
     # RDKV는 TV/셋톱박스 플랫폼에서도 쓰는 약어다. 이름 일치만으로 채택하지 않는다.
     if tech.approach == 'SW' and re.search(r'\brdkv\b|rdk.video', text, re.I):
         return bool(re.search(r'kv[\s_-]*cache|rate.distortion|\bllm\b|language model|quantization|attention', text, re.I))
+    if level >= 1 and re.search(r'inference|data.?cent[er]+|memory|server|GPU|accelerator|추론|메모리|데이터센터', text, re.I):
+        return True
     return bool(re.search(r"kv[\s_-]*cache|key[\s_-]*value[\s_-]*cache|\bcxl\b|compute express link|"
         r"photonic.{0,30}memory|llm.{0,30}(memory|inference)|ai[\s_-]+(server|infrastructure|accelerator)|"
         r"추론.{0,15}(메모리|인프라)|인공지능.{0,10}서버", text, re.I))
@@ -80,12 +84,13 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
 
     def collect(state):
         rows=[r.model_copy(deep=True) for r in state['analysis'].assessments]
-        covered={(c.tech_id,c.criterion_id) for c in state['claim_pool'].values()}
+        # 새 후보는 아직 의미 검토 전이다. 후보 존재만으로 보완 검색을 생략하지 않는다.
+        covered={(c.tech_id,c.criterion_id) for key,c in state['claim_pool'].items() if key in initial_pool}
         for r in rows:
             if (r.tech_id,r.criterion_id) in covered:
                 r.verdict,r.gaps='conditional',[]  # 조사 우선순위만 계산; 보고서 판정과 분리
-        questions=initial_questions(data) if state['round']==0 else repair_questions(data,rows,[],state['queries'])
-        return collect_sources(state,data,web,budget,questions,relevant_candidate)
+        questions=initial_questions(data) if state['research_level']==0 else progressive_questions(data,rows,state['queries'],state['research_level'])
+        return collect_sources(state,data,web,budget,questions,lambda r,t:relevant_candidate(r,t,state['research_level']))
 
     def extract(state):
         update={'history':state['history']+['extract']}
@@ -139,7 +144,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         # 유효 근거가 있으면 평가 작성 1회를 우선 확보한다.
         room=budget.remaining('llm')-review_reserve
         if room>0:
-            if can_repair(state,'collect') and budget.remaining('search'):
+            if auto_repair and not state['fatal'] and state['research_level']<2 and budget.remaining('search'):
                 return 'repair_collect'
             if state['extraction_errors'] and can_repair(state,'extract'):
                 return 'repair_extract'
@@ -213,26 +218,28 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
 
     def repair(kind):
         def action(state):
-            return dict(round=1,repairs={**state['repairs'],kind:True},repair_kind=kind,history=state['history']+['repair_'+kind])
+            return dict(round=1,research_level=min(2,state['research_level']+1) if kind=='collect' else state['research_level'],
+                repairs={**state['repairs'],kind:True},repair_kind=kind,history=state['history']+['repair_'+kind])
         return action
 
     def finish(state):
-        statuses={t:'completed' if all(r.verdict!='unknown' for r in state['analysis'].assessments if r.tech_id==t)
-            else 'unknown' for t in data.technologies}
+        delivery = complete_delivery(data, state['analysis'], state['evidence'], state['errors'])
+        statuses=technology_status(data,delivery)
         api_failure=any(e['stage'].startswith('llm') or e['stage'] in {'search','extract'} for e in state['errors']
             if not e['code'].startswith('budget_'))
         failed=state['fatal'] or (state['model_successes']==0 and api_failure)
         incomplete=bool(state['errors']) or any(r.research_status=='not_started' for r in state['analysis'].assessments)
         execution='failed' if failed else ('partial' if incomplete else 'completed')
-        progress={'queries':state['queries'],'repairs':state['repairs'],'reviews':state['reviews'],
+        progress={'research_level':state['research_level'],'queries':state['queries'],'repairs':state['repairs'],'reviews':state['reviews'],
             'errors':state['errors'],'extraction_errors':state['extraction_errors'],
             'composition_errors':state['composition_errors'],'model_successes':state['model_successes'],
             'extraction_history':state['extraction_history'],
+            'delivery_coverage': delivery_coverage(delivery),
             'examined':[{'tech_id':t,'criterion_id':c,'evidence_ids':list(dict.fromkeys(ids))}
                 for (t,c),ids in state['examined'].items()]}
         budget.progress=progress
-        result=MarketResult(status='failed' if failed else ('completed' if all(v=='completed' for v in statuses.values()) else 'unknown'),
-            round=state['round'],assessments=state['analysis'].assessments,followup_questions=state['analysis'].followup_questions,
+        result=MarketResult(status='failed' if failed else ('completed' if all(v=='completed' for v in statuses.values()) else 'provisional'),
+            round=state['round'],assessments=delivery.assessments,followup_questions=delivery.followup_questions,
             technology_status=statuses,errors=state['errors'],usage=dict(budget.used),mode=mode,
             execution_status=execution,progress=progress)
         return {'result':result,'history':state['history']+['finish']}
@@ -251,12 +258,12 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     graph.add_edge('finish',END)
     draft=previous_draft(previous,initial_pool,blank_draft())
     analysis,_=materialize(data,draft,initial_pool)
-    state=graph.compile().invoke(dict(data=data,round=round_number,evidence=initial_evidence,sources={},analysis=analysis,
+    state=graph.compile().invoke(dict(data=data,round=round_number,research_level=progress.get('research_level',round_number),evidence=initial_evidence,sources={},analysis=analysis,
         errors=list(progress.get('errors',[])),history=[],queries=progress.get('queries',[]),fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},
         reviews=progress.get('reviews',{}),extraction_errors=list(progress.get('extraction_errors',[])),composition_errors=list(progress.get('composition_errors',[])),
         repair_kind='',repairs=progress.get('repairs',{k:round_number==1 for k in ['collect','extract','compose']}),
         examined={(r['tech_id'],r['criterion_id']):r['evidence_ids'] for r in progress.get('examined',[])},extraction_history=list(progress.get('extraction_history',[])),
-        model_successes=progress.get('model_successes',0),compose_successes=0,draft=draft),config={'recursion_limit':24})
+        model_successes=progress.get('model_successes',0),compose_successes=0,draft=draft),config={'recursion_limit':32})
     state.update(events=list(budget.events),initial_evidence_ids=list(initial_evidence),model=getattr(analyst,'model','injected'),
         token_usage=list(getattr(analyst,'usage',[])),output_checks=list(getattr(analyst,'output_checks',[])),
         debug_analyses=list(getattr(analyst,'debug_analyses',[])),claim_dispositions=pool_dispositions(state['claim_pool'],state['analysis']))

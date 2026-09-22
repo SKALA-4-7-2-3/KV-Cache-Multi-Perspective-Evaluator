@@ -162,7 +162,7 @@ def parse_paper_analyses(documents, *, as_of=None, domain=None, limits=None, app
     try:
         return MarketInput(schema_version='1.1.0',run_id='market-'+digest[:16],
             domain=domain or 'cloud_datacenter',as_of=as_of or date.today(),language='ko',
-            limits=limits or Limits(search=6,extract=10,llm=5),technologies=technologies,evidence=evidence,
+            limits=limits or Limits(search=18,extract=24,llm=10),technologies=technologies,evidence=evidence,
             raw_markdown='',input_hash=digest,input_format='paper_analysis_json',
             source_documents=copy.deepcopy(documents),provenance='상위 기술 조사 paper_analysis JSON 1.1.0',
             notes='상위 quality/confidence는 기술 분석의 기록이며 시장성 검증을 대신하지 않음',warnings=warnings)

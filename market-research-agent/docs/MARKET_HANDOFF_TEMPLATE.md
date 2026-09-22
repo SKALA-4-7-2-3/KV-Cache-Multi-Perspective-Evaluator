@@ -4,28 +4,36 @@
 
 ## SW-01 · RDKV
 
-| 항목 ID·항목 | 평가 내용 | 판정 | 근거 성격·범위 | 적용 조건·미확인 | 근거 ID |
+| 항목 ID·항목 | 평가 내용 | 판정 | 근거 성격·범위 | 적용 조건·추가 확인 | 인용·참고자료 ID |
 | --- | --- | --- | --- | --- | --- |
-| market_size_growth · 시장 규모·성장 | {{SW 시장 규모·성장 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| commercialization · 제품화 | {{SW 제품화 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| adoption · 실제 채택 | {{SW 실제 채택 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| ecosystem_support · 생태계 지원 | {{SW 생태계 지원 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| standardization · 표준화 | {{SW 표준화 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| business_value · 비용·고객 가치·사업화 조건 | {{SW 비용·고객 가치·사업화 조건 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
+| market_size_growth · 시장 규모·성장 | {{SW 시장 규모·성장 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| commercialization · 제품화 | {{SW 제품화 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| adoption · 실제 채택 | {{SW 실제 채택 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| ecosystem_support · 생태계 지원 | {{SW 생태계 지원 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| standardization · 표준화 | {{SW 표준화 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| business_value · 비용·고객 가치·사업화 조건 | {{SW 비용·고객 가치·사업화 조건 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
 
 ## HW-01 · Photonic-CXL
 
-| 항목 ID·항목 | 평가 내용 | 판정 | 근거 성격·범위 | 적용 조건·미확인 | 근거 ID |
+| 항목 ID·항목 | 평가 내용 | 판정 | 근거 성격·범위 | 적용 조건·추가 확인 | 인용·참고자료 ID |
 | --- | --- | --- | --- | --- | --- |
-| market_size_growth · 시장 규모·성장 | {{HW 시장 규모·성장 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| commercialization · 제품화 | {{HW 제품화 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| adoption · 실제 채택 | {{HW 실제 채택 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| ecosystem_support · 생태계 지원 | {{HW 생태계 지원 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| standardization · 표준화 | {{HW 표준화 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
-| business_value · 비용·고객 가치·사업화 조건 | {{HW 비용·고객 가치·사업화 조건 평가}} | {{verdict}} | {{basis / scope}} | {{조건·미확인}} | {{인용 ID 또는 없음}} |
+| market_size_growth · 시장 규모·성장 | {{HW 시장 규모·성장 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| commercialization · 제품화 | {{HW 제품화 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| adoption · 실제 채택 | {{HW 실제 채택 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| ecosystem_support · 생태계 지원 | {{HW 생태계 지원 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| standardization · 표준화 | {{HW 표준화 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
+| business_value · 비용·고객 가치·사업화 조건 | {{HW 비용·고객 가치·사업화 조건 평가}} | {{verdict}} | {{평가 방식 / 신뢰도 / basis / scope}} | {{조건·자료 한계}} | {{검증 인용 ID / 참고자료 ID}} |
 
 ## 인용 근거
 
 | 근거 ID | 제목·발행자 | 발행일·조회일 | URL·원문 위치 | 접근 범위·발행 성격 | 짧은 발췌 |
 | --- | --- | --- | --- | --- | --- |
 | {{실제로 인용한 근거 ID}} | {{제목 / 발행자}} | {{발행일 또는 미확인 / 조회일}} | {{URL / 절·페이지·문단 등 공개 원문 위치}} | {{원문·초록·입력 요약 등 / 공급사 발표·독립 연구 등}} | {{해당 주장을 뒷받침하는 원문 발췌}} |
+
+## 평가 참고자료
+
+| 자료 ID | 제목·URL | 자료 상태·활용 한계 | 위치·짧은 발췌 |
+| --- | --- | --- | --- |
+| {{참고자료 ID}} | {{제목 / URL}} | {{원문 참고·기술 입력·검색 발췌·판정 제외 / 사유}} | {{위치 / 짧은 발췌}} |
+
+모든 항목에 평가와 적용 조건을 작성합니다. 잠정평가·기술 시나리오는 verdict=provisional이며 검증 사실과 구별합니다. 문서 상단에 12행 작성 수, 평가 방식별 개수, 실제 처리 상태를 표시합니다.

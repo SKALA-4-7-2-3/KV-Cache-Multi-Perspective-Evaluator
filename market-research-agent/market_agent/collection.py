@@ -18,10 +18,13 @@ def collect_sources(state, data, web, budget, questions, relevant_candidate):
     # 작은 할당량에서도 가능한 범위로 보완분을 남긴다.
     if round_number == 0 and budget.limits['extract'] < 10:
         cap = max(1, (budget.limits['extract'] * 3) // 5) if budget.limits['extract'] else 0
-    for q in questions[:(2 if round_number==0 else 4)]:
+    level=state.get('research_level',round_number)
+    if level == 1:
+        cap=min(cap, max(6, (budget.limits['extract']*3)//5))
+    for q in questions[:(2 if level==0 else 6)]:
         if not budget.remaining('search') or fatal:
             break
-        log = dict(id=f'SEARCH-{len(queries)+1}', **q.model_dump(), round=round_number, candidates=[])
+        log = dict(id=f'SEARCH-{len(queries)+1}', **q.model_dump(), round=round_number, research_level=level, candidates=[])
         queries.append(log)
         try:
             candidates = budget.call('search', lambda: web.search(q.query, data.as_of))
