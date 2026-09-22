@@ -1,0 +1,451 @@
+{
+  "$defs": {
+    "DomainInput": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "scenario": {
+          "default": "미지정",
+          "title": "Scenario",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "DomainInput",
+      "type": "object"
+    },
+    "PaperAnalysisInput": {
+      "additionalProperties": true,
+      "properties": {
+        "schema_version": {
+          "const": "1.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "paper": {
+          "$ref": "#/$defs/PaperMetadataInput"
+        },
+        "analysis": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Analysis",
+          "type": "object"
+        },
+        "evidence_registry": {
+          "items": {
+            "$ref": "#/$defs/PaperEvidenceInput"
+          },
+          "title": "Evidence Registry",
+          "type": "array"
+        },
+        "quality": {
+          "additionalProperties": true,
+          "title": "Quality",
+          "type": "object"
+        },
+        "run": {
+          "additionalProperties": true,
+          "title": "Run",
+          "type": "object"
+        },
+        "diagnostics": {
+          "items": {},
+          "title": "Diagnostics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "status",
+        "paper",
+        "analysis",
+        "evidence_registry"
+      ],
+      "title": "PaperAnalysisInput",
+      "type": "object"
+    },
+    "PaperEvidenceInput": {
+      "additionalProperties": true,
+      "properties": {
+        "evidence_id": {
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "document_id": {
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "snippet": {
+          "minLength": 1,
+          "title": "Snippet",
+          "type": "string"
+        },
+        "chunk_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunk Id"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "content_kind": {
+          "default": "text",
+          "title": "Content Kind",
+          "type": "string"
+        },
+        "source_kind": {
+          "const": "paper",
+          "default": "paper",
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "document_id",
+        "snippet"
+      ],
+      "title": "PaperEvidenceInput",
+      "type": "object"
+    },
+    "PaperMetadataInput": {
+      "additionalProperties": true,
+      "properties": {
+        "paper_id": {
+          "minLength": 1,
+          "title": "Paper Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "arxiv_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arxiv Id"
+        },
+        "authors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Authors",
+          "type": "array"
+        },
+        "page_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Count"
+        },
+        "source_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Hash"
+        },
+        "source_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Path"
+        },
+        "abstract": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abstract"
+        }
+      },
+      "required": [
+        "paper_id",
+        "title"
+      ],
+      "title": "PaperMetadataInput",
+      "type": "object"
+    },
+    "RequestInput": {
+      "additionalProperties": true,
+      "properties": {
+        "original_request": {
+          "title": "Original Request",
+          "type": "string"
+        },
+        "domains": {
+          "items": {
+            "$ref": "#/$defs/DomainInput"
+          },
+          "minItems": 1,
+          "title": "Domains",
+          "type": "array"
+        },
+        "objective": {
+          "default": "이해관계자 관점의 편익, 부담 및 도입 조건 평가",
+          "title": "Objective",
+          "type": "string"
+        },
+        "requirements": {
+          "default": null,
+          "title": "Requirements"
+        },
+        "additional_context": {
+          "default": "",
+          "title": "Additional Context"
+        }
+      },
+      "required": [
+        "original_request",
+        "domains"
+      ],
+      "title": "RequestInput",
+      "type": "object"
+    },
+    "RunConfigInput": {
+      "additionalProperties": true,
+      "properties": {
+        "as_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As Of"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "model_timeout": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Timeout"
+        },
+        "tool_timeout": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Timeout"
+        },
+        "repair_limit": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Limit"
+        }
+      },
+      "title": "RunConfigInput",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Id"
+    },
+    "role": {
+      "const": "stakeholders",
+      "default": "stakeholders",
+      "title": "Role",
+      "type": "string"
+    },
+    "paper_analyses": {
+      "items": {
+        "$ref": "#/$defs/PaperAnalysisInput"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Paper Analyses",
+      "type": "array"
+    },
+    "request": {
+      "$ref": "#/$defs/RequestInput"
+    },
+    "config": {
+      "$ref": "#/$defs/RunConfigInput"
+    },
+    "round": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Round",
+      "type": "integer"
+    },
+    "budget": {
+      "additionalProperties": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "propertyNames": {
+        "enum": [
+          "llm",
+          "search",
+          "fetch"
+        ]
+      },
+      "title": "Budget",
+      "type": "object"
+    },
+    "usage": {
+      "additionalProperties": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "propertyNames": {
+        "enum": [
+          "llm",
+          "search",
+          "fetch"
+        ]
+      },
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "required": [
+    "paper_analyses",
+    "request"
+  ],
+  "title": "StakeholderInput",
+  "type": "object"
+}
