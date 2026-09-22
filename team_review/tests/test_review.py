@@ -109,13 +109,16 @@ class ReviewTests(unittest.TestCase):
         output = review_node(state)
         self.assertNotIn("DUMMY-SW-01-p1", output["synthesis"]["used_evidence_ids"])
 
-    def test_missing_metric_context_is_not_reported_as_verified(self):
+    def test_missing_metric_context_preserves_value_but_disallows_comparison(self):
         state = make_input()
         state["assessments"]["technical"]["results"]["SW-01"]["items"][1]["metrics"][0]["baseline"] = None
         output = review_node(state)
         item = output["synthesis"]["comparison_matrix"][0]["SW-01"]["items"][1]
-        self.assertEqual(item["metrics"], [])
-        self.assertEqual(item["judgment"], "unknown")
+        self.assertEqual(item["metrics"][0]["value"], 2.0)
+        self.assertIsNone(item["metrics"][0]["baseline"])
+        self.assertEqual(item["judgment"], "conditional")
+        self.assertIn("baseline 미확인", item["gaps"][0])
+        self.assertFalse(output["synthesis"]["metric_comparisons"][0]["conditions_match"])
 
     def test_missing_cell_is_explicit_and_schema_errors_do_not_leak_values(self):
         state = make_input()

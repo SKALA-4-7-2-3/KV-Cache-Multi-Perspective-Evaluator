@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from .rubric import COMMON_CRITERIA, CRITERIA, NOTICE, ROLES, TECHNOLOGIES, TRL, VERSION
 from .schema import Assessment, Config, Document, Evidence, Issue, Review, RoleResult, Synthesis
+from .contract import is_missing
 
 
 def _unknown(criterion: str, reason: str) -> dict:
@@ -18,7 +19,7 @@ def _unknown(criterion: str, reason: str) -> dict:
 def _metric_comparison(left: dict, right: dict) -> dict:
     keys = ("name", "unit", "model", "hardware", "baseline", "context_tokens", "concurrency", "workload", "method")
     different = [k for k in keys if left[k] != right[k]]
-    missing = [k for k in keys if left[k] in (None, "unspecified") or right[k] in (None, "unspecified")]
+    missing = [k for k in keys if is_missing(left[k]) or is_missing(right[k])]
     return {
         "sw": left, "hw": right,
         "conditions_match": not different and not missing,
@@ -105,7 +106,6 @@ def review_node(state: dict) -> dict:
                     and (doc.kind != "paper" or item.page is not None)
                     and (item.page is None or item.page <= doc.pages)
                     and (doc.kind == "paper" or doc.source_type is not None)
-                    and (doc.kind == "paper" or item.independence != "unknown")
                 )
                 if valid:
                     evidence[eid] = item
@@ -206,18 +206,25 @@ def review_node(state: dict) -> dict:
                     problems.append("판정의 적용 조건이 필요하다.")
                 if known and item.basis == "unknown":
                     problems.append("확정 평가에는 사실·추론 구분이 필요하다.")
+                if known and item.basis == "opinion" and not item.attributed_to:
+                    problems.append("실제 의견(opinion)은 발언 주체와 원문 근거가 필요하다.")
                 if item.judgment in ("met", "favorable", "unfavorable") and cid not in config.requirements:
                     problems.append("목표 요구값이 없으므로 충족(met)을 판정할 수 없다.")
                 if item.judgment in ("met", "favorable", "unfavorable") and (item.analysis_scope != "selected_domain" or item.domain_relevance != "direct"):
                     problems.append("선택 도메인의 직접 관련성 없이 favorable/unfavorable을 판정할 수 없다.")
                 if any(not refs_valid(m.evidence_ids, tech) for m in item.metrics):
                     problems.append("정량 수치에 유효한 출처가 필요하다.")
+                metric_gaps = []
                 for metric in item.metrics:
-                    if any(getattr(metric, key) in (None, "unspecified") for key in (
+                    experiments = {"gpu_experiment", "hardware_measurement", "emulation", "simulation"}
+                    source_methods = {evidence[eid].method for eid in metric.evidence_ids if eid in evidence} & experiments
+                    if metric.method in experiments and source_methods and metric.method not in source_methods:
+                        problems.append("정량 지표와 Evidence의 검증 방식이 충돌한다. 실측·GPU 실험·에뮬레이션·시뮬레이션을 확인한다.")
+                    missing = [key for key in (
                         "model", "hardware", "baseline", "context_tokens", "concurrency", "workload", "method"
-                    )):
-                        problems.append("성능 수치의 모델·장비·기준선·문맥·동시성·워크로드·측정 방식이 필요하다.")
-                        break
+                    ) if is_missing(getattr(metric, key))]
+                    if missing:
+                        metric_gaps.append(f"{metric.name}: {', '.join(missing)} 미확인. 값은 원문 보고로 보존하되 직접 비교·요구 충족 판정에는 쓰지 않는다.")
                 for problem in problems:
                     flag("invalid_assessment", problem, role, tech, cid, True)
                 for query in item.need_more:
@@ -226,11 +233,17 @@ def review_node(state: dict) -> dict:
                     items.append(_unknown(cid, " / ".join(dict.fromkeys(problems))))
                     continue
                 clean = item.model_dump(mode="json")
+                clean["evidence_ids"] = list(dict.fromkeys(item.evidence_ids + [eid for m in item.metrics for eid in m.evidence_ids]))
+                clean["gaps"] = list(dict.fromkeys(item.gaps + metric_gaps))
+                if metric_gaps and item.judgment in ("met", "favorable", "unfavorable"):
+                    clean.update(judgment="unknown", conclusion="실험 조건 부족으로 요구 충족 판단 보류", basis="unknown", confidence="unavailable")
                 if item.judgment in ("unknown", "failed"):
                     # 유효 출처가 있어도 판단 불가로 표시된 내용은 확정 결론으로 재사용하지 않는다.
                     clean["conclusion"] = "판단 보류"
-                    clean["gaps"] = item.gaps or ["판정에 필요한 자료 부족"]
-                    clean["metrics"] = []
+                    clean["gaps"] = clean["gaps"] or ["판정에 필요한 자료 부족"]
+                    # 유효한 수치는 평가 결론과 분리해 원문 보고값으로 보존한다.
+                    if item.judgment == "failed":
+                        clean["metrics"] = []
                     clean["basis"] = "unknown"
                     clean["confidence"] = "unavailable"
                 items.append(clean)
@@ -317,7 +330,8 @@ def review_node(state: dict) -> dict:
         trl=trl_results, used_evidence_ids=sorted(used_ids), references=references,
         summary=summaries,
         disclaimer=NOTICE + " 형식·인용 검사는 주장의 진실성을 보증하지 않으며 핵심 결론은 사람이 원문과 대조한다.",
-        demo=config.demo,
+        demo=(config.demo or (isinstance(raw_evidence, dict) and any(isinstance(e, dict) and e.get("synthetic") is True for e in raw_evidence.values()))
+              or (isinstance(state.get("assessments"), dict) and any(isinstance(r, dict) and r.get("demo") is True for r in state["assessments"].values()))),
     )
     return {"review": review.model_dump(mode="json"), "synthesis": synthesis.model_dump(mode="json")}
 

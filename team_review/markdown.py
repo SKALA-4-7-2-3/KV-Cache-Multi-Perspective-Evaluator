@@ -6,7 +6,8 @@ from datetime import date, datetime
 
 import yaml
 
-from .contract import REQUIREMENTS, SECTIONS, VERSION, config_of, report_decision
+from .contract import (REQUIREMENTS, SECTIONS, VERSION, config_of, report_decision,
+                       domain_requirement, evidence_independence, evidence_method, is_missing)
 from .input_markdown import UniqueSafeLoader, render_input_markdown
 from .rubric import CRITERIA, TECHNOLOGIES
 from .schema import Evidence, Review, Synthesis
@@ -44,6 +45,23 @@ def listing(lines, label, values, *, empty="없음"):
 
 def cited(ids):
     return [f"[{eid}]" for eid in ids]
+
+
+def metric_lines(metric, index, evidence):
+    lines = [f"##### 정량 근거 {index}", "", "- 해석 범위: 원문 보고값. 요구 충족·독립 재현을 뜻하지 않는다."]
+    fields = {"name": "지표", "value": "값", "unit": "단위", "baseline": "비교 기준",
+              "model": "모델", "hardware": "하드웨어", "context_tokens": "문맥 길이",
+              "concurrency": "동시성", "workload": "워크로드"}
+    for key, label in fields.items():
+        value = metric.get(key)
+        lines.append(f"- {label}: {text(value if value is not None else 'unknown')}")
+    lines += [f"- 검증 방식: {evidence_method(metric['method'])}",
+              f"- 입력 검증 방식: {metric['method']}"]
+    listing(lines, "Evidence ID", cited(metric["evidence_ids"]))
+    listing(lines, "독립성", [f"{eid}: {evidence_independence(evidence[eid].get('independence'))}"
+                            for eid in metric["evidence_ids"]])
+    lines.append("")
+    return lines
 
 
 def summary_materials(syn, tech):
@@ -169,14 +187,18 @@ def render_review_markdown(state, result):
                           f"- 판정: {judgment}", f"- 사실·추론: {basis}",
                           f"- 분석 범위: {value['analysis_scope']}", f"- 선택 도메인과의 관련성: {value['domain_relevance']}",
                           f"- 평가: {text(value['conclusion'])}"]
+                lines += [f"- 해당 기술과의 관련성: {value.get('technology_relevance', 'unknown')}"]
+                if role == "stakeholders" or value["basis"] == "opinion":
+                    lines += [f"- 이해관계자 집단: {text(value.get('stakeholder_group') or 'unknown')}",
+                              f"- 발언 주체: {text(value.get('attributed_to') or 'unknown')}"]
                 listing(lines, "적용 조건", value["conditions"])
                 listing(lines, "Evidence ID", cited(value["evidence_ids"]))
                 lines.append(f"- 근거 신뢰도: {value['confidence'] if judgment not in ('unknown', 'failed') else 'unavailable'}")
                 listing(lines, "반대 또는 제한 근거", value["counter_evidence"])
                 listing(lines, "미확인 사항", value["gaps"])
                 lines.append(f"- 추가 조사 필요: {str(bool(value['need_more'] or value['gaps'] or judgment in ('unknown', 'failed'))).lower()}")
-                for metric in value["metrics"]:
-                    lines.append("- 정량 지표와 조건: " + "; ".join(f"{text(k)}={text(v)}" for k, v in metric.items()))
+                for metric_index, metric in enumerate(value["metrics"], 1):
+                    lines += metric_lines(metric, metric_index, state["evidence"])
                 lines.append("")
     section(5)
     lines += ["기술 조사 Agent가 단계별 근거를 제공하고, 검증·종합 Agent가 출처와 단계의 연속성을 검사해 최종 추정 TRL을 정한다.",
@@ -253,15 +275,16 @@ def render_review_markdown(state, result):
                 listing(lines, "추가되는 위험", opinion["risks"])
             lines.append("")
     lines += ["### 직접 비교하면 안 되는 결과", ""]
-    for pair in syn["metric_comparisons"]:
+    noncomparable = [p for p in syn["metric_comparisons"] if not p["conditions_match"]]
+    for pair in noncomparable:
         for key, name in [("sw", "RDKV"), ("hw", "Photonic-CXL")]:
             metric = pair[key]
             lines.append(f"- {name} 지표: {text(metric['name'])}={metric['value']} {text(metric['unit'])}; 기준={text(metric['baseline'])}; 방식={metric['method']}")
         lines.append(f"- 직접 비교 불가 사유: {text(pair['interpretation'])}")
         listing(lines, "상이하거나 누락된 조건", pair["different_fields"] + pair["missing_fields"])
         listing(lines, "Evidence ID", cited(sorted(set(pair["sw"]["evidence_ids"] + pair["hw"]["evidence_ids"]))))
-    if not syn["metric_comparisons"]:
-        lines.append("구조화된 정량 비교 입력 없음. 배수 우열을 새로 만들지 않는다.")
+    if not noncomparable:
+        lines.append("자동 검사에서 직접 비교 불가로 분류한 쌍 없음. 비교 입력 부재일 수도 있으며, 동등한 실험이나 배수 우열을 보증하지 않는다.")
     lines.append("")
     section(7)
     lines += ["### 보고서 용도와 제출 전 보완", ""]
@@ -288,9 +311,11 @@ def render_review_markdown(state, result):
               "- 미확인 사항 유지 여부: pass (unknown/TBD 유지)", ""]
     section(8)
     for key, label in REQUIREMENTS.items():
-        lines.append(f"- {label}: {text((cfg.get('domain_requirements') or {}).get(key) or 'TBD')}")
+        lines.append(f"- {label}: {text(domain_requirement(cfg, key))}")
     lines += ["", "사용자 미제공 수치를 임의로 생성하지 않았다.", ""]
     section(9)
+    lines += ["verified는 수집 모듈의 원문·인용 위치 연결 확인이다. 주장의 독립 재현 또는 실측 완료를 뜻하지 않는다.",
+              "독립성·검증 방식이 미제공이면 unknown이다. 기존 vendor는 author, third_party는 independent로 표기하며 입력값도 남긴다.", ""]
     attribution = cfg.get("source_attribution") or {}
     for doc in syn["references"]:
         author = (attribution.get(doc["doc_id"]) or {}).get("authors") or "저자 정보 미제공"
@@ -302,11 +327,12 @@ def render_review_markdown(state, result):
             lines += [f"### [{eid}]", "", f"- 연결 Reference ID: {doc['doc_id']}", f"- 문서 ID: {doc['doc_id']}",
                       f"- 문서명: {text(doc['title'])}", f"- 출처 유형: {references[doc['doc_id']]['source_type']}",
                       f"- 저자 또는 기관: {text(author)}", f"- 발행일: {text(doc.get('published_at') or '미확인')}", f"- URL: {doc['url']}",
-                      f"- 위치: PDF/보존본 p.{source.page}; {text(source.location or '위치 미제공')}",
-                      f"- 검증 방식: { {'documentation': 'analysis', 'prototype_test': 'measurement', 'qualification': 'measurement', 'operational': 'measurement', 'unspecified': 'analysis'}.get(source.method, source.method) }",
-                      f"- 독립성: {source.independence if source.independence != 'unknown' else 'author'}",
+                      f"- 위치: {('PDF/보존본 p.' + str(source.page) + '; ') if source.page is not None else ''}{text(source.location or '절·표·그림 미제공')}",
+                      f"- 검증 방식: {evidence_method(source.method)}", f"- 입력 검증 방식: {source.method}",
+                      f"- 독립성: {evidence_independence(source.independence)}", f"- 입력 독립성: {source.independence}",
+                      f"- 해당 기술과의 관련성: {source.technology_relevance}",
                       f"- 발췌: {text(source.excerpt)}"]
-            listing(lines, "적용 조건", source.conditions or ["연결된 평가 블록의 적용 조건 참조"])
+            listing(lines, "적용 조건", source.conditions, empty="unknown; 평가자의 조건과 원문 실험 조건을 혼동하지 않는다")
             lines += [f"- 수집 시각: {text(source.collected_at)}", "- 검증 상태: verified", f"- 합성 발췌: {str(source.synthetic).lower()}", ""]
     section(10)
     lines += ["검증 결과에서 사용된 후보다. 최종 보고서는 본문에서 실제 인용한 Reference만 남긴다.", ""]
@@ -318,7 +344,7 @@ def render_review_markdown(state, result):
         if meta.get("license"):
             lines.append(f"- 원문 라이선스: {meta['license']}")
         lines.append("")
-    if attribution:
+    if syn["demo"] and attribution:
         lines += ["", "논문 기반 실험의 한국어 해석·발췌 편집 데이터: CC BY-SA 4.0. 저자의 승인을 뜻하지 않는다."]
     lines.append("")
     section(11)
@@ -332,11 +358,11 @@ def render_review_markdown(state, result):
               f"- explanation: {decision['review_status']} / {decision['report_generation']}", ""]
     checks = {
         "schema_validation": ("pass", "12개 제목과 필수 필드·enum을 생성 후 검사한다."),
-        "domain_validation": ("pass" if domain.get("id") and domain.get("name") else "fail", "도메인 존재 검사. 원문과 의미 일치는 사람 확인."),
+        "domain_validation": ("pass" if domain.get("id") and domain.get("name") else "fail", "선택 도메인 id/name과 목표값을 검사. 미입력 목표는 TBD, 입력 0·범위·시나리오는 보존."),
         "assessment_coverage_validation": ("pass" if rev["input_cells"] == 8 else "warn", "8칸/46항목 출력; 실패 칸은 failed로 표시."),
         "rubric_validation": ("warn", "공통 판정 enum과 요구값을 검사함. 사유와 판정의 의미 일치는 사람 확인."),
         "evidence_integrity_validation": ("pass", "출력 인용은 근거 인덱스와 연결됨. 잘못된 입력은 공백으로 표시."),
-        "fact_inference_validation": ("warn", "상위 enum 보존. 종합 문장의 사실·추론 변형은 자동 의미 검사; 외부 진실성은 보증하지 않음."),
+        "fact_inference_validation": ("warn", "fact/inference/opinion/unknown 및 기존 mixed를 구분. opinion 발언 주체·인용 검사, 새 종합 의견은 inference. 외부 진실성은 보증하지 않음."),
         "comparability_validation": ("warn", "구조화 수치 조건 비교. 생성된 종합 문장의 지표 확대 해석은 자동 의미 검사."),
         "neutrality_validation": ("warn", "순위/추천 금지. 종합 문장의 확정·조건 표현은 자동 의미 검사."),
         "reference_validation": ("pass", "출력 Evidence의 Reference 연결 검사 완료."),
@@ -345,12 +371,56 @@ def render_review_markdown(state, result):
         "synthesis_coverage_validation": ("pass" if integrated.get("status") == "completed" else "warn", "일치·상충·조건 비교·병행의 기술별 의견 또는 보류 사유를 검사. 근거 부족과 모델 누락을 구분."),
         "semantic_grounding_validation": ("pass" if decision["semantic_validation_status"] == "passed" else "fail", "모든 종합 의견을 연결 평가·근거와 의미 대조. 반려 시 한 번 수정 후 재검사, 미통과 시 후단 차단."),
     }
+    all_items = {f"{r['perspective']}/{t}/{i['criterion_id']}": i
+                 for r in syn["comparison_matrix"] for t in TECHNOLOGIES for i in r[t]["items"]}
+    missing_requirements = [k for k in REQUIREMENTS if is_missing(domain_requirement(cfg, k))]
+    sources = {eid: state["evidence"][eid] for eid in syn["used_evidence_ids"]}
+    incomplete_metrics = [f"{aid}/metric/{n}: {','.join(missing)}"
+                          for aid, i in all_items.items() for n, m in enumerate(i["metrics"], 1)
+                          if (missing := [k for k in ("baseline", "model", "hardware", "context_tokens", "concurrency", "workload", "method") if is_missing(m.get(k))])]
+    unknown_independence = [eid for eid, e in sources.items() if evidence_independence(e.get("independence")) == "unknown"]
+    unknown_methods = [eid for eid, e in sources.items() if evidence_method(e.get("method")) == "unknown"]
+    unstructured_numbers = [aid for aid, i in all_items.items() if not i["metrics"] and
+                            re.search(r"\d+(?:\.\d+)?\s*(?:%|배|TB|GB|ms|tokens?/s)(?=$|[^A-Za-z])", i["conclusion"], re.I)]
+    checks.update({
+        "domain_requirements_validation": ("warn" if missing_requirements else "pass", "11개 목표 필드의 입력 보존 검사. unknown/TBD를 실험 수치로 대체하지 않음."),
+        "quantitative_context_validation": ("warn" if incomplete_metrics or unstructured_numbers else "pass", "구조화된 값·단위·조건·Evidence 검사. 조건 미확인은 보존하고 비교 제외. 자유 문장 수치는 완전 추출을 보증하지 않으며 아래 대상은 추가 구조화 필요."),
+        "independence_validation": ("warn" if unknown_independence else "pass", "author/independent/unknown 구분. verified를 독립 재현으로 해석하지 않음."),
+        "verification_method_validation": ("warn" if unknown_methods else "pass", "GPU 실험·HW 실측·에뮬레이션·시뮬레이션·분석·발언 구분. 옛 표기/미입력의 새 분류를 추측하지 않음."),
+        "technology_relevance_validation": ("warn", "인접 시장·비교 기술을 선택 기술의 직접 채택·지원·당사자 반응으로 승격하지 않음. 직접/간접 미입력은 unknown."),
+        "input_provenance_validation": ("warn" if syn["demo"] else "pass", "demo는 입력 선언과 모의 근거/역할 플래그를 확인. 생성 모델의 실제 호출만으로 demo:false가 되지 않음. 미표시 모의 데이터까지 자동 판별할 수는 없음."),
+    })
+    affected = {
+        "schema_validation": [f"1~12절; {len(all_items)}개 평가 블록"],
+        "domain_validation": [domain.get("id", "unknown")],
+        "assessment_coverage_validation": [f"{rev['input_cells']}/8 입력 칸; 46개 출력 항목"],
+        "rubric_validation": [a for a, i in all_items.items() if i["gaps"]],
+        "evidence_integrity_validation": list(sources),
+        "fact_inference_validation": [f"{a}: {i['basis']}" for a, i in all_items.items() if i["basis"] != "fact"],
+        "comparability_validation": [f"{p['role']}: {','.join(p['different_fields'] + p['missing_fields'])}" for p in noncomparable],
+        "neutrality_validation": [f"opinion_{n}" for n, _ in enumerate(integrated.get("opinions", []), 1)],
+        "reference_validation": list(references),
+        "status_consistency_validation": ["review_status, report_generation, next, unknown_count, failed_count"],
+        "summary_aggregation_validation": ["2·3절 요약 재료, 6절 의견의 위험·제약"],
+        "synthesis_coverage_validation": list(groups.values()),
+        "semantic_grounding_validation": [decision["semantic_validation_status"]],
+        "domain_requirements_validation": missing_requirements,
+        "quantitative_context_validation": incomplete_metrics + unstructured_numbers,
+        "independence_validation": unknown_independence,
+        "verification_method_validation": unknown_methods,
+        "technology_relevance_validation": [a for a, i in all_items.items() if i.get("technology_relevance", "unknown") != "direct"],
+        "input_provenance_validation": [f"demo={str(syn['demo']).lower()}; config.demo 및 상위 역할.demo, evidence.synthetic"],
+    }
     for name, (status, explanation) in checks.items():
-        lines += [f"### {name}", "", f"- result: {status}", f"- explanation: {explanation}", "- affected_items: 전체 해당 항목", ""]
+        lines += [f"### {name}", "", f"- result: {status}", f"- explanation: {explanation}"]
+        listing(lines, "affected_items", affected[name], empty="해당 미확인 항목 없음")
+        lines.append("")
+    lines += ["### 사람 검수의 범위", "", "실행 중 승인·수정 대기는 없다. 종합 내용은 자동 의미 검사와 최대 1회 수정으로 처리한다.",
+              "최종 제출자는 원문 맥락·상위 입력의 실제 실행 여부·선택 도메인의 요구값을 확인한다. 이는 자동 검사의 무오류를 보증할 수 없기 때문이며 unknown을 임의로 채우라는 뜻이 아니다.", ""]
     lines += ["### output_completeness_validation", "", "- result: pass", "- unresolved_placeholder_count: 0",
               "- duplicate_id_count: 0", "- invalid_citation_key_count: 0",
               "- explanation: 아래 수치는 출력 완결성 검사 통과 시에만 저장된다.", "- affected_items: 없음", ""]
-    markdown = "\n".join(lines) + "\n"
+    markdown = "\n".join(lines).rstrip() + "\n"
     read_report_input(markdown, require_allowed=False)
     return markdown
 
@@ -366,9 +436,16 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     required_header = {"rubric_version", "reference_schema_version", "content_language", "run_id", "generated_at",
                        "evaluation_as_of", "human_review_required", "sw_technology_id", "hw_technology_id",
                        "valid_perspective_cells", "valid_criterion_blocks", "unknown_count", "failed_count",
-                       "evidence_count", "reference_candidate_count"}
+                       "evidence_count", "reference_candidate_count", "review_status", "report_generation",
+                       "demo", "next", "synthesis_status"}
     if not required_header.issubset(header) or header["reference_schema_version"] != "reference-v1" or header["human_review_required"] is not True:
         raise ValueError("필수 헤더가 없거나 버전이 잘못되었습니다.")
+    if any(isinstance(v, (dict, list, set)) for v in header.values()):
+        raise ValueError("frontmatter는 중첩 없는 flat YAML이어야 합니다.")
+    if type(header["demo"]) is not bool or header["next"] not in {"repair", "render"} or header["synthesis_status"] not in {"not_run", "skipped", "completed", "partial", "failed"}:
+        raise ValueError("demo/next/synthesis_status 형식이 잘못되었습니다.")
+    if any(type(header[k]) is not int or header[k] < 0 for k in ("unknown_count", "failed_count", "evidence_count", "reference_candidate_count")):
+        raise ValueError("집계는 0 이상의 정수여야 합니다.")
     if header["rubric_version"] != "kv-cache-rubric-v1" or header["content_language"] != "ko" or header["sw_technology_id"] != "SW-01" or header["hw_technology_id"] != "HW-01":
         raise ValueError("Rubric/언어/기술 식별자가 계약과 다릅니다.")
     datetime.fromisoformat(header["generated_at"])
@@ -381,13 +458,16 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     for n, title in enumerate(SECTIONS, 1):
         if body.count(f"## {n}. {title}\n") != 1:
             raise ValueError("필수 섹션이 없거나 중복되었습니다.")
+    positions = [body.index(f"## {n}. {title}\n") for n, title in enumerate(SECTIONS, 1)]
+    if positions != sorted(positions):
+        raise ValueError("1~12번 섹션 순서를 유지해야 합니다.")
     blocks = re.findall(r"^#### \[(technical|market|stakeholders|domain)\]\[(SW-01|HW-01)\]\[([^\]]+)\]$", body, re.M)
     required = {(r, t, c) for r in CRITERIA for t in TECHNOLOGIES for c in CRITERIA[r]}
     if len(blocks) != len(required) or set(blocks) != required:
         raise ValueError("8칸의 필수 평가 블록이 없거나 중복되었습니다.")
     section4 = body.split("## 4. 관점별 평가\n", 1)[1].split("## 5. TRL 판정 결과\n", 1)[0]
     enums = {"판정": {"favorable", "conditional", "unfavorable", "unknown", "failed", "not_applicable"},
-             "사실·추론": {"fact", "inference", "mixed", "unknown"}, "분석 범위": {"selected_domain", "global", "mixed"},
+             "사실·추론": {"fact", "inference", "opinion", "mixed", "unknown"}, "분석 범위": {"selected_domain", "global", "mixed"},
              "선택 도메인과의 관련성": {"direct", "indirect", "unclear"}, "근거 신뢰도": {"high", "medium", "low", "unavailable"},
              "추가 조사 필요": {"true", "false"}}
     judgments = []
@@ -414,7 +494,7 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     keys = re.findall(r"^- citation_key: (.*)$", reference_section, re.M)
     if len(set(eids + rids)) != len(eids + rids) or len(set(keys)) != len(keys):
         raise ValueError("Evidence/Reference ID 또는 citation_key가 중복됩니다.")
-    if len(keys) != len(rids) or any(not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", k) for k in keys):
+    if len(keys) != len(rids) or any(not re.fullmatch(r"[A-Za-z0-9_]+", k) for k in keys):
         raise ValueError("citation_key 형식이 잘못되었습니다.")
     if header["evidence_count"] != len(eids) or header["reference_candidate_count"] != len(rids):
         raise ValueError("근거/참고문헌 집계가 다릅니다.")
@@ -432,6 +512,25 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     links = re.findall(r"^- 연결 Reference ID: (.*)$", evidence_section, re.M)
     if len(links) != len(eids) or not set(links).issubset(rids):
         raise ValueError("Evidence와 Reference 연결이 깨졌습니다.")
+    if set(links) != set(rids):
+        raise ValueError("Evidence에 연결되지 않은 Reference 후보가 있습니다.")
+    for block in re.split(r"^### \[", evidence_section, flags=re.M)[1:]:
+        for label in ("문서명", "저자 또는 기관", "발행일", "URL", "위치", "검증 방식", "독립성", "발췌", "적용 조건", "검증 상태"):
+            if not re.search(r"^- " + re.escape(label) + r": \S", block, re.M):
+                raise ValueError("Evidence 추적 필드가 비었습니다.")
+        independence = re.search(r"^- 독립성: (.*)$", block, re.M)[1]
+        method = re.search(r"^- 검증 방식: (.*)$", block, re.M)[1]
+        if independence not in {"author", "independent", "unknown"} or method not in {"gpu_experiment", "hardware_measurement", "emulation", "simulation", "analysis", "statement", "unknown"}:
+            raise ValueError("Evidence 독립성·검증 방식이 잘못되었습니다.")
+        if header["demo"] is False and "- 합성 발췌: true" in block:
+            raise ValueError("모의 근거를 demo:false로 전달할 수 없습니다.")
+    for metric in re.split(r"^##### 정량 근거 \d+\n", section4, flags=re.M)[1:]:
+        metric = re.split(r"^####", metric, maxsplit=1, flags=re.M)[0]
+        for label in ("지표", "값", "단위", "비교 기준", "모델", "하드웨어", "문맥 길이", "동시성", "워크로드", "검증 방식", "Evidence ID", "독립성"):
+            if not re.search(r"^- " + re.escape(label) + r": \S", metric, re.M):
+                raise ValueError("정량 근거의 조건 필드가 비었습니다. 미확인은 unknown으로 표시하세요.")
+        if not re.findall(r"\[[^\]]+\]", re.search(r"^- Evidence ID: (.*)$", metric, re.M)[1]):
+            raise ValueError("정량 근거에 Evidence ID가 없습니다.")
     known = set(eids)
     for line in re.findall(r"^- (?:주요 )?Evidence ID: (.*)$", body, re.M):
         if not set(re.findall(r"\[([^\]]+)\]", line)).issubset(known):
@@ -455,10 +554,10 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
         raise ValueError("워크플로 재평가 대기: 최신 결과를 받은 뒤 보고서를 생성하세요.")
     if header.get("demo") is True and "모의 Agent 입력을 포함" not in body:
         raise ValueError("모의 입력의 용도·한계 표시가 누락되었습니다.")
-    if for_submission and (header.get("demo") is not False or header["report_generation"] != "allowed"
+    if for_submission and (header.get("demo") is not False or header["report_generation"] not in {"allowed", "allowed_with_gaps"}
                            or header.get("semantic_validation_status") != "passed"
                            or header.get("next") == "repair" or header.get("synthesis_status") != "completed"):
-        raise ValueError("최종 제출 자동 통과 불가: 모의 입력·자료 공백·미완료를 보완하고 사람이 확인해야 합니다.")
+        raise ValueError("최종 실행 입력 아님: 모의 입력·차단·보완 대기·종합 미완료 여부를 확인하세요. unknown 자체는 차단 사유가 아닙니다.")
     return header, body
 
 
@@ -475,4 +574,6 @@ def review_agent_node(state, generator=None, auditor=None):
     from .synthesize import synthesize
     result = review_node(state)
     result["synthesis"]["integrated"] = synthesize(state, result, generator, auditor)
+    if generator is not None or auditor is not None:
+        result["synthesis"]["demo"] = True
     return {**result, "report_input_md": render_review_markdown(state, result)}

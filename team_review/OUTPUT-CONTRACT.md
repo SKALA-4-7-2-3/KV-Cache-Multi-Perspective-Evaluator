@@ -77,6 +77,9 @@ unknown_count: <정수>
 failed_count: <정수>
 evidence_count: <정수>
 reference_candidate_count: <정수>
+demo: <true | false>
+next: <repair | render>
+synthesis_status: <not_run | skipped | completed | partial | failed>
 ---
 
 # 상태 집계 규칙
@@ -212,7 +215,7 @@ reference_candidate_count: <정수>
 
 - criterion_id: <고정 criterion ID>
 - 판정: <favorable | conditional | unfavorable | unknown | failed | not_applicable>
-- 사실·추론: <fact | inference | mixed | unknown>
+- 사실·추론: <fact | inference | opinion | mixed | unknown>
 - 분석 범위: <selected_domain | global | mixed>
 - 선택 도메인과의 관련성: <direct | indirect | unclear>
 - 평가: <평가 결과>
@@ -222,6 +225,30 @@ reference_candidate_count: <정수>
 - 반대 또는 제한 근거: <내용 또는 없음>
 - 미확인 사항: <내용 또는 없음>
 - 추가 조사 필요: <true | false>
+
+평가에는 `해당 기술과의 관련성: direct | indirect | unknown`을 추가한다. 선택 도메인 관련성과 별개다.
+이해관계자 평가는 `이해관계자 집단`, `발언 주체`를 유지한다. `opinion`은 실제 발언자가 있는 의견이며 새 종합 해석은 `inference`다.
+시장 규모·제품·고객·프레임워크·라이선스·표준·비용 자료는 원문을 확보한 범위에서만 사용한다.
+인접 CXL 시장이나 비교 기준선을 선택 기술의 채택·공식 지원·경쟁사 반응으로 승격하지 않는다.
+
+수치가 있으면 해당 평가 블록 안에 아래 정량 블록을 반복한다. 빠진 조건은 unknown으로 남긴다.
+
+##### 정량 근거 1
+
+- 해석 범위: 원문 보고값. 요구 충족·독립 재현을 뜻하지 않는다.
+- 지표: <지표명>
+- 값: <원문 보고값>
+- 단위: <단위>
+- 비교 기준: <baseline 또는 unknown>
+- 모델: <모델 또는 unknown>
+- 하드웨어: <장비 또는 unknown>
+- 문맥 길이: <값·범위 또는 unknown>
+- 동시성: <값·범위 또는 unknown>
+- 워크로드: <조건 또는 unknown>
+- 검증 방식: <gpu_experiment | hardware_measurement | emulation | simulation | analysis | statement | unknown>
+- 입력 검증 방식: <상위 입력값>
+- Evidence ID: <[ID]>
+- 독립성: <각 Evidence ID: author | independent | unknown>
 
 ### 공통 판정 Rubric
 
@@ -458,7 +485,7 @@ RDKV와 Photonic-CXL 각각에 대해 위 criterion의 평가 블록을 모두 �
 ## 8. 도메인 요구조건
 
 - 목표 문맥 길이: <값 | TBD>
-- 예상 동시 사용자: <값 | TBD>
+- 예상 동시 사용자 또는 동시 요청 수: <값 | TBD>
 - TTFT 목표: <값 | TBD>
 - TPOT 목표: <값 | TBD>
 - 허용 가능한 품질 손실: <값 | TBD>
@@ -466,8 +493,10 @@ RDKV와 Photonic-CXL 각각에 대해 위 criterion의 평가 블록을 모두 �
 - 에너지 제약: <값 | TBD>
 - 비용 제약: <값 | TBD>
 - prefix cache 재사용률: <값 | TBD>
+- 배포 대상 GPU: <값 | TBD>
+- 입력 토큰 대비 출력 토큰 비율: <값 | TBD>
 
-사용자가 제공하지 않은 값은 임의로 생성하지 않고 `TBD`로 기록한다.
+사용자가 제공하지 않은 값은 임의로 생성하지 않고 `TBD`로 기록한다. 입력의 범위·낮음/중간/높음 시나리오·unknown·0은 그대로 보존한다.
 
 ## 9. 근거 인덱스
 
@@ -483,12 +512,18 @@ RDKV와 Photonic-CXL 각각에 대해 위 criterion의 평가 블록을 모두 �
 - 발행일: <날짜 또는 미확인>
 - URL: <원문 URL>
 - 위치: <PDF 페이지·절·표·웹 문단>
-- 검증 방식: <gpu_experiment | measurement | emulation | simulation | statement | analysis>
-- 독립성: <author | vendor | third_party>
+- 검증 방식: <gpu_experiment | hardware_measurement | emulation | simulation | statement | analysis | unknown>
+- 입력 검증 방식: <상위 입력값 그대로>
+- 독립성: <author | independent | unknown>
+- 입력 독립성: <상위 입력값 그대로; 기존 vendor/third_party 포함>
+- 해당 기술과의 관련성: <direct | indirect | unknown>
 - 발췌: <근거에 필요한 최소 발췌>
 - 적용 조건: <내용>
 - 수집 시각: <시각>
 - 검증 상태: <verified | partially_verified | unverified>
+
+verified는 원문·인용 위치 연결 확인이다. 독립 재현을 뜻하지 않는다. 미확인 독립성은 unknown으로 유지한다.
+확인되지 않은 Evidence는 확정 평가에 쓰지 않고 미확인 사항으로 남긴다.
 
 ## 10. REFERENCE CANDIDATES
 

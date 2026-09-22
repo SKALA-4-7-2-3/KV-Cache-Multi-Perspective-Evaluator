@@ -10,7 +10,7 @@ technical은 단계별 `trl_checks`와 출처를 제공한다. review가 유효�
 근거가 없으면 `null`/미확인으로 남긴다. 비용·독립 재현 자료 부족으로 확인된 하위 TRL을 취소하지 않는다.
 MD 5절에는 최종 TRL과 1~9단계의 판정·이유·Evidence ID를 전달한다. 이 판정은 규칙 처리이며 추가 LLM 호출이 없다.
 별도 검색·논문 재인덱싱·별도 Graph Agent는 추가하지 않는다. 의미 검사기는 이 모듈 내부의 제한된 모델 호출이다.
-상위 실제 Agent와 후단 실제 보고서 Agent 코드는 아직 제공받지 않아 그 코드들과의 전체 실행은 미검증이다.
+시장·도메인 브랜치의 파일은 확인했으나 네 상위 역할의 계약 입력이 모두 준비되지는 않았다. 후단 보고서 Agent까지의 전체 실행은 미검증이다.
 
 ## 설치와 실행
 
@@ -34,7 +34,7 @@ PDF 재대조는 --verify-sources에서만 실행하며 pypdf, pdftotext와 프�
 
 ## 앞 Agent 연결
 
-Graph 안에서는 dict를 전달한다. 파일 교환은 review-input-v1 Markdown의 단일 YAML 블록만 받는다.
+Graph 안에서는 dict를 전달한다. CLI 파일 입력은 동일 State 구조의 JSON 또는 review-input-v1 Markdown의 단일 YAML 블록이다.
 자유 형식 MD를 추측해서 변환하지 않는다. [실행 가능한 입력 예시](examples/paper.input.md)를 따른다.
 
 ```python
@@ -56,6 +56,12 @@ return {"assessments": {"market": RoleResult.model_validate(result).model_dump(m
 - 필수 항목 46개 및 TRL 기준: [DESIGN-6.md](DESIGN-6.md), rubric.py, schema.py.
 - 선택 도메인 밖의 자료는 analysis_scope=global/mixed 및 domain_relevance로 한계를 표시한다.
 - 입력 기본값 mixed/unclear/unavailable은 독립 검증이나 높은 신뢰도를 뜻하지 않는다.
+- 실제 실행은 `config.demo=false`를 명시한다. 생략·모의 근거·역할의 `demo=true`·테스트 생성기 사용은 최종 실행으로 표시하지 않는다.
+- `config.domain_requirements` 키: context_tokens, concurrency, ttft, tpot, quality, gpu_model, gpu_memory, energy, cost, prefix_cache_hit_rate, input_output_token_ratio. 입력한 0·범위·시나리오는 보존하고 미입력은 TBD.
+- `basis=opinion`은 `attributed_to`(발언 주체)와 Evidence가 필요하다. `stakeholder_group`에는 경쟁사/도입 운영자/개발자/공급사/투자·분석·미디어 등 입력의 실제 집단을 쓴다.
+- 평가와 Evidence의 `technology_relevance=direct/indirect/unknown`은 선택 기술과의 관련성이다. 인접 CXL 시장과 선택 논문의 직접 시장을 구분한다.
+- Evidence `independence=author/independent/unknown`; 기존 vendor/third_party 입력도 호환한다. `method=hardware_measurement`를 GPU 실험·에뮬레이션·시뮬레이션과 구분한다.
+- 원문 조건 일부가 빠진 유효 Metric은 값·출처와 함께 남기되 조건을 unknown으로 표시하고 직접 비교를 제외한다.
 
 ## LangGraph 연결
 
@@ -92,7 +98,7 @@ thread_id와 max_concurrency=3, recursion_limit=20은 호출자가 지정한다.
 
 ## 뒷 Agent 연결
 
-`python -m team_review.handoff`로 만든 **outputs/report_handoff.zip 전체**를 전달한다.
+필수 입력은 **outputs/review.output.md 원문 하나**다. 별도 환경에 검사기까지 전달하려면 `python -m team_review.handoff`로 만든 outputs/report_handoff.zip을 사용한다.
 [REPORT-HANDOFF.md](REPORT-HANDOFF.md)는 전달 폴더 기준 경로와 실제 포함된 검사 패키지를 설명한다.
 출력은 [OUTPUT-CONTRACT.md](OUTPUT-CONTRACT.md)의 최종 계약(report-input-v1/reference-v1/kv-cache-rubric-v1)을 따른다.
 묶음에서는 계약서명을 `review.output.contract.final.md`로 통일한다.
@@ -123,9 +129,14 @@ human_review_required는 기존 계약 호환용이며 human_review_scope=final_
 상위가 위험을 작성하지 않았으면 ‘미평가·미확인’으로 남기며 ‘위험 없음’으로 바꾸지 않는다.
 일치·상충·조건 비교·병행은 두 기술 각각 결과나 구체적인 보류 사유가 필요하다.
 병행 결론은 joint에서만 작성해 조건 비교 섹션과 모순되지 않게 한다.
-`read_report_input(md, for_submission=True)`는 모의/partial 결과를 자동 통과시키지 않는다.
+`read_report_input(md, for_submission=True)`는 모의·차단·보완 대기·종합 미완료를 거부한다. 실제 실행의 partial은 unknown을 보존한 allowed_with_gaps로 허용한다.
 공식 Structured Outputs를 참고해 Pydantic 응답 스키마와 거절/미완료 처리를 적용했다:
 [OpenAI 공식 문서](https://developers.openai.com/api/docs/guides/structured-outputs).
+
+2026-09-22 전달 요구 반영 검증: 회귀 테스트 102개 통과. 첫 API 시험은 미확인을 실제 미검증으로 표현해 규칙 검사에서 차단되었다.
+표현 예시·조건 필드 지시를 보완한 두 번째 시험은 생성 1회 + 의미 검사 1회로 통과했다. 실행마다 최대 1회 수정 한도는 유지했다.
+현재 샘플은 8/8칸·46/46항목, unknown 10개·Evidence 13개·Reference 2개이며 `demo:true`, `partial/allowed_with_gaps`다.
+프롬프트 보완은 [GPT-4.1 공식 안내의 구체적인 지시·예시·평가 원칙](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-4.1)을 참고했다. 모델·API·호출 한도는 바꾸지 않았다.
 
 ## GitHub에 올릴 범위
 

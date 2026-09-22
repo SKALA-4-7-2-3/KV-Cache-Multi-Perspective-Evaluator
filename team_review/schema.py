@@ -1,4 +1,4 @@
-"""팀 Agent가 넘길 최소 입력 계약. 값 검증은 Pydantic, 내용 검수는 사람이 수행한다."""
+"""팀 Agent 입력 계약. 구조·인용 검사 후 종합 의견은 별도 의미 검사로 검증한다."""
 
 from typing import Annotated, Any, Literal, TypedDict
 
@@ -8,8 +8,8 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 Tech = Literal["SW-01", "HW-01"]
 Role = Literal["technical", "market", "stakeholders", "domain"]
 Method = Literal[
-    "analysis", "gpu_experiment", "emulation", "simulation", "prototype_test",
-    "qualification", "operational", "documentation", "statement", "measurement", "unspecified",
+    "analysis", "gpu_experiment", "hardware_measurement", "emulation", "simulation", "prototype_test",
+    "qualification", "operational", "documentation", "statement", "measurement", "unspecified", "unknown",
 ]
 
 
@@ -49,7 +49,8 @@ class Config(BaseModel):
     model_config = ConfigDict(extra="ignore")
     run_id: Text
     domain: Text
-    demo: bool = False
+    # 생략을 실제 실행의 증거로 간주하지 않는다.
+    demo: bool = True
     rubric_version: Text = "kv-cache-rubric-v1"
     # 예: {"quality": "정확도 감소 1%p 이하"}. 숫자의 타당성 자체는 사람이 검수한다.
     requirements: dict[str, Text] = Field(default_factory=dict)
@@ -65,7 +66,7 @@ class Document(StrictModel):
     published_at: str | None = None
     retrieved_at: Text
     source_type: Literal["paper", "official_product", "standard", "news", "market_report", "community"] | None = None
-    citation_key: str | None = Field(default=None, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
+    citation_key: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_]+$")
 
 
 class Evidence(StrictModel):
@@ -80,7 +81,8 @@ class Evidence(StrictModel):
     verified_source: bool = False
     synthetic: bool = False
     collected_at: Text
-    independence: Literal["author", "vendor", "third_party", "unknown"] = "unknown"
+    independence: Literal["author", "independent", "vendor", "third_party", "unknown"] = "unknown"
+    technology_relevance: Literal["direct", "indirect", "unknown"] = "unknown"
     conditions: list[Text] = Field(default_factory=list)
 
 
@@ -93,8 +95,8 @@ class Metric(StrictModel):
     model: Text | None = None
     hardware: Text | None = None
     baseline: Text | None = None
-    context_tokens: int | None = Field(default=None, gt=0)
-    concurrency: int | None = Field(default=None, gt=0)
+    context_tokens: Annotated[int, Field(gt=0)] | Text | None = None
+    concurrency: Annotated[int, Field(gt=0)] | Text | None = None
     workload: Text | None = None
     method: Method = "unspecified"
 
@@ -105,7 +107,10 @@ class Assessment(StrictModel):
     conclusion: Text
     conditions: list[Text] = Field(default_factory=list)
     evidence_ids: list[Text] = Field(default_factory=list)
-    basis: Literal["fact", "inference", "mixed", "unknown"]
+    basis: Literal["fact", "inference", "opinion", "mixed", "unknown"]
+    attributed_to: Text | None = None
+    stakeholder_group: Text | None = None
+    technology_relevance: Literal["direct", "indirect", "unknown"] = "unknown"
     gaps: list[Text] = Field(default_factory=list)
     need_more: list[Text] = Field(default_factory=list, max_length=2)
     metrics: list[Metric] = Field(default_factory=list)
@@ -128,6 +133,7 @@ class TechnologyAssessment(StrictModel):
 
 
 class RoleResult(StrictModel):
+    demo: bool | None = None
     round: int = Field(ge=0, le=1)
     status: Literal["completed", "unknown", "failed"]
     results: dict[Tech, TechnologyAssessment] = Field(default_factory=dict)

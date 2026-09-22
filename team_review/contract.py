@@ -10,11 +10,31 @@ SECTIONS = (
     "근거 인덱스", "REFERENCE CANDIDATES", "출력 완결성 및 보고서 전달 규칙", "SELF VALIDATION",
 )
 REQUIREMENTS = {
-    "context_tokens": "목표 문맥 길이", "concurrency": "예상 동시 사용자",
+    "context_tokens": "목표 문맥 길이", "concurrency": "예상 동시 사용자 또는 동시 요청 수",
     "ttft": "TTFT 목표", "tpot": "TPOT 목표", "quality": "허용 가능한 품질 손실",
     "gpu_memory": "GPU 메모리 제약", "energy": "에너지 제약", "cost": "비용 제약",
     "prefix_cache_hit_rate": "prefix cache 재사용률",
+    "gpu_model": "배포 대상 GPU", "input_output_token_ratio": "입력 토큰 대비 출력 토큰 비율",
 }
+
+
+def is_missing(value):
+    return value is None or (isinstance(value, str) and value.strip().lower() in
+                             ("", "unknown", "tbd", "unspecified", "미확인"))
+
+
+def domain_requirement(config, key):
+    value = (config.get("domain_requirements") or {}).get(key)
+    return "TBD" if value is None or value == "" else value
+
+
+def evidence_independence(value):
+    # 기존 공급자/제3자 표기는 호환한다. unknown을 author로 바꾸지 않는다.
+    return {"vendor": "author", "third_party": "independent"}.get(value, value or "unknown")
+
+
+def evidence_method(value):
+    return value if value in {"gpu_experiment", "hardware_measurement", "emulation", "simulation", "analysis", "statement"} else "unknown"
 
 
 def config_of(state):
@@ -62,11 +82,11 @@ def report_decision(state, result, *, require_synthesis=True):
     structural_cells = sum({i["criterion_id"] for i in row[t]["items"]} == set(CRITERIA[row["perspective"]]) for row in rows for t in TECHNOLOGIES)
     if unknown or failed:
         warnings.append("미확인 항목 또는 실패 결과가 있다.")
-    if any(not (config.get("domain_requirements") or {}).get(k) for k in REQUIREMENTS):
+    if any(is_missing(domain_requirement(config, k)) for k in REQUIREMENTS):
         warnings.append("도메인 목표값 일부가 TBD다.")
     if any(t["next_unconfirmed"] and t["next_unconfirmed"]["status"] == "unknown" for t in syn["trl"].values()):
         warnings.append("TRL 상위 단계 근거가 미확인이다.")
-    if not any(evidence[e].get("independence") == "third_party" for e in syn["used_evidence_ids"]):
+    if not any(evidence_independence(evidence[e].get("independence")) == "independent" for e in syn["used_evidence_ids"]):
         warnings.append("독립 검증 근거가 확인되지 않았다.")
     if any(i.get("confidence", "unavailable") == "unavailable" for i in items):
         warnings.append("일부 근거 신뢰도는 상위 Agent가 평가하지 않았다.")

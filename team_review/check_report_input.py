@@ -8,7 +8,7 @@ from team_review import read_report_input
 def main():
     parser = argparse.ArgumentParser(description="후단 Agent 입력 검사. API 호출 없음.")
     parser.add_argument("input", nargs="?", type=Path, default=Path(__file__).with_name("review.output.md"))
-    parser.add_argument("--for-submission", action="store_true", help="모의/partial 결과는 제출용 자동 통과 금지")
+    parser.add_argument("--for-submission", action="store_true", help="실제 최종 실행 입력인지 검사. unknown을 명시한 partial은 허용, 모의·차단·보완 중은 거부")
     args = parser.parse_args()
     try:
         header, _ = read_report_input(args.input.read_text(encoding="utf-8"), for_submission=args.for_submission)

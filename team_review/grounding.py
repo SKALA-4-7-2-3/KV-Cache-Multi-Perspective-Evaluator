@@ -26,7 +26,8 @@ def conservative_issues(payload):
             issues.append({"item_id": item["item_id"], "verdict": "unsupported", "evidence_ids": [],
                            "reason": "두 기술 모두 메모리 용량 확장이라고 일반화함. RDKV 데이터량 절감과 HW 공간 확장을 구분하고 공통점은 KV 병목 완화로 한정."})
         reactions = re.search(r"(?:운영자|개발자|고객)[^.。\n]{0,80}(?:인지|지지|선호|우려|인정)(?:한다|했다|함)", prose)
-        direct_reaction = any(a["assessment_id"].startswith("stakeholders/") and a["basis"] == "fact"
+        direct_reaction = any(a["assessment_id"].startswith("stakeholders/") and a["basis"] in ("fact", "opinion")
+                              and a.get("attributed_to") and a.get("technology_relevance") == "direct"
                               for a in item["assessments"])
         if reactions and not direct_reaction:
             issues.append({"item_id": item["item_id"], "verdict": "unsupported", "evidence_ids": [],
