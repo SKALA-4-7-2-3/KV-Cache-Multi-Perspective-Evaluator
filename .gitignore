@@ -1,17 +1,36 @@
 # Python
-.python-version
 __pycache__/
-.venv/
-venv/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# OS / Editor
+.DS_Store
 
 # Env & secrets
 .env
 .env.*
+!.env.example
+.venv/
+venv/
+env/
 
-# OS / Editor
-.DS_Store
-.vscode/
-
-# 환경 스캐폴딩
-pyproject.toml
-uv.lock
+# LaTeX compiler by-products
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.xdv
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.bcf
+*.run.xml
