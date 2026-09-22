@@ -1,4 +1,5 @@
 """항목 목적과 두 회차 한도에 맞춘 결정적 검색 계획."""
+import re
 from .schemas import CRITERIA, Question
 
 
@@ -15,8 +16,8 @@ SUFFIXES = {
 def initial_questions(data):
     questions = []
     for tech in data.technologies.values():
-        name = 'Marvell Photonic Fabric' if 'Marvell Photonic Fabric' in tech.summary else tech.name
-        query = f'"{tech.name}" "KV cache" implementation license' if tech.approach == 'SW' else f'{name} memory appliance product'
+        title = re.sub(r'https?://\S+', '', tech.paper).strip(' ()') or tech.name
+        query = f'"{title[:180]}" implementation license product deployment'
         questions.append(Question(tech_id=tech.id, criterion_id='commercialization',
             criteria=['commercialization', 'adoption', 'ecosystem_support'], query=query,
             reason='선정 기술의 직접 구현·제품화 단서와 관련 제품의 연결 확인', source_type='논문·공식 저장소·공식 제품 문서'))
@@ -24,31 +25,27 @@ def initial_questions(data):
 
 
 def repair_questions(data, rows, proposed, queries):
+    """미조사 목적을 기술별로 번갈아 배분한다. 모델의 검색 문장은 실행하지 않는다."""
     seen = {' '.join(q['query'].lower().split()) for q in queries}
-    pending = {(r.tech_id, r.criterion_id): r for r in rows if r.verdict == 'unknown' or r.gaps}
+    pending = {(r.tech_id,r.criterion_id) for r in rows if r.verdict=='unknown' or r.gaps}
     result = []
-    for tech in data.technologies.values():
-        priorities = list(dict.fromkeys([q.criterion_id for q in proposed if q.tech_id == tech.id
-            and (tech.id, q.criterion_id) in pending] + list(CRITERIA)))
-        candidates = []
-        for criterion in priorities:
-            row = pending.get((tech.id, criterion))
-            if not row:
+    groups = [
+        ('market_size_growth',['market_size_growth','business_value']),
+        ('standardization',['standardization','ecosystem_support']),
+    ]
+    for primary,criteria in groups:
+        for tech in data.technologies.values():
+            if not any((tech.id,c) in pending for c in criteria):
                 continue
-            name = f'"{tech.name}" "KV cache"' if tech.approach == 'SW' else f'"{tech.name}" memory'
-            if criterion == 'market_size_growth':
-                name = 'KV cache inference optimization' if tech.approach == 'SW' else 'CXL memory pooling'
-            candidates.append(Question(tech_id=tech.id, criterion_id=criterion, criteria=[criterion],
-                query=f'{name} {SUFFIXES[criterion]}', reason='해당 항목의 남은 근거 공백 보완'))
-        # 동일성 공백이 있으면 직접 연결 자료를 먼저 확인한다.
-        candidates.sort(key=lambda q: 'identity_unverified' not in pending[(tech.id, q.criterion_id)].unknown_reasons)
-        for q in candidates:
-            key = ' '.join(q.query.lower().split())
-            if key in seen or not q.query.strip() or len(q.query) > 400:
+            family = 'KV cache inference optimization' if tech.approach=='SW' else 'CXL memory pooling'
+            suffix = SUFFIXES[primary]
+            if primary=='standardization':
+                suffix += ' vLLM compatibility' if tech.approach=='SW' else ' official CXL consortium'
+            query = f'{family} {suffix}'
+            if query.casefold() in seen:
                 continue
-            if not q.criteria:
-                q = q.model_copy(update={'criteria': [q.criterion_id]})
-            result.append(q)
-            seen.add(key)
-            break
-    return result[:2]
+            result.append(Question(tech_id=tech.id,criterion_id=primary,criteria=criteria,query=query,
+                reason='미조사 목적의 관련 기술군 자료 확인; 선정 논문의 시장 실적과 구분',
+                source_type='공식 표준·제품 문서·시장 정의와 방법론을 공개한 자료'))
+            seen.add(query.casefold())
+    return result[:4]

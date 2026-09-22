@@ -37,7 +37,7 @@ class PipelineTests(unittest.TestCase):
         self.assertLessEqual(state['result'].usage['llm'],3)
         self.assertIn('included',state['claim_dispositions'].values())
 
-    def test_invalid_quote_is_repaired_from_existing_sources_without_research(self):
+    def test_invalid_quote_is_repaired_while_missing_research_purposes_are_covered(self):
         class Repair(ProductAnalyst):
             calls=0
             def extract(self,*args,**kwargs):
@@ -46,7 +46,7 @@ class PipelineTests(unittest.TestCase):
                 if self.calls==1:result.claims[0].citation.quote='This quote does not exist.'
                 return result
         state=run_market(self.data,ProductWeb(),Repair(),mode='fixture')
-        self.assertEqual(state['result'].usage['search'],2)
+        self.assertEqual(state['result'].usage['search'],6)
         self.assertEqual(state['result'].usage['llm'],3)
         self.assertFalse(any(e['stage']=='claims' for e in state['result'].errors))
         self.assertTrue(state['claim_pool'])

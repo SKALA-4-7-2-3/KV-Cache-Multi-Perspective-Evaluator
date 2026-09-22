@@ -36,6 +36,9 @@ class RunState(TypedDict, total=False):
     compose_successes: int
     draft: DraftAnalysis
     result: MarketResult
+    repairs: dict
+    examined: dict
+    extraction_history: list
 
 
 def relevant_candidate(row, tech):
@@ -79,43 +82,54 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     def extract(state):
         update={'history':state['history']+['extract']}
         eligible={k:e for k,e in state['evidence'].items() if e.access_status=='full_text' and e.content_status=='substantive'}
-        fresh=set(eligible)-state['reviews'].keys()
-        if state['fatal'] or not eligible or not budget.remaining('llm') or (not fresh and state['repair_kind']!='extract'):
+        fresh={k for k,e in eligible.items() if k not in state['reviews']
+            or not set(e.criteria)<=set(state['reviews'][k].get('criteria',[]))}
+        if state['fatal'] or not eligible or not budget.remaining('llm') or (not fresh and not state['extraction_errors']):
             return update
         try:
+            room=budget.remaining('llm')-1
+            if room <= 0 and state['claim_pool']:
+                return update
             answer=budget.call('llm',lambda:Extraction.model_validate(analyst.extract(data,state['evidence'],
-                previous=state['claim_pool'],issues=state['extraction_errors'])))
+                previous=state['claim_pool'],issues=state['extraction_errors'])),max_attempts=max(1,min(2,room)))
             added,errors=validate_claims(data,answer.claims,state['evidence'])
             reviews={r.evidence_id:r.model_dump() for r in answer.reviews if r.evidence_id in eligible}
             for eid in eligible:
                 if eid not in reviews:
                     errors.append(dict(stage='claims',code='missing_source_review',evidence_id=eid))
-            claimed_ids={c.citation.evidence_id for c in answer.claims}
+            claimed_ids={c.citation.evidence_id for c in added.values()}
+            examined={k:list(v) for k,v in state['examined'].items()}
             for eid,r in reviews.items():
-                if (r['outcome']=='claims_extracted') != (eid in claimed_ids):
-                    errors.append(dict(stage='claims',code='source_review_mismatch',evidence_id=eid))
+                r['outcome']='claims_extracted' if eid in claimed_ids else 'no_market_claim'
+                for tech_id in eligible[eid].tech_ids:
+                    for criterion in r.get('criteria',[]):
+                        examined.setdefault((tech_id,criterion),[]).append(eid)
+            for claim in answer.claims:
+                if claim.citation.evidence_id in eligible:
+                    examined.setdefault((claim.tech_id,claim.criterion_id),[]).append(claim.citation.evidence_id)
             pool={**state['claim_pool'],**added}
             analysis,_=materialize(data,blank_draft(),pool)
-            update.update(claim_pool=pool,reviews={**state['reviews'],**reviews},analysis=analysis,
+            update.update(claim_pool=pool,reviews={**state['reviews'],**reviews},analysis=analysis,examined=examined,
+                extraction_history=state['extraction_history']+[{'claims':[c.model_dump(mode='json') for c in answer.claims],
+                    'errors':errors,'reviews':reviews}],
                 extraction_errors=errors,model_successes=state['model_successes']+1,
                 errors=[e for e in state['errors'] if e['stage'] not in {'claims','llm_extract'}]+errors)
         except ProviderError as exc:
-            error=dict(stage='llm_extract',code=exc.code)
+            error=dict(stage='llm_extract',code=exc.code,scope='global')
             update.update(extraction_errors=[error],errors=state['errors']+[error],fatal=exc.fatal)
         return update
 
-    def can_repair(state):
-        return auto_repair and not state['repair_used'] and not state['fatal'] and budget.remaining('llm')>0
+    def can_repair(state,kind):
+        return auto_repair and not state['repairs'].get(kind) and not state['fatal'] and budget.remaining('llm')>0
 
     def after_extract(state):
         # 유효 근거가 있으면 평가 작성 1회를 우선 확보한다.
-        room=budget.remaining('llm')-(1 if state['claim_pool'] else 0)
-        if can_repair(state) and room>0:
-            if state['extraction_errors']:
-                return 'repair_extract'
-            covered={(c.tech_id,c.criterion_id) for c in state['claim_pool'].values()}
-            if len(covered)<len(data.technologies)*len(CRITERIA) and budget.remaining('search') and budget.remaining('extract'):
+        room=budget.remaining('llm')-1
+        if room>0:
+            if can_repair(state,'collect') and budget.remaining('search'):
                 return 'repair_collect'
+            if state['extraction_errors'] and can_repair(state,'extract'):
+                return 'repair_extract'
         return 'compose'
 
     def compose(state):
@@ -138,7 +152,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
                     review_log.update(log)
                     errors+=review_errors
                 except ProviderError as exc:
-                    errors.append(dict(stage='llm_compose',code=exc.code))
+                    errors.append(dict(stage='llm_compose',code=exc.code,scope='global'))
                     update['fatal']=exc.fatal
             else:
                 errors.append(dict(stage='llm_compose',code='budget_exhausted:llm'))
@@ -150,7 +164,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         errors+=link_errors+validation_errors
         # 인용 수정 실패도 미확인의 이유로 보존한다.
         current+=errors
-        reviewed={}
+        reviewed={k:list(v) for k,v in state['examined'].items()}
         for c in pool.values():
             reviewed.setdefault((c.tech_id,c.criterion_id),[]).append(c.citation.evidence_id)
         analysis=annotate(analysis,data,state['evidence'],state['queries'],current,budget,
@@ -160,11 +174,11 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         return update
 
     def after_compose(state):
-        return 'repair_compose' if state['composition_errors'] and can_repair(state) else 'finish'
+        return 'repair_compose' if state['composition_errors'] and can_repair(state,'compose') else 'finish'
 
     def repair(kind):
         def action(state):
-            return dict(round=1,repair_used=True,repair_kind=kind,history=state['history']+['repair_'+kind])
+            return dict(round=1,repairs={**state['repairs'],kind:True},repair_kind=kind,history=state['history']+['repair_'+kind])
         return action
 
     def finish(state):
@@ -193,7 +207,8 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     analysis,_=materialize(data,draft,initial_pool)
     state=graph.compile().invoke(dict(data=data,round=round_number,evidence=initial_evidence,sources={},analysis=analysis,
         errors=[],history=[],queries=[],fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},reviews={},extraction_errors=[],composition_errors=[],
-        repair_kind='',repair_used=round_number==1,model_successes=0,compose_successes=0,draft=draft),config={'recursion_limit':20})
+        repair_kind='',repairs={k:round_number==1 for k in ['collect','extract','compose']},examined={},extraction_history=[],
+        model_successes=0,compose_successes=0,draft=draft),config={'recursion_limit':24})
     state.update(events=list(budget.events),initial_evidence_ids=list(initial_evidence),model=getattr(analyst,'model','injected'),
         token_usage=list(getattr(analyst,'usage',[])),output_checks=list(getattr(analyst,'output_checks',[])),
         debug_analyses=list(getattr(analyst,'debug_analyses',[])),claim_dispositions=pool_dispositions(state['claim_pool'],state['analysis']))

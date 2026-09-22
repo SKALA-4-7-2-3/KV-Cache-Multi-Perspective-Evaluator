@@ -30,6 +30,6 @@ class SearchPlanTests(unittest.TestCase):
         rows = [unknown(t, c, '미확인') for t in self.data.technologies for c in CRITERIA]
         queries = [q.model_dump() for q in initial_questions(self.data)]
         repair = repair_questions(self.data, rows, [], queries)
-        self.assertLessEqual(len(repair), 2)
+        self.assertLessEqual(len(repair), 4)
         self.assertTrue(all(q.query not in {x['query'] for x in queries} for q in repair))
         self.assertEqual(len({q.tech_id for q in repair}), 2)

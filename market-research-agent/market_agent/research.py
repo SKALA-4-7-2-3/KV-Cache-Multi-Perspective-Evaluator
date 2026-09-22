@@ -16,6 +16,15 @@ REASONS = {
 }
 
 
+def error_applies(error, row, evidence):
+    if error.get('scope') == 'global':
+        return True
+    if error.get('tech_id'):
+        return error['tech_id'] == row.tech_id and error.get('criterion_id') in {None,row.criterion_id}
+    source = evidence.get(error.get('evidence_id'))
+    return bool(source and row.tech_id in source.tech_ids)
+
+
 def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, reviewed=None):
     rows = []
     for original in analysis.assessments:
@@ -32,7 +41,7 @@ def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, re
         if row.basis == 'unknown':
             if any(row.tech_id in e.tech_ids and e.content_status in {'metadata_only','identity_mismatch'} for e in evidence.values()):
                 row.unknown_reasons.append('content_insufficient')
-            if any(e['stage'] in {'claims','compose','validate','llm_extract','llm_compose'} and e.get('tech_id',row.tech_id)==row.tech_id and e.get('criterion_id',row.criterion_id)==row.criterion_id for e in errors):
+            if any(e['stage'] in {'claims','compose','validate','llm_extract','llm_compose'} and error_applies(e,row,evidence) for e in errors):
                 row.unknown_reasons.append('processing_error')
             if row.research_status == 'not_started':
                 row.unknown_reasons.append('not_searched')

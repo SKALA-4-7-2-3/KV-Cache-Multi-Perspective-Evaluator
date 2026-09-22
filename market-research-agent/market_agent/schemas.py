@@ -53,6 +53,7 @@ class Evidence(Record):
     content_status: Literal['unchecked', 'substantive', 'metadata_only', 'identity_mismatch'] = 'unchecked'
     content_reason: str = ''
     requested_url: str = ''
+    criteria: list[Criterion] = Field(default_factory=list)
 
 
 class Technology(Record):
@@ -168,6 +169,7 @@ class SourceReview(Record):
     evidence_id: str
     outcome: Literal['claims_extracted', 'no_market_claim']
     reason: str
+    criteria: list[Criterion] = Field(default_factory=list)
 
 
 class Extraction(Record):

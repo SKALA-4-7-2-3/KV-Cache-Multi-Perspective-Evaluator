@@ -79,7 +79,7 @@ class GraphTests(unittest.TestCase):
         report = result["result"]
         self.assertEqual(len(report.assessments), 12)
         self.assertEqual(report.round, 1)
-        self.assertEqual(report.usage["llm"], 1)
+        self.assertEqual(report.usage["llm"], 2)
         self.assertLessEqual(report.usage["search"], 6)
         self.assertLessEqual(report.usage["extract"], 10)
         self.assertEqual(report.status, "unknown")
