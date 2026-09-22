@@ -27,6 +27,10 @@ class ReferenceContractTests(unittest.TestCase):
         provider.extract(data,{**data.evidence,'MKT-X':self.source()})
         request=requests[0]
         schema=request['response_format']['json_schema']['schema']
+        branch=schema['properties']['claims']['items']['anyOf'][0]['properties']
+        self.assertEqual(branch['tech_id']['enum'],['HW-01'])
+        self.assertNotIn('exact',branch['relation_to_technology']['enum'])
+        self.assertIn('Product-X',branch['subject']['enum'])
         enums=[]
         def walk(value):
             if isinstance(value,dict):

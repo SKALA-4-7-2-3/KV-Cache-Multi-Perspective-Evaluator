@@ -93,7 +93,8 @@ def collect_sources(state, data, web, budget, questions, relevant_candidate):
                     errors.append(dict(stage='extract', code=fallback_error.code, tech_id=tech_id, criterion_id=criterion, url=alternative, round=str(round_number)))
                     fatal |= fallback_error.fatal
         else:
-            errors.append(dict(stage='extract', code='budget_exhausted_or_reserved', tech_id=tech_id, criterion_id=criterion, url=url, round=str(round_number)))
+            # 미선택 후보는 snippet으로 남긴다. 실제 실패/미검토 상태와 구분한다.
+            quality_reason='candidate_deferred: 원문 조회 한도 또는 보완 예약'
         content_hash = hashlib.sha256(raw.encode()).hexdigest()
         if access=='full_text' and published is None:
             published=publication_date(raw)

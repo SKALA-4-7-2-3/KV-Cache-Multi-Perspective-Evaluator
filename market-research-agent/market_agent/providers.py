@@ -1,6 +1,7 @@
 """실제 LLM과 명시적으로 가상인 오프라인 제공자."""
 
 import json
+import copy
 from datetime import date
 
 from langchain_core.exceptions import OutputParserException
@@ -11,6 +12,7 @@ from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAss
 from .quotes import quote_bank, resolve_quotes
 from .tools import ProviderError
 from .json_input import model_background
+from .dossier_input import comparison_background
 
 
 def strict_schema(model):
@@ -80,15 +82,33 @@ class OpenAIAnalyst:
                 'quotes':{k:v for k,v in bank.items() if v['evidence_id']==e.id}}
             material.append(item)
         payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
-            'criteria':CRITERIA,
+            'criteria':CRITERIA,'comparison_constraints':comparison_background(data),
             'technologies': {k:{'name':v.name,'paper_url':v.url,
                 **({'technical_context':model_background(data,v),'technical_context_truncated':len(v.summary)>6000,
-                    'input_warnings':v.issues} if data.input_format=='paper_analysis_json' else {})}
+                    'input_warnings':v.issues} if data.input_format!='markdown' else {})}
                 for k,v in data.technologies.items()},
-            'evidence': material, 'previous_claims': {k:v.model_dump(mode='json') for k,v in (previous or {}).items()},
+            'evidence': material, 'previous_claims': {k:{'tech_id':v.tech_id,'criterion_id':v.criterion_id,'statement':v.statement} for k,v in (previous or {}).items()},
             'validation_issues':issues or []}
         schema=strict_schema(SelectedExtraction)
-        schema['$defs']['SelectedClaim']['properties']['quote_id']={'type':'string','enum':list(bank)}
+        base=schema['$defs'].pop('SelectedClaim')
+        variants=[]
+        for tech_id,tech in data.technologies.items():
+            choices={key:q for key,q in bank.items() if tech_id in evidence[q['evidence_id']].tech_ids}
+            if not choices:
+                continue
+            branch=copy.deepcopy(base)
+            props=branch['properties']
+            props['tech_id']={'type':'string','enum':[tech_id]}
+            props['quote_id']={'type':'string','enum':list(choices)}
+            subjects=list(dict.fromkeys(s for q in choices.values() for s in q['subjects']))
+            # 선택지 자체는 원문의 연속 문자열이며, 인용별 연결은 로컬에서 재검사한다.
+            if subjects:props['subject']={'type':'string','enum':subjects}
+            if not any(tech.name.casefold() in (q['text']+' '+q['context']).casefold() for q in choices.values()):
+                props['relation_to_technology']={'type':'string','enum':['method_family','adjacent']}
+            variants.append(branch)
+        if not variants:
+            return Extraction(claims=[],reviews=[])
+        schema['properties']['claims']['items']={'anyOf':variants}
         extractor=self._llm.with_structured_output(schema,method='json_schema',strict=True,include_raw=True)
         selected=self._invoke('extract',extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
         return resolve_quotes(data,selected,bank,evidence)

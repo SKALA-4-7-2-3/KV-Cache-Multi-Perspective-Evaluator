@@ -1,5 +1,6 @@
 """주장 단위로 검증하고, 검증된 ID만 평가의 인용으로 변환한다."""
 import hashlib
+import re
 from collections import Counter
 
 from .schemas import Analysis, Assessment, ContextFinding, CRITERIA, unknown, Claim, DraftAnalysis, DraftAssessment
@@ -80,6 +81,19 @@ def validate_claims(data, claims, evidence):
     return pool, errors
 
 
+def criterion_supported(claim):
+    """시장 역할에 명백히 맞지 않는 기술 설명을 의미 검토의 독립 최소 조건으로 거른다."""
+    quote=claim.citation.quote
+    if claim.criterion_id=='commercialization':
+        return bool(re.search(r'product|commercial|launch|releas|licen[cs]e|available|repository|github|제품|출시|라이선스',quote,re.I))
+    if claim.criterion_id=='adoption':
+        return bool(re.search(r'customer|production|deployed|adopted|uses? |using |고객|도입|운영',quote,re.I))
+    if claim.criterion_id=='business_value':
+        return bool(re.search(r'cost|price|efficien|latency|throughput|speedup|speed.up|footprint|'
+            r'reduc.{0,45}memory|memory.{0,45}(reduc|sav|capac)|energy|비용|메모리.{0,20}절약',quote,re.I))
+    return True
+
+
 def review_claims(pool, reviews):
     """작성 모델이 인용의 의미까지 검토한 주장만 전달한다. 검토 누락은 실패다."""
     counts = Counter(r.claim_id for r in reviews)
@@ -91,9 +105,12 @@ def review_claims(pool, reviews):
             log[key] = 'unreviewed'
             errors.append(dict(stage='compose',code='missing_claim_review',tech_id=claim.tech_id,
                 criterion_id=claim.criterion_id,claim_id=key))
-        elif review.supported and review.market_relevant and review.relation_supported and review.conditions_preserved:
+        elif review.supported and review.market_relevant and review.relation_supported and review.conditions_preserved and criterion_supported(claim):
             checked=claim.model_copy(deep=True)
-            checked.evidence_level=review.evidence_level
+            checked.evidence_level=claim.evidence_level if claim.evidence_level in {'research_experiment','simulation'} else review.evidence_level
+            if checked.criterion_id=='business_value' and ('arxiv.org' in checked.citation.source_character or checked.evidence_level in {'research_experiment','simulation'}):
+                checked.basis='inference'
+                checked.conditions=list(dict.fromkeys([*checked.conditions,'연구상 기술 효과는 고객 가치의 전제이며 실제 고객 비용·ROI 실측 결과가 아님']))
             if review.evidence_level in {'projection','planned_release','inference'}:
                 checked.basis='inference'
                 checked.conditions=list(dict.fromkeys([*checked.conditions,'전망·계획에 근거한 추론이며 실제 고객 성과 미검증']))
@@ -101,7 +118,7 @@ def review_claims(pool, reviews):
             accepted[key] = checked
             log[key] = 'accepted: ' + review.reason
         else:
-            log[key] = 'rejected: ' + review.reason
+            log[key] = 'rejected: ' + (review.reason if criterion_supported(claim) else 'criterion_evidence_mismatch: 해당 시장 항목의 명시적 근거 부족')
     return accepted, log, errors
 
 
@@ -112,7 +129,7 @@ def limit_claims(pool, total=12, per_cell=2):
         groups.setdefault((claim.tech_id,claim.criterion_id),[]).append((key,claim))
     ordered={}
     for cell,items in sorted(groups.items()):
-        items.sort(key=lambda x:(x[1].relation_to_technology!='exact',x[1].basis!='fact',x[0]))
+        items.sort(key=lambda x:(not criterion_supported(x[1]),x[1].relation_to_technology!='exact',x[1].basis!='fact',x[0]))
         first=items[:1]
         rest=items[1:]
         rest.sort(key=lambda x:x[1].relation_to_technology==first[0][1].relation_to_technology)

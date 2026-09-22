@@ -5,6 +5,13 @@ import re
 from .schemas import Claim, Citation, Extraction
 
 
+def subject_options(text):
+    names=re.findall(r'\b[A-Z][A-Za-z0-9-]*(?:[ \t]+(?:[A-Z][A-Za-z0-9-]*|\d+(?:\.\d+)*)){0,3}\b',text)
+    stop={'The','This','These','We','Our','It','In','For','As','By','On','With','More','However','A','An'}
+    names=[re.sub(r'^(?:The|This|Our|A|An) ', '',name) for name in names]
+    return list(dict.fromkeys(n for n in names if n not in stop and len(n)>1))[:30]
+
+
 def quote_bank(evidence):
     bank={}
     keywords=r'product|announc|introduc|support|license|available|customer|deploy|cost|standard|cxl|memory|inference|시장|지원|제품'
@@ -38,7 +45,8 @@ def quote_bank(evidence):
                 continue
             seen.add(text)
             key='Q-'+hashlib.sha256((e.id+'\n'+text).encode()).hexdigest()[:12]
-            bank[key]={'evidence_id':e.id,'text':text,'context':context,'locator':locator or '인용 구절로 원문 검색'}
+            bank[key]={'evidence_id':e.id,'text':text,'context':context,'subjects':subject_options(text+' '+context),
+                'locator':locator or '인용 구절로 원문 검색'}
             if len(seen)>=10:
                 break
     return bank

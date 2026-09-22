@@ -35,7 +35,7 @@ def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, re
         scoped = [e for e in evidence.values() if row.tech_id in e.tech_ids and e.access_status == 'full_text'
             and any(term in e.excerpt.casefold() for term in TERMS[row.criterion_id])]
         cited = row.evidence_ids + [c.evidence_id for f in row.context_findings for c in f.citations]
-        row.reviewed_evidence_ids = list(dict.fromkeys([*(reviewed.get((row.tech_id,row.criterion_id),[]) if reviewed is not None else (e.id for e in scoped)), *cited])) if model_ran else []
+        row.reviewed_evidence_ids = list(dict.fromkeys([*(reviewed.get((row.tech_id,row.criterion_id),[]) if reviewed is not None else (e.id for e in scoped)), *cited])) if model_ran or reviewed else []
         row.research_status = 'reviewed' if row.reviewed_evidence_ids else ('searched' if row.search_ids else 'not_started')
         row.unknown_reasons = [r for r in row.unknown_reasons if r in {'identity_unverified', 'conflicting_sources', 'date_unverified'}]
         if row.basis == 'unknown':

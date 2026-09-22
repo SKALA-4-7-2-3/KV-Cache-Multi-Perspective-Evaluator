@@ -87,15 +87,19 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
             or not set(e.criteria)<=set(state['reviews'][k].get('criteria',[]))}
         if state['fatal'] or not eligible or not budget.remaining('llm') or (not fresh and not state['extraction_errors']):
             return update
+        targets=fresh|{e.get('evidence_id') for e in state['extraction_errors']}
+        reviewing={k:e for k,e in eligible.items() if k in targets}
+        if not reviewing:
+            reviewing=eligible  # 이전 단계 전역 오류의 재시도
         try:
             room=budget.remaining('llm')-1
             if room <= 0 and state['claim_pool']:
                 return update
-            answer=budget.call('llm',lambda:Extraction.model_validate(analyst.extract(data,state['evidence'],
+            answer=budget.call('llm',lambda:Extraction.model_validate(analyst.extract(data,reviewing,
                 previous=state['claim_pool'],issues=state['extraction_errors'])),max_attempts=max(1,min(2,room)))
             added,errors=validate_claims(data,answer.claims,state['evidence'])
-            reviews={r.evidence_id:r.model_dump() for r in answer.reviews if r.evidence_id in eligible}
-            for eid in eligible:
+            reviews={r.evidence_id:r.model_dump() for r in answer.reviews if r.evidence_id in reviewing}
+            for eid in reviewing:
                 if eid not in reviews:
                     errors.append(dict(stage='claims',code='missing_source_review',evidence_id=eid))
             claimed_ids={c.citation.evidence_id for c in added.values()}
@@ -192,6 +196,9 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         incomplete=bool(state['errors']) or any(r.research_status=='not_started' for r in state['analysis'].assessments)
         execution='failed' if failed else ('partial' if incomplete else 'completed')
         progress={'queries':state['queries'],'repairs':state['repairs'],'reviews':state['reviews'],
+            'errors':state['errors'],'extraction_errors':state['extraction_errors'],
+            'composition_errors':state['composition_errors'],'model_successes':state['model_successes'],
+            'extraction_history':state['extraction_history'],
             'examined':[{'tech_id':t,'criterion_id':c,'evidence_ids':list(dict.fromkeys(ids))}
                 for (t,c),ids in state['examined'].items()]}
         budget.progress=progress
@@ -215,11 +222,11 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     draft=previous_draft(previous,initial_pool,blank_draft())
     analysis,_=materialize(data,draft,initial_pool)
     state=graph.compile().invoke(dict(data=data,round=round_number,evidence=initial_evidence,sources={},analysis=analysis,
-        errors=[],history=[],queries=progress.get('queries',[]),fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},
-        reviews=progress.get('reviews',{}),extraction_errors=[],composition_errors=[],
+        errors=list(progress.get('errors',[])),history=[],queries=progress.get('queries',[]),fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},
+        reviews=progress.get('reviews',{}),extraction_errors=list(progress.get('extraction_errors',[])),composition_errors=list(progress.get('composition_errors',[])),
         repair_kind='',repairs=progress.get('repairs',{k:round_number==1 for k in ['collect','extract','compose']}),
-        examined={(r['tech_id'],r['criterion_id']):r['evidence_ids'] for r in progress.get('examined',[])},extraction_history=[],
-        model_successes=0,compose_successes=0,draft=draft),config={'recursion_limit':24})
+        examined={(r['tech_id'],r['criterion_id']):r['evidence_ids'] for r in progress.get('examined',[])},extraction_history=list(progress.get('extraction_history',[])),
+        model_successes=progress.get('model_successes',0),compose_successes=0,draft=draft),config={'recursion_limit':24})
     state.update(events=list(budget.events),initial_evidence_ids=list(initial_evidence),model=getattr(analyst,'model','injected'),
         token_usage=list(getattr(analyst,'usage',[])),output_checks=list(getattr(analyst,'output_checks',[])),
         debug_analyses=list(getattr(analyst,'debug_analyses',[])),claim_dispositions=pool_dispositions(state['claim_pool'],state['analysis']))
