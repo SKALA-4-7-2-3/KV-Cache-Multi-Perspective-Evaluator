@@ -187,7 +187,7 @@ def pending_web_source_ids(evidence: dict[str, Evidence]) -> list[str]:
 
 def assess_operator_sources(evidence: dict[str, Evidence], as_of: str,
                             technologies: list[Technology]) -> dict[str, Evidence]:
-    """Use relevant family prose for attributed statements without a paper-name gate.
+    """Forward readable candidates for attributed or conditional, source-backed use.
 
     This is a transparent topic/metadata screen, not an LLM credibility verdict.
     Source identity and factual support are checked again for each actual claim.
@@ -212,31 +212,32 @@ def assess_operator_sources(evidence: dict[str, Evidence], as_of: str,
         topic_quotes = [quote for quote, text in prose.items()
                         if re.search(r"\b(?:kv|cxl|quanti\w*|compress\w*|offload\w*|pool\w*)\b"
                                      r"|양자화|압축|오프로딩|풀링", text, re.IGNORECASE)]
-        if not related or not topic_quotes:
+        if not prose:
             audit.update(decision="exclude", relevance="unrelated",
-                         reasons=["수집한 본문 구절에서 KV 압축 또는 CXL 메모리 운영 관련 내용을 확보하지 못함"],
+                         reasons=["수집 범위에서 참고할 수 있는 본문 구절을 확보하지 못함"],
                          limitations=["메뉴, 제목 또는 검색어의 주제 일치만으로는 근거로 사용하지 않음"])
         else:
             audit.update(
-                decision="limited", relevance="family", document_type="unknown", perspective="unknown",
-                evidence_basis="attributed_statement", verified_quotes=topic_quotes[:3],
-                reasons=["수집한 본문 구절에 운영 조직의 KV 압축 또는 CXL 메모리 검토와 관련된 내용이 있음",
-                         "개별 논문명 언급을 자료 사용 조건으로 요구하지 않음"],
-                limitations=["기술 계열 자료이며 RDKV 또는 Photonic-CXL 자체의 성과나 도입 증거가 아님",
-                             "주제 관련성만 확인했으며 독립성이나 내용의 진실성을 인증하지 않음",
-                             "실제 주장에는 발언 주체, 관계와 해당 주장을 지지하는 본문 인용이 필요함"])
+                decision="limited", relevance="family" if related else "unknown",
+                document_type="unknown", perspective="unknown", evidence_basis="unknown",
+                verified_quotes=(topic_quotes or list(prose))[:3],
+                reasons=["본문이 있는 검색 후보를 분석 단계에 전달함",
+                         "논문명 언급이나 고정 키워드 조합을 자료 사용 조건으로 요구하지 않음"],
+                limitations=["RDKV 또는 Photonic-CXL 자체의 성과나 도입 증거로 확인된 자료가 아님",
+                             "독립성이나 내용의 진실성을 인증하지 않으며 실제 관련성은 주장별로 검토함",
+                             "발언은 주체에게 귀속하고 운영 분석은 조건부 추론으로 구분하며 본문 인용을 연결함"])
             if not _present(source.publisher):
                 audit["limitations"].append("발행 주체는 수집 메타정보에서 미확인")
             if not re.search(r"\d{4}-\d{2}-\d{2}", source.published_at):
                 audit["limitations"].append("발행일 미확인")
-        audit["review_method"] = "topic_scoped_attribution"
-        audit["checks"]["검토 방식"] = "코드의 본문 주제 확인. 실제 주장과 인용의 관계는 별도 검토"
+        audit["review_method"] = "readable_candidate_screen"
+        audit["checks"]["검토 방식"] = "본문 확보 여부만 선별. 관련성과 주장 및 인용의 관계는 분석과 검토 단계에서 확인"
         audit = _check_direct_identity(source, audit, technologies)
         result[identifier] = replace(source, scope="family" if related else "unclassified", audit=audit)
     return result
 
 
-def web_source_issue(source: Evidence, claim: Claim) -> str:
+def web_source_issue(source: Evidence, claim: Claim, *, allow_family_inference: bool = False) -> str:
     if source.source_type != "web":
         return ""
     decision = source.audit.get("decision", "hold")
@@ -245,7 +246,9 @@ def web_source_issue(source: Evidence, claim: Claim) -> str:
     if (claim.source_scope == "direct" and "direct_tech_ids" in source.audit
             and claim.tech_id not in source.audit["direct_tech_ids"]):
         return "수집 제목·본문에서 해당 기술을 식별하지 못한 웹 자료를 직접 근거로 표시"
-    if decision == "limited" and claim.kind != "statement":
+    if (decision == "limited" and claim.kind != "statement"
+            and not (allow_family_inference and claim.kind == "inference"
+                     and claim.source_scope == "family")):
         return "제한된 웹 출처를 당사자·작성자에게 귀속한 진술 이외의 근거로 사용"
     relevance = source.audit.get("relevance", "unknown")
     if relevance in {"family", "unknown"} and claim.source_scope == "direct":

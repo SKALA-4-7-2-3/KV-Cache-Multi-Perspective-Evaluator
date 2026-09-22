@@ -77,7 +77,7 @@ output = run_stakeholder(papers, request=request, as_of="2026-09-22", run_id="te
 
 - 공통: `schema_version`, `run_id`, `role`, `round`, `execution_status`, `evidence_status`, `result`, `new_evidence`, `gaps`, `follow_up_questions`, `errors`, `usage`
 - `result.by_technology`: SW-01과 HW-01의 요약, 평가 항목, 주장, 자료 공백
-- `result.details`: 도메인별 운영 조직과 분석 이유, 확인된 발언, 논문 기반 추론, 조사 범위, 시사점, 출처 검토, 실행 기록
+- `result.details`: 도메인별 운영 조직과 분석 이유, 확인된 발언, 논문 및 웹 근거 기반 추론, 조사 범위, 시사점, 출처 검토, 실행 기록
 - 추가 전달 정보: 전체 근거 레지스트리, 실제 인용된 참고문헌, standalone 실행 상태 및 실행 모드
 
 실행 완료와 근거 확보는 별개다. 근거가 없으면 unavailable, 일부만 확보하면 limited로 표시한다. sufficient는 선정된 핵심 집단에 대한 직접 근거와 검토 조건을 충족한 경우에만 사용한다. fixture 결과는 충분한 실제 조사로 표시하지 않는다.
@@ -88,7 +88,9 @@ output = run_stakeholder(papers, request=request, as_of="2026-09-22", run_id="te
 
 운영 조직의 결과는 `result.by_technology["SW-01" 또는 "HW-01"].claims`에 있다. `aspect`의 benefit은 기대 이익, burden은 부담과 우려, adoption_condition은 도입 검토 조건이다. 각 결과의 `evidence_ids`와 `supports`를 `evidence` 및 `references`에 연결해 근거 문서와 인용 구절을 확인한다. 공통 JSON 계약은 그대로 유지한다.
 
-검색 후보는 양쪽 모두 논문 자체와 관련 기술 계열을 포함한다. 기본 JSON 실행에서는 수집 본문에 KV 압축 또는 CXL 메모리 운영 관련 설명이 있으면 논문명을 직접 언급하지 않아도 `limited/family` 자료로 사용할 수 있다. 제목, URL의 단어와 짧은 메뉴만으로는 관련 근거를 인정하지 않는다. 이 단계는 주제와 메타정보 확인이며 신뢰성이나 독립 검증을 인증하지 않는다. 실제 주장에는 발언자, 관계와 원문 인용을 연결하고 별도로 검토한다. KV 압축 자료를 RDKV 자체의 성과로, CXL 계열 자료를 Photonic-CXL의 실제 도입 사례로 바꾸지 않는다.
+검색 후보는 양쪽 모두 논문 자체와 관련 기술 계열을 포함한다. 기본 JSON 실행에서는 검색 결과를 복잡한 키워드 조합으로 선제 제외하지 않고, 입력으로 받은 논문의 중복만 제거한다. 본문이 있는 후보는 `limited` 참고자료로 분석 단계에 전달하며, 논문명 미언급이나 날짜 및 발행자 미확인만으로 제외하지 않는다. 본문 없이 메뉴와 링크만 수집된 자료는 제외하고 누락된 메타정보는 미확인으로 남긴다. 이 처리는 자료의 신뢰성이나 독립 검증을 인증하지 않는다.
+
+분석 단계에서는 요청과 관련 있는 자료를 출처에 귀속한 `statement` 또는 조건부 `inference`로 사용한다. 실제 발언에는 발언자와 관계를 남기며, 추론을 해당 주체의 실제 찬반으로 해석하지 않는다. 각 주장에 원문 인용과 근거 ID를 연결하고 ID 및 인용 검사와 모델 검토를 유지한다. KV 압축 자료를 RDKV 자체의 성과로, CXL 계열 자료를 Photonic-CXL의 실제 도입 사례로 바꾸지 않는다.
 
 기존 Markdown 실행은 모델의 출처 분류 방식을 유지한다. 출처 검토가 누락되면 기존 본문으로 보완하며, 완료된 검토는 본문, 메타정보와 검토 맥락이 동일할 때 유지한다.
 
@@ -106,6 +108,8 @@ stakeholder_node = make_stakeholder_node()
 상위 Graph에서 `assessments`와 `usage`는 역할별로 병합하고, `evidence`와 `errors`는 ID별로 병합해야 한다. 누적 사용량을 합산하지 않는다. 상류 논문 근거를 공통 evidence에 등록한 뒤 이 노드를 실행해야 한다. 기존 팀 검증 에이전트의 다른 RoleResult 스키마에 그대로 연결하는 어댑터는 아니다. 자세한 차이는 `INTEGRATION.md`를 참고한다.
 
 기본 실행은 계획, 분석, 의미 검토의 3회 모델 호출이며, 내부 보완 최대 1회와 전체 모델 호출 최대 5회를 적용한다. 검색 6회, 원문 조회 10회가 기본 상한이다. API 제공자의 숨은 재시도는 끄고 전송 재시도는 현재 구현에서 수행하지 않는다. 설계서의 최대 1회 이내인 보수적인 실행 정책이다. 한도는 `AgentConfig` 또는 CLI에서 설정하며 입력 budget은 이 실행 상한을 더 낮출 수 있다. 입력 usage는 앞선 상위 회차까지 사용한 누적값이다. 내부 보완과 재실행에서 이를 초기화하지 않는다.
+
+이번 빠른 결과 확인은 `repair_limit=0`으로 설정해 보완 반복 없이 최대 3회 모델 호출로 끝낸다. 기본 보완 한도 1회는 유지하며, 테스트는 결과 확인 이후로 미룬다.
 
 ## 검증과 Git 포함 범위
 

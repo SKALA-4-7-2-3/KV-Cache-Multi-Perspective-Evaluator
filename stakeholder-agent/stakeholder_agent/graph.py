@@ -21,7 +21,7 @@ from .models import (
     Review,
     SearchQuestion,
 )
-from .retrieval import candidate_matches
+from .retrieval import candidate_matches, discovery_candidate
 from .source_quality import assess_operator_sources, assess_web_sources, pending_web_source_ids, web_source_issue
 from .stakeholders import aggregate_evidence_status, coverage_for, operating_organizations, select_targets
 
@@ -39,7 +39,8 @@ def _candidate_matches(technology, hit) -> bool:
 
 
 def validate_claims(draft: Assessment, evidence: dict[str, Evidence], tech_ids: set[str],
-                    domain_ids: set[str] | None = None, selected_targets=None):
+                    domain_ids: set[str] | None = None, selected_targets=None,
+                    *, allow_family_inference: bool = False):
     """Check ID, technology and literal source span; semantic validity is reviewed separately."""
     rejected, issues = [], []
     seen_claims = set()
@@ -65,7 +66,8 @@ def validate_claims(draft: Assessment, evidence: dict[str, Evidence], tech_ids: 
             reason = "추론 또는 논문 보고를 실제 반응으로 사용"
         elif claim.source_scope == "context":
             reason = "일반 배경 자료로 특정 기술의 편익·조건·반응을 판단함"
-        elif claim.source_scope == "family" and claim.kind != "statement":
+        elif (claim.source_scope == "family" and claim.kind != "statement"
+              and not (allow_family_inference and claim.kind == "inference")):
             reason = "기술 계열 자료에서 특정 구현의 효과·도입 조건을 추정함"
         for support in claim.supports:
             source = evidence.get(support.evidence_id)
@@ -83,7 +85,8 @@ def validate_claims(draft: Assessment, evidence: dict[str, Evidence], tech_ids: 
                 reason = "입력 논문 보고를 외부 이해관계자의 실제 평가로 표시"
             elif claim.aspect == "reaction" and source.source_type == "paper":
                 reason = "논문 내용을 외부 주체의 실제 반응으로 표시"
-            if source is not None and (issue := web_source_issue(source, claim)):
+            if source is not None and (issue := web_source_issue(
+                    source, claim, allow_family_inference=allow_family_inference)):
                 reason = issue
         signature = (claim.domain_id, claim.tech_id, claim.kind, _normal(claim.actor), _normal(claim.text))
         if claim.kind != "unknown" and signature in seen_claims:
@@ -269,7 +272,9 @@ def build_graph(config: AgentConfig, model, web):
                 gaps.append(f"{question.domain_id}/{question.tech_id}/{question.group}: 해당 검색에서 원문 후보를 찾지 못함")
             technology = next(t for t in p.technologies if t.id == question.tech_id)
             # Existing input URLs still pass through the dedup branch without changing their ownership.
-            candidates = [h for h in hits if h.url in seen or _candidate_matches(technology, h)]
+            candidate_filter = (discovery_candidate if state.get("output_format") == "json"
+                                else _candidate_matches)
+            candidates = [h for h in hits if h.url in seen or candidate_filter(technology, h)]
             if hits and not candidates:
                 gaps.append(f"{question.domain_id}/{question.tech_id}/{question.group}: 검색 후보가 입력 논문 중복 또는 대상 기술 계열과의 관련성 부족으로 제외됨")
             for hit in candidates[:2]:
@@ -374,7 +379,8 @@ def build_graph(config: AgentConfig, model, web):
         p = state["parsed"]
         bad, issues = validate_claims(draft, state["evidence"], {t.id for t in p.technologies},
                                      {d.id for d in p.analysis_context.domains},
-                                     {(t.domain_id, t.id) for t in state["plan"].stakeholders})
+                                     {(t.domain_id, t.id) for t in state["plan"].stakeholders},
+                                     allow_family_inference=state.get("output_format") == "json")
         pending = pending_web_source_ids(state["evidence"])
         issues.extend(f"출처 검토 미완료: {eid} — 기존 본문으로 출처 평가를 보완해야 함" for eid in pending)
         bad = _unique([*bad, *state["rejected"]])

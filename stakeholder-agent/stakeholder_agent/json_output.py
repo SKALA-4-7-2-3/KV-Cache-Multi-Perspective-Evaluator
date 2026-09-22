@@ -345,7 +345,8 @@ def render_json_output(state: dict, normalized: NormalizedInput | None, *, confi
     issues = []
     if draft and parsed:
         invalid, issues = validate_claims(draft, usable_sources, tech_ids, {d.id for d in domains},
-                                         {(t.domain_id, t.id) for t in selected})
+                                         {(t.domain_id, t.id) for t in selected},
+                                         allow_family_inference=True)
         rejected.update(invalid)
     accepted = {index: claim for index, claim in enumerate(draft.claims)
                 if execution_ok and index not in rejected and claim.kind != "unknown"} if draft else {}

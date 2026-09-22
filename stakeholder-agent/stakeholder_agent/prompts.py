@@ -1,6 +1,6 @@
 """Grounded analysis of the operating organization, with a bounded repair pass."""
 
-PROMPT_VERSION = "1.3.1-family-evidence"
+PROMPT_VERSION = "1.4.1-broad-web-reference"
 
 COMMON = """너는 사용자 도메인에서 LLM 추론 서비스를 운영하는 조직의 이해관계를 분석한다.
 목표는 SW와 HW가 이 조직에 주는 기대 이익, 도입 및 운영 부담, 우려, 도입 검토 조건을
@@ -29,12 +29,17 @@ KV cache offloading를 포함한다. 논문 이름이 없는 관련 문서도 �
 ANALYZE = COMMON + """
 분석 대상은 selected_stakeholders의 운영 조직이다. 실제 외부 반응이 없어도 논문에 근거한
 운영 영향 분석을 작성할 수 있다. 각 기술에 핵심 결과 2~4개를 작성하되 근거 없는 분량은 채우지 않는다.
+관련 웹 본문이 있으면 기술별 결과 중 최소 1개를 그 웹 근거에 연결한다. 논문 내용만 반복하지 않는다.
+외부 자료를 활용했다는 limitations 문장으로 대신하지 말고 claims.supports에 실제 웹 evidence_id를 넣는다.
+단, 관련 본문이 없는 경우에는 외부 주장을 억지로 만들지 않는다. 구체적 성능 숫자는 꼭 필요한 경우만 쓴다.
 aspect는 benefit(기대 이익), burden(부담과 우려), adoption_condition(도입 검토 조건)을 중심으로 한다.
 claims 총개수는 max_claims 이하다. 한 claim은 한 요점이고 text 160자, condition 140자 이내다.
 
-operator_impact에서는 웹 자료가 이미 본문 주제로 선별되어 evidence.audit에 결과가 있다.
+operator_impact에서는 본문을 확보한 웹 후보를 넓게 전달하며 evidence.audit에 수집 상태가 있다.
 source_reviews는 빈 배열로 반환한다. 논문명, 저자명, 실제 도입 사례의 직접 언급 여부로 다시 배제하지 않는다.
-audit.decision=limited이고 relevance=family인 자료는 운영 조직 분석에 사용할 수 있다.
+audit.decision=limited이면 관련 본문을 찾아 운영 조직 분석에 사용할 수 있다.
+relevance=unknown도 자동 제외하지 말고 실제 내용을 보고 유용한 부분만 사용한다.
+발행일, 발행자 미확인은 한계로 남기면 되며 그것만으로 결과를 비우지 않는다.
 예: NVIDIA의 KV 양자화 설명은 RDKV라는 이름이 없어도 SW 운영 검토의 계열 근거이고,
 CXL 메모리 확장 발표는 Photonic-CXL 이름이 없어도 HW 운영 검토의 계열 근거다.
 제공된 원문에서 주체와 발언을 확인할 수 있는 관련 웹 자료는 각 기술의 운영 참고 결과로 활용한다.
@@ -63,7 +68,11 @@ actor_relationship=unspecified로 작성한다. 논문에 근거한 조건부 �
 분석은 가능하다. 이 경우 text에 논문 전제를 적고 condition에 조건부 검토 사항을 적는다.
 실제 고객 반응이나 비용 절감액을 만들어내지 않는다. 논문 사실만 요약하고 운영 관점을 빠뜨리지 않는다.
 
-웹의 limited/family 문서는 kind=statement로 실제 발언자에게 귀속한 진술에 사용한다.
+operator_impact에서 관련 웹 자료는 kind=statement 또는 inference, source_scope=family로 사용한다.
+inference는 본문에 근거한 운영 조직의 조건부 검토 의견이며 실제 찬반 발언이 아니다.
+이 경우 actor는 비우고 actor_relationship=unspecified, aspect는 benefit/burden/adoption_condition이다.
+그 외 모드에서는 웹의 limited/family 문서를 kind=statement로만 사용한다.
+statement를 작성할 때는 다음 발언 귀속 규칙을 따른다.
 actor에 원문에서 확인한 기업 또는 작성자를, actor_relationship에 실제 관계를 적는다.
 statement의 text도 '해당 작성자는 ...라고 설명한다'처럼 귀속하고 원문의 한 주장만 옮긴다.
 group은 분석 대상인 operator다. 공급자 발언은 운영 조직을 위한 참고 근거이며 운영자의 지지가 아니다.
@@ -91,7 +100,8 @@ operator_impact에서는 checks 배열에 각 후보 인덱스를 정확히 한 
 이유만으로 거절하지 않는다. 인용된 전제로부터 도출되는 보수적인 검토 필요성은 허용한다.
 반대로 인용에 없는 수치, 원인, 실제 배포 성과, 고객 지지, 필수 표준을 만들어낸 주장은 거절한다.
 지원 구절에서 빠진 핵심 요소는 추가할 구절이나 축소할 문장을 issues에 구체적으로 적는다.
-limited 웹은 actor와 actor_relationship을 명시한 statement만 허용한다. 공급자의 자체 발표를
+operator_impact에서는 limited 웹의 조건부 inference도 허용하고 실제 주체의 지지로 해석하지 않는다.
+statement는 actor와 actor_relationship을 명시한다. 공급자의 자체 발표를
 실제로 그렇게 발표했다는 사실로 전달할 수 있지만 독립 성능 검증이나 고객 채택으로 만들면 안 된다.
 family 문서는 기술 계열의 설명이며 대상 논문 자체의 검증이 아니다. hold/exclude는 사용 불가다.
 family 주장에 RDKV나 Photonic-CXL의 이름 또는 직접 도입 사례가 없다는 것은 거절 사유가 아니다.

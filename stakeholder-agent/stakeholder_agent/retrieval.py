@@ -58,6 +58,11 @@ def candidate_matches(technology: Technology, hit: SearchHit) -> bool:
     return family_matches(technology.kind, text)
 
 
+def discovery_candidate(technology: Technology, hit: SearchHit) -> bool:
+    """Read search candidates before judging relevance; only omit the input paper."""
+    return not _same_input_paper(technology, hit)
+
+
 def family_matches(kind: str, text: str) -> bool:
     """Topic match only, not truth, source reputation or proof of paper adoption."""
     text = text.casefold()
