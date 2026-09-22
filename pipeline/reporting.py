@@ -88,7 +88,8 @@ use_in_report=true이면 observations를 비우지 않는다. 숫자·비교 기
 
 def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool = False,
                     attribution_first: bool = False, revision_feedback: list[str] | None = None,
-                    revision_candidate: str | None = None) -> dict:
+                    revision_candidate: str | None = None, source_coverage_repair: bool = True,
+                    source_reading_model: str | None = None) -> dict:
     """Generate LaTeX and PDF, repairing compilation errors with the same agent.
 
     All attempts and errors remain beside the PDF. Initial generation and
@@ -113,6 +114,11 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
 
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    reference_metadata = repository / "pipeline" / "reference_metadata.json"
+    if reference_metadata.exists():
+        markdown = re.sub(r"\n?<!-- REFERENCE_METADATA_JSON\n[\s\S]*?\nEND_REFERENCE_METADATA_JSON -->\n?", "", markdown)
+        markdown += ("\n<!-- REFERENCE_METADATA_JSON\n" + reference_metadata.read_text().strip()
+                     + "\nEND_REFERENCE_METADATA_JSON -->\n")
     if revision_feedback:
         (output_dir / "report.feedback.json").write_text(
             json.dumps(revision_feedback, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -120,7 +126,7 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
     # Reject a structurally failed handoff before spending calls reading sources.
     parse_report_input(markdown, allow_unreviewed=draft, allow_attributed_draft=attribution_first)
     if attribution_first:
-        markdown = source_analysis(markdown, output_dir, model)
+        markdown = source_analysis(markdown, output_dir, source_reading_model or model)
     (output_dir / "report.input.md").write_text(markdown, encoding="utf-8")
     tex_path = output_dir / "report.tex"
     pdf_path = output_dir / "report.pdf"
@@ -196,7 +202,7 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
             missing = missing_source_readings(candidate, generated.parsed_input)
             source_coverage = {"requested": [source["citation_key"] for source in missing],
                                "retry_count": 0, "revision_status": "not_needed"}
-            if missing:
+            if missing and source_coverage_repair:
                 source_coverage.update(retry_count=1, revision_status="requested")
                 record_source_coverage(candidate, generated.parsed_input)
                 prompt = ("기존 보고서에서 아직 인용하지 않은 활용 가능한 출처별 분석을 검토하라. "
@@ -221,6 +227,8 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
                 except Exception as exc:
                     source_coverage.update(revision_status="previous_draft_retained",
                                            error_type=type(exc).__name__)
+            if missing and not source_coverage_repair:
+                source_coverage["revision_status"] = "not_requested_for_format_revision"
             record_source_coverage(candidate, generated.parsed_input)
         # A compile failure is actionable feedback, so give the report agent
         # a bounded repair loop without repeating any upstream API calls.
@@ -270,6 +278,7 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
         "compiler": compiler,
         "compile_attempts": len(compilation_errors) + 1,
         "model": model,
+        "source_reading_model": source_reading_model or model,
         "render_mode": generated.parsed_input.metadata.get("render_mode", "reviewed_report"),
         "collected_source_count": len(generated.parsed_input.collected_sources),
         "reference_candidate_count": len(generated.parsed_input.reference_records),

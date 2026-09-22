@@ -10,6 +10,8 @@ from .compiler import compile_latex
 from .parser import ParsedReportInput, parse_report_input
 from .prompt import SYSTEM_INSTRUCTIONS, build_generation_prompt, build_repair_prompt
 from .validator import ValidationResult, validate_latex
+from .layout import apply_report_layout
+from .references import format_reference
 
 
 class GenerationError(RuntimeError):
@@ -152,23 +154,7 @@ def retain_cited_references(latex: str, parsed: ParsedReportInput) -> str:
     lines = [r"\section{REFERENCE}", r"\renewcommand{\refname}{}",
              r"\begin{thebibliography}{" + str(max(9, len(records))) + "}"]
     for key, record in records.items():
-        authors = record.get("authors_or_organization")
-        if isinstance(authors, list):
-            authors = ", ".join(map(str, authors))
-        authors = authors if authors and str(authors).lower() != "unknown" else "저자·기관 미확인"
-        title = record.get("title") or "제목 미확인"
-        fields = [str(authors), str(title)]
-        for name in ("venue_or_site", "publication_date", "year"):
-            value = record.get(name)
-            if value and str(value).lower() not in {"unknown", "없음", "미확인"}:
-                if name != "year" or not record.get("publication_date") or record.get("publication_date") == "unknown":
-                    fields.append(str(value))
-        lines.append(r"\bibitem{" + key + "} " + _latex_text(". ".join(fields)) + ".")
-        if record.get("url"):
-            lines.append(_source_url(str(record["url"])) + ".")
-        accessed = record.get("accessed_at")
-        if accessed and str(accessed).lower() != "unknown":
-            lines.append(_latex_text("열람일: " + str(accessed)[:10]) + ".")
+        lines.append(r"\bibitem{" + key + "} " + format_reference(record))
     lines += [r"\end{thebibliography}", ""]
     bibliography = "\n".join(lines)
     return re.sub(r"\\section\{REFERENCE\}[\s\S]*?(?=\\end\{document\})",
@@ -203,7 +189,7 @@ def missing_source_readings(latex: str, parsed: ParsedReportInput) -> list[dict]
 
 
 def prepare_candidate(candidate: str, parsed: ParsedReportInput) -> str:
-    candidate = _strip_code_fence(candidate)
+    candidate = apply_report_layout(_strip_code_fence(candidate))
     if parsed.metadata.get("render_mode") == "annotated_draft":
         candidate = canonicalize_citations(candidate, parsed)
         return retain_cited_references(retain_attribution_appendix(candidate, parsed), parsed)

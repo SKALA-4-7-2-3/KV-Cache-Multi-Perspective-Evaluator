@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
+from .references import normalize_reference
 
 class InputContractError(ValueError):
     """Raised when report input is unsafe or violates the handoff contract."""
@@ -201,6 +202,11 @@ def _include_collected_references(mapping: dict[str, str], records: dict[str, di
                 "accessed_at": source.get("retrieved_at") or "unknown",
                 "url": source["url"], "source_type": source.get("source_type") or "web",
             }
+        for field in ("kind", "authors_or_organization", "publication_date", "year", "venue_or_site",
+                      "arxiv_id", "doi", "volume", "issue", "pages", "publication_number",
+                      "patent_number", "applicant", "assignee"):
+            if source.get(field) is not None and str(canonical[key].get(field) or "").lower() in {"", "unknown", "none", "null"}:
+                canonical[key][field] = source[field]
         for identifier in (source.get("reference_id"), source.get("citation_key"),
                            source.get("source_id"), source.get("evidence_id"), source.get("url")):
             if identifier:
@@ -220,7 +226,8 @@ def _data_block(body: str, name: str, default: Any) -> Any:
 
 
 def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
-                       allow_attributed_draft: bool = False) -> ParsedReportInput:
+                       allow_attributed_draft: bool = False,
+                       reference_metadata: dict[str, dict[str, Any]] | None = None) -> ParsedReportInput:
     if not markdown.strip():
         raise InputContractError("입력 Markdown이 비어 있습니다.")
 
@@ -301,6 +308,11 @@ def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
     if allow_attributed_draft:
         reference_to_citation, reference_records, url_to_citation = _include_collected_references(
             reference_to_citation, reference_records, collected_sources)
+    embedded_metadata = _data_block(body, "REFERENCE_METADATA", {})
+    if not isinstance(embedded_metadata, dict) or any(not isinstance(value, dict) for value in embedded_metadata.values()):
+        raise InputContractError("참고문헌 서지 정보 형식이 잘못되었습니다.")
+    overrides = {**embedded_metadata, **(reference_metadata or {})}
+    reference_records = {key: normalize_reference(record, overrides) for key, record in reference_records.items()}
     warnings: list[str] = []
     if allow_attributed_draft:
         metadata["render_mode"] = "annotated_draft"

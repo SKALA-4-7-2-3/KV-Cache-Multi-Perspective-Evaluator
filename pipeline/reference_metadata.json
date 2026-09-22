@@ -1,0 +1,426 @@
+{
+  "https://neurips.cc/virtual/2024/poster/93558": {
+    "kind": "paper",
+    "authors_or_organization": [
+      "Tianyi Zhang",
+      "Jonah Yi",
+      "Zhaozhuo Xu",
+      "Anshumali Shrivastava"
+    ],
+    "title": "KV Cache is 1 Bit Per Channel: Efficient Large Language Model Inference with Coupled Quantization",
+    "year": 2024,
+    "publication_date": null,
+    "venue_or_site": "Advances in Neural Information Processing Systems",
+    "metadata_source": "https://proceedings.neurips.cc/paper_files/paper/2024/hash/05d6b5b6901fb57d2c287e1d3ce6d63c-Abstract-Conference.html",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset.",
+    "volume": "37",
+    "doi": "10.52202/079017-0109"
+  },
+  "https://www.marvell.com/blogs/photonic-fabric-technology-optical-connectivity-ai-infrastructure.html": {
+    "kind": "web",
+    "authors_or_organization": "Marvell Technology",
+    "title": "Photonic Fabric™ Technology: How Optical Connectivity Enables the Next Generation of AI Infrastructure",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "Marvell Technology",
+    "metadata_source": "https://www.marvell.com/blogs/photonic-fabric-technology-optical-connectivity-ai-infrastructure.html",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.facebook.com/groups/claudeaicommunity/posts/1246704810830017": {
+    "kind": "web",
+    "authors_or_organization": null,
+    "title": "Claude Ai Community | Hey so I recently made the switch",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "Facebook — Claude Ai Community",
+    "metadata_source": "https://www.facebook.com/groups/claudeaicommunity/posts/1246704810830017",
+    "metadata_basis": "Exact page HTML title. Individual post author and publication date not available; group identified as host, not verified post authorship."
+  },
+  "https://www.marvell.com/blogs/marvell-structera-cxl-portfolio.html": {
+    "kind": "web",
+    "authors_or_organization": "Marvell Technology",
+    "title": "Marvell Structera™ X, A and S: A Comprehensive CXL Portfolio Powering AI Memory Innovation",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "Marvell Technology",
+    "metadata_source": "https://www.marvell.com/blogs/marvell-structera-cxl-portfolio.html",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.marvell.com/company/newsroom/marvell-ai-memory-infrastructure-agentic-ai-inference.html": {
+    "kind": "web",
+    "authors_or_organization": "Marvell Technology",
+    "title": "Marvell Advances AI Memory Infrastructure Portfolio to Accelerate Agentic AI Inference",
+    "year": 2026,
+    "publication_date": "2026-08-04",
+    "venue_or_site": "Marvell Technology",
+    "metadata_source": "https://www.marvell.com/company/newsroom/marvell-ai-memory-infrastructure-agentic-ai-inference.html",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.researchandmarkets.com/reports/6183534/ai-inference-market-outlook-market-share": {
+    "kind": "web",
+    "authors_or_organization": "OG Analysis",
+    "title": "AI Inference Market Outlook 2026-2034: Market Share, and Growth Analysis",
+    "year": 2025,
+    "publication_date": "2025-11",
+    "venue_or_site": "Research and Markets",
+    "metadata_source": "https://www.researchandmarkets.com/reports/6183534/ai-inference-market-outlook-market-share",
+    "metadata_basis": "Publisher and November 2025 date displayed in primary report product details."
+  },
+  "https://dataintelo.com/report/cxl-memory-pooling-appliance-market": {
+    "kind": "web",
+    "authors_or_organization": "Raksha Sharma",
+    "title": "CXL Memory Pooling Appliance Market",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "DataIntelo",
+    "metadata_source": "https://dataintelo.com/report/cxl-memory-pooling-appliance-market",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://computeexpresslink.org/event/compute-express-link-2-0-specification-memory-pooling": {
+    "kind": "web",
+    "authors_or_organization": "CXL Consortium",
+    "title": "Compute Express Link™ 2.0 Specification: Memory Pooling",
+    "year": 2021,
+    "publication_date": "2021-03-23",
+    "venue_or_site": "CXL Consortium",
+    "metadata_source": "https://computeexpresslink.org/event/compute-express-link-2-0-specification-memory-pooling",
+    "metadata_basis": "Dated webinar page: Mar 23, 2021; page-migration metadata 2026-05-13 is not the webinar date."
+  },
+  "https://github.com/Zefan-Cai/Awesome-LLM-KV-Cache": {
+    "kind": "web",
+    "authors_or_organization": "Zefan-Cai and contributors",
+    "title": "Awesome-LLM-KV-Cache: A curated list of Awesome LLM KV Cache Papers with Codes",
+    "year": 2024,
+    "publication_date": null,
+    "venue_or_site": "GitHub",
+    "metadata_source": "https://github.com/Zefan-Cai/Awesome-LLM-KV-Cache",
+    "metadata_basis": "Repository title and repository supplied BibTeX year 2024; no precise publication day claimed."
+  },
+  "https://github.com/oneapi-src/unified-memory-framework": {
+    "kind": "web",
+    "authors_or_organization": "oneapi-src contributors",
+    "title": "Unified Memory Framework",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "GitHub",
+    "metadata_source": "https://github.com/oneapi-src/unified-memory-framework",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.polarismarketresearch.com/industry-analysis/ai-inference-market": {
+    "kind": "web",
+    "authors_or_organization": "Apurva Agarwal",
+    "title": "AI Inference Market Size, Growth Drivers, 2026-2034",
+    "year": 2026,
+    "publication_date": "2026-04-23",
+    "venue_or_site": "Polaris Market Research",
+    "metadata_source": "https://www.polarismarketresearch.com/industry-analysis/ai-inference-market",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.sphericalinsights.com/reports/cxl-memory-expansion-market": {
+    "kind": "web",
+    "authors_or_organization": "Spherical Insights",
+    "title": "Global CXL Memory Expansion Market Size, and Share, By Component (CXL Memory Modules, CXL Controllers, CXL Switches, and Software & Orchestration), By Deployment Architecture (Memory Expansion, Memory Pooling, and Memory Sharing/Disaggregation), By Application (AI & Machine Learning Inference, AI Data Preparation & Vector Databases, High-Performance Computing & Scientific Computing, In-Memory Databases, and Cloud & Hyperscale Data Centers), and By Region (North America, Europe, Asia-Pacific, Latin America, Middle East, and Africa), Analysis and Forecast 2026 - 2035.",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "Spherical Insights",
+    "metadata_source": "https://www.sphericalinsights.com/reports/cxl-memory-expansion-market",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://computeexpresslink.org/event/compute-express-link-cxl-introducing-the-compute-express-link-2-0-specification": {
+    "kind": "web",
+    "authors_or_organization": "CXL Consortium",
+    "title": "Compute Express Link™ (CXL™): Introducing the Compute Express Link™ 2.0 Specification",
+    "year": 2020,
+    "publication_date": "2020-12-10",
+    "venue_or_site": "CXL Consortium",
+    "metadata_source": "https://computeexpresslink.org/event/compute-express-link-cxl-introducing-the-compute-express-link-2-0-specification",
+    "metadata_basis": "Dated webinar page: Dec 10, 2020; page-migration metadata 2026-05-13 is not the webinar date."
+  },
+  "https://modal.com/resources/best-long-context-open-source-code-llms-repo-agents": {
+    "kind": "web",
+    "authors_or_organization": "Modal",
+    "title": "Best Long-Context Open Source Code LLMs for Repo Agents in 2026",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "Modal",
+    "metadata_source": "https://modal.com/resources/best-long-context-open-source-code-llms-repo-agents",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://hxji.github.io/assets/pdf/cxl-micro23.pdf": {
+    "kind": "paper",
+    "authors_or_organization": [
+      "Yan Sun",
+      "Yifan Yuan",
+      "Zeduo Yu",
+      "Reese Kuper",
+      "Chihun Song",
+      "Jinghan Huang",
+      "Houxiang Ji",
+      "Siddharth Agarwal",
+      "Jiaqi Lou",
+      "Ipoom Jeong",
+      "Ren Wang",
+      "Jung Ho Ahn",
+      "Tianyin Xu",
+      "Nam Sung Kim"
+    ],
+    "title": "Demystifying CXL Memory with Genuine CXL-Ready Systems and Devices",
+    "year": 2023,
+    "publication_date": null,
+    "venue_or_site": "Proceedings of the 56th Annual IEEE/ACM International Symposium on Microarchitecture (MICRO ’23)",
+    "metadata_source": "https://hxji.github.io/assets/pdf/cxl-micro23.pdf",
+    "metadata_basis": "Primary PDF first-page ACM reference format and page 105, 17-page article.",
+    "pages": "105–121",
+    "doi": "10.1145/3613424.3614256"
+  },
+  "https://arxiv.org/html/2607.07207v1": {
+    "kind": "paper",
+    "authors_or_organization": [
+      "Satoshi Matsuoka"
+    ],
+    "title": "Memory Scarcity, Open Models, and the Restructuring of the AI Industry, 2026–2030 — A quantitative scenario analysis of inference economics, training-cost divergence, and infrastructure solvency",
+    "year": 2026,
+    "publication_date": "2026-07-08",
+    "venue_or_site": "arXiv",
+    "metadata_source": "https://arxiv.org/abs/2607.07207",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset.",
+    "arxiv_id": "2607.07207"
+  },
+  "https://www.snsinsider.com/reports/cxl-memory-expansion-market-10881": {
+    "kind": "web",
+    "authors_or_organization": "Sushant Kadam",
+    "title": "CXL Memory Expansion Market Size, Share & Global Forecast 2026-2035",
+    "year": 2026,
+    "publication_date": "2026-08-28",
+    "venue_or_site": "SNS Insider",
+    "metadata_source": "https://www.snsinsider.com/reports/cxl-memory-expansion-market-10881",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://computeexpresslink.org/wp-content/uploads/2024/02/CXL-3.1-Specification.pdf": {
+    "kind": "web",
+    "authors_or_organization": "CXL Consortium",
+    "title": "Compute Express Link (CXL) Specification, Revision 3.1, Version 1.0",
+    "year": 2023,
+    "publication_date": "2023-08-07",
+    "venue_or_site": "CXL Consortium",
+    "metadata_source": "https://computeexpresslink.org/wp-content/uploads/2024/02/CXL-3.1-Specification.pdf",
+    "metadata_basis": "Specification title page August 2023 and document footer August 7, 2023; URL upload date is not publication date."
+  },
+  "https://www.mordorintelligence.com/industry-reports/in-memory-computing-market": {
+    "kind": "web",
+    "authors_or_organization": "Mordor Intelligence",
+    "title": "In-memory Computing Market Size & Share Analysis - Growth Trends and Forecast (2026 - 2031)",
+    "year": 2026,
+    "publication_date": "2026-07-30",
+    "venue_or_site": "Mordor Intelligence",
+    "metadata_source": "https://www.mordorintelligence.com/industry-reports/in-memory-computing-market",
+    "metadata_basis": "Primary page dateModified for the current 2026–2031 report edition; original landing page datePublished is 2019-04-03."
+  },
+  "https://www.digitalocean.com/resources/articles/ai-inference-platforms": {
+    "kind": "web",
+    "authors_or_organization": "Jess Lulka",
+    "title": "10 AI Inference Platforms for Production Workloads in 2026",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "DigitalOcean",
+    "metadata_source": "https://www.digitalocean.com/resources/articles/ai-inference-platforms",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.synopsys.com/blogs/chip-design/cxl-4-ip-solution-ai-memory-connectivity.html": {
+    "kind": "web",
+    "authors_or_organization": [
+      "Magaly Sandoval-Pichardo",
+      "Ron Lowman"
+    ],
+    "title": "CXL 4.0 Arrives — Synopsys Unlocks the Next Leap in AI-Scale Memory Connectivity",
+    "year": 2026,
+    "publication_date": "2026-08-04",
+    "venue_or_site": "Synopsys",
+    "metadata_source": "https://www.synopsys.com/blogs/chip-design/cxl-4-ip-solution-ai-memory-connectivity.html",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://github.com/jim-schwoebel/awesome_ai_agents": {
+    "kind": "web",
+    "authors_or_organization": "jim-schwoebel and contributors",
+    "title": "Awesome AI Agents: Tools, Resources, and Projects",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "GitHub",
+    "metadata_source": "https://github.com/jim-schwoebel/awesome_ai_agents",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.marketsandmarkets.com/Market-Reports/data-center-storage-market-25503295.html": {
+    "kind": "web",
+    "authors_or_organization": "MarketsandMarkets",
+    "title": "Data Center Storage Market Size, Share & Trends",
+    "year": 2026,
+    "publication_date": "2026-05-20",
+    "venue_or_site": "MarketsandMarkets",
+    "metadata_source": "https://www.marketsandmarkets.com/Market-Reports/data-center-storage-market-25503295.html",
+    "metadata_basis": "Primary Article structured metadata datePublished; visible page states Published in May, 2026."
+  },
+  "https://blogs.oracle.com/cloud-infrastructure/run-ai-inference-without-gpus": {
+    "kind": "web",
+    "authors_or_organization": "Sanjay Basu",
+    "title": "Run AI Inference Without GPUs",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "Oracle Blogs",
+    "metadata_source": "https://blogs.oracle.com/cloud-infrastructure/run-ai-inference-without-gpus",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://introl.com/blog/cxl-4-0-infrastructure-planning-guide-memory-pooling-2025": {
+    "kind": "web",
+    "authors_or_organization": "Blake Crosley",
+    "title": "CXL 4.0 Infrastructure Planning Guide: Memory Pooling for AI at Scale",
+    "year": 2025,
+    "publication_date": "2025-12-13",
+    "venue_or_site": "Introl",
+    "metadata_source": "https://introl.com/blog/cxl-4-0-infrastructure-planning-guide-memory-pooling-2025",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://llm-d.ai/blog/llm-d-announce": {
+    "kind": "web",
+    "authors_or_organization": [
+      "Robert Shaw",
+      "Clayton Coleman",
+      "Carlos Costa"
+    ],
+    "title": "Announcing the llm-d community!",
+    "year": 2025,
+    "publication_date": "2025-05-20",
+    "venue_or_site": "llm-d",
+    "metadata_source": "https://llm-d.ai/blog/llm-d-announce",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.precedenceresearch.com/generative-ai-server-market": {
+    "kind": "web",
+    "authors_or_organization": "Shivani Zoting",
+    "title": "Generative AI Server Market Trends, Companies, Revenue / Sales Performance, Subscriber Growth, Pricing Strategies, Cloud Adoption, Infrastructure Expansion, Competitive Landscape, and Industry Outlook",
+    "year": 2026,
+    "publication_date": "2026-09-09",
+    "venue_or_site": "Precedence Research",
+    "metadata_source": "https://www.precedenceresearch.com/generative-ai-server-market",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.exoscale.com/ai-cloud-infrastructure": {
+    "kind": "web",
+    "authors_or_organization": "Exoscale",
+    "title": "The Sovereign European Cloud for Modern AI",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "Exoscale",
+    "metadata_source": "https://www.exoscale.com/ai-cloud-infrastructure",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.liqid.com/products/memory-pooling-solutions": {
+    "kind": "web",
+    "authors_or_organization": "LIQID",
+    "title": "LIQID Memory Pooling Solutions",
+    "year": null,
+    "publication_date": null,
+    "venue_or_site": "LIQID",
+    "metadata_source": "https://www.liqid.com/products/memory-pooling-solutions",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://www.stat.berkeley.edu/~mmahoney/pubs/neurips-2024-kvquant.pdf": {
+    "kind": "paper",
+    "authors_or_organization": [
+      "Coleman Hooper",
+      "Sehoon Kim",
+      "Hiva Mohammadzadeh",
+      "Michael W. Mahoney",
+      "Yakun Sophia Shao",
+      "Kurt Keutzer",
+      "Amir Gholami"
+    ],
+    "title": "KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization",
+    "year": 2024,
+    "publication_date": null,
+    "venue_or_site": "Advances in Neural Information Processing Systems",
+    "metadata_source": "https://proceedings.neurips.cc/paper_files/paper/2024/hash/028fcbcf85435d39a40c4d61b42c99a4-Abstract-Conference.html",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset.",
+    "volume": "37",
+    "doi": "10.52202/079017-0040"
+  },
+  "https://www.youtube.com/watch?v=mPObGun9IjA": {
+    "kind": "web",
+    "authors_or_organization": "DSAI by Dr. Osbert Tay",
+    "title": "Rethinking KV Cache Compression Techniques for LLM Serving",
+    "year": 2026,
+    "publication_date": "2026-03-28",
+    "venue_or_site": "YouTube",
+    "metadata_source": "https://www.youtube.com/watch?v=mPObGun9IjA",
+    "metadata_basis": "Saved collected video page: channel DSAI by Dr. Osbert Tay; Posted: 28 Mar 2026. This channel repost is not attributed as the research authors."
+  },
+  "https://cs.stanford.edu/~keithw/sigcomm2024/sigcomm24-final1571-acmpaginated.pdf": {
+    "kind": "paper",
+    "authors_or_organization": [
+      "Yuhan Liu",
+      "Hanchen Li",
+      "Yihua Cheng",
+      "Siddhant Ray",
+      "Yuyang Huang",
+      "Qizheng Zhang",
+      "Kuntai Du",
+      "Jiayi Yao",
+      "Shan Lu",
+      "Ganesh Ananthanarayanan",
+      "Michael Maire",
+      "Henry Hoffmann",
+      "Ari Holtzman",
+      "Junchen Jiang"
+    ],
+    "title": "CacheGen: KV Cache Compression and Streaming for Fast Large Language Model Serving",
+    "year": 2024,
+    "publication_date": null,
+    "venue_or_site": "Proceedings of the ACM SIGCOMM 2024 Conference",
+    "metadata_source": "https://cs.stanford.edu/~keithw/sigcomm2024/sigcomm24-final1571-acmpaginated.pdf",
+    "metadata_basis": "Primary PDF first-page ACM reference format and page 38, 18-page article.",
+    "pages": "38–55",
+    "doi": "10.1145/3651890.3672274"
+  },
+  "https://www.prweb.com/releases/xconn-technologies-and-memverge-to-deliver-breakthrough-scalable-cxl-memory-solution-to-offload-kv-cache-and-prefilldecode-disaggregation-in-ai-inference-workloads-302616566.html": {
+    "kind": "web",
+    "authors_or_organization": "XConn Technologies",
+    "title": "XConn Technologies and MemVerge to Deliver Breakthrough Scalable CXL Memory Solution to Offload KV Cache and Prefill/Decode Disaggregation in AI Inference Workloads",
+    "year": 2025,
+    "publication_date": "2025-11-17",
+    "venue_or_site": "PRWeb",
+    "metadata_source": "https://www.prweb.com/releases/xconn-technologies-and-memverge-to-deliver-breakthrough-scalable-cxl-memory-solution-to-offload-kv-cache-and-prefilldecode-disaggregation-in-ai-inference-workloads-302616566.html",
+    "metadata_basis": "Saved collected page text and/or exact primary URL metadata; unknown publication dates intentionally unset."
+  },
+  "https://arxiv.org/abs/2605.08317": {
+    "kind": "paper",
+    "authors_or_organization": [
+      "Junkai Zhang",
+      "Hang Guo",
+      "Luca Benini",
+      "Yawei Li"
+    ],
+    "title": "RDKV: Rate-Distortion Bit Allocation for Joint Eviction and Quantization of the KV Cache",
+    "year": 2026,
+    "publication_date": "2026-05-08",
+    "venue_or_site": "arXiv",
+    "arxiv_id": "2605.08317",
+    "metadata_source": "https://arxiv.org/abs/2605.08317",
+    "metadata_basis": "Primary arXiv citation_title, citation_author, citation_date metadata."
+  },
+  "https://arxiv.org/abs/2607.27187": {
+    "kind": "paper",
+    "authors_or_organization": [
+      "Jing Ding",
+      "Yash Nishant",
+      "Chandrish Ambati",
+      "Jyothsna Kamati",
+      "Trung Diep"
+    ],
+    "title": "A Photonic-CXL Memory Appliance for Scalable KV Cache Management in LLM Inference",
+    "year": 2026,
+    "publication_date": "2026-07-29",
+    "venue_or_site": "arXiv",
+    "arxiv_id": "2607.27187",
+    "metadata_source": "https://arxiv.org/abs/2607.27187",
+    "metadata_basis": "Primary arXiv citation_title, citation_author, citation_date metadata."
+  }
+}
