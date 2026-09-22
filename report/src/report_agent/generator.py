@@ -139,16 +139,6 @@ def retain_attribution_appendix(latex: str, parsed: ParsedReportInput) -> str:
     latex = re.sub(r"% BEGIN_ATTRIBUTION_APPENDIX[\s\S]*?% END_ATTRIBUTION_APPENDIX\n?", "", latex)
     if parsed.metadata.get("render_mode") != "annotated_draft":
         return latex
-    semantic_status = {
-        "passed": "자동 의미 검사 통과", "review_required": "추가 검토 필요",
-        "failed": "검사 처리 오류", "rejected": "검토 지적 있음", "not_run": "미실행",
-    }.get(parsed.metadata.get("semantic_validation_status"), "미확인")
-    notice = ("\n% BEGIN_ATTRIBUTION_NOTICE\n"
-              r"\par\noindent\textbf{출처 기반 분석 초안: 출처 내용과 해석을 구분하고 검토 사항을 함께 표시했습니다.}"
-              "\n" + r"자동 의미 검사 상태: " + _latex_text(semantic_status) + r".\par" +
-              "\n% END_ATTRIBUTION_NOTICE\n")
-    anchor = r"\maketitle" if r"\maketitle" in latex else r"\begin{document}"
-    latex = latex.replace(anchor, anchor + notice, 1)
     notes, seen = [], set()
     for note in parsed.retained_synthesis.get("review_notes") or []:
         if note.get("verdict") == "supported":
@@ -160,7 +150,7 @@ def retain_attribution_appendix(latex: str, parsed: ParsedReportInput) -> str:
             seen.add(identity)
     if not notes:
         return latex
-    lines = ["% BEGIN_ATTRIBUTION_APPENDIX", r"\subsubsection*{종합 초안 검토 사항}",
+    lines = ["% BEGIN_ATTRIBUTION_APPENDIX", r"\subsubsection*{종합 검토 사항}",
              "생성된 원래 의견과 검토 기록은 보고서 입력 자료에 보존했다. "
              "아래는 자동 검토에서 제시한 사항이다. 인용 번호는 검사 기록에 등장한 검토 대상 자료를 가리키며, "
              "해당 자료가 검토 내용 전체를 뒷받침한다는 판정은 아니다." + r"\par"]
