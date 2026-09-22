@@ -1,0 +1,998 @@
+{
+  "$defs": {
+    "AnalysisResult": {
+      "additionalProperties": false,
+      "properties": {
+        "by_technology": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TechnologyResult"
+          },
+          "propertyNames": {
+            "enum": [
+              "SW-01",
+              "HW-01"
+            ]
+          },
+          "title": "By Technology",
+          "type": "object"
+        },
+        "details": {
+          "$ref": "#/$defs/ResultDetails"
+        }
+      },
+      "required": [
+        "by_technology",
+        "details"
+      ],
+      "title": "AnalysisResult",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Counters": {
+      "additionalProperties": false,
+      "properties": {
+        "llm": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Llm",
+          "type": "integer"
+        },
+        "search": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Search",
+          "type": "integer"
+        },
+        "fetch": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Fetch",
+          "type": "integer"
+        }
+      },
+      "title": "Counters",
+      "type": "object"
+    },
+    "CoverageRow": {
+      "additionalProperties": false,
+      "properties": {
+        "domain_id": {
+          "title": "Domain Id",
+          "type": "string"
+        },
+        "technology_id": {
+          "title": "Technology Id",
+          "type": "string"
+        },
+        "stakeholder_id": {
+          "title": "Stakeholder Id",
+          "type": "string"
+        },
+        "search_status": {
+          "enum": [
+            "searched",
+            "failed",
+            "not_searched"
+          ],
+          "title": "Search Status",
+          "type": "string"
+        },
+        "evidence_status": {
+          "enum": [
+            "direct",
+            "family",
+            "inference_only",
+            "unavailable"
+          ],
+          "title": "Evidence Status",
+          "type": "string"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "domain_id",
+        "technology_id",
+        "stakeholder_id",
+        "search_status",
+        "evidence_status",
+        "claim_ids"
+      ],
+      "title": "CoverageRow",
+      "type": "object"
+    },
+    "CriterionResult": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion_id": {
+          "const": "stakeholder_impact",
+          "default": "stakeholder_impact",
+          "title": "Criterion Id",
+          "type": "string"
+        },
+        "domain_id": {
+          "title": "Domain Id",
+          "type": "string"
+        },
+        "judgment": {
+          "const": "unknown",
+          "default": "unknown",
+          "title": "Judgment",
+          "type": "string"
+        },
+        "rationale": {
+          "default": "긍정 및 부정 발언과 목표 요구 충족 판정은 구분하며 기술 적합 판정을 보류합니다.",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Conditions",
+          "type": "array"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Gaps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "domain_id"
+      ],
+      "title": "CriterionResult",
+      "type": "object"
+    },
+    "EvidenceRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "technology_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Technology Ids",
+          "type": "array"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "publisher": {
+          "title": "Publisher",
+          "type": "string"
+        },
+        "published_at": {
+          "title": "Published At",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "source_type": {
+          "title": "Source Type",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "location": {
+          "title": "Location",
+          "type": "string"
+        },
+        "excerpt": {
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "excerpt_sha256": {
+          "title": "Excerpt Sha256",
+          "type": "string"
+        },
+        "collected_content_sha256": {
+          "title": "Collected Content Sha256",
+          "type": "string"
+        },
+        "requested_url": {
+          "title": "Requested Url",
+          "type": "string"
+        },
+        "search_queries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Search Queries",
+          "type": "array"
+        },
+        "metadata_provenance": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Metadata Provenance",
+          "type": "object"
+        },
+        "audit": {
+          "additionalProperties": true,
+          "title": "Audit",
+          "type": "object"
+        },
+        "upstream": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream"
+        },
+        "cited": {
+          "title": "Cited",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "technology_ids",
+        "title",
+        "url",
+        "author",
+        "publisher",
+        "published_at",
+        "retrieved_at",
+        "source_type",
+        "scope",
+        "location",
+        "excerpt",
+        "excerpt_sha256",
+        "collected_content_sha256",
+        "requested_url",
+        "search_queries",
+        "metadata_provenance",
+        "audit",
+        "cited"
+      ],
+      "title": "EvidenceRecord",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "technology_id": {
+          "enum": [
+            "SW-01",
+            "HW-01"
+          ],
+          "title": "Technology Id",
+          "type": "string"
+        },
+        "domain_id": {
+          "title": "Domain Id",
+          "type": "string"
+        },
+        "stakeholder_id": {
+          "title": "Stakeholder Id",
+          "type": "string"
+        },
+        "aspect": {
+          "enum": [
+            "benefit",
+            "burden",
+            "adoption_condition",
+            "reaction",
+            "evaluation"
+          ],
+          "title": "Aspect",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "paper_report",
+            "statement",
+            "inference"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "condition": {
+          "title": "Condition",
+          "type": "string"
+        },
+        "source_scope": {
+          "enum": [
+            "direct",
+            "family",
+            "context"
+          ],
+          "title": "Source Scope",
+          "type": "string"
+        },
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "actor_relationship": {
+          "title": "Actor Relationship",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "supports": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Supports",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "technology_id",
+        "domain_id",
+        "stakeholder_id",
+        "aspect",
+        "kind",
+        "text",
+        "condition",
+        "source_scope",
+        "actor",
+        "actor_relationship",
+        "evidence_ids",
+        "supports"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "LinkedInsight": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "domain_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Domain Ids",
+          "type": "array"
+        },
+        "technology_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Technology Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "claim_ids",
+        "domain_ids",
+        "technology_ids"
+      ],
+      "title": "LinkedInsight",
+      "type": "object"
+    },
+    "OutputError": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "const": "stakeholders",
+          "default": "stakeholders",
+          "title": "Role",
+          "type": "string"
+        },
+        "round": {
+          "title": "Round",
+          "type": "integer"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "round",
+        "stage",
+        "code",
+        "message"
+      ],
+      "title": "OutputError",
+      "type": "object"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "publisher": {
+          "title": "Publisher",
+          "type": "string"
+        },
+        "published_at": {
+          "title": "Published At",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "location": {
+          "title": "Location",
+          "type": "string"
+        },
+        "source_type": {
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "title",
+        "url",
+        "author",
+        "publisher",
+        "published_at",
+        "retrieved_at",
+        "location",
+        "source_type"
+      ],
+      "title": "Reference",
+      "type": "object"
+    },
+    "ResultDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "request": {
+          "additionalProperties": true,
+          "title": "Request",
+          "type": "object"
+        },
+        "selected_stakeholders": {
+          "items": {
+            "$ref": "#/$defs/SelectedStakeholder"
+          },
+          "title": "Selected Stakeholders",
+          "type": "array"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Observations",
+          "type": "array"
+        },
+        "paper_and_inference_findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Paper And Inference Findings",
+          "type": "array"
+        },
+        "summary": {
+          "items": {
+            "$ref": "#/$defs/LinkedInsight"
+          },
+          "title": "Summary",
+          "type": "array"
+        },
+        "implications": {
+          "items": {
+            "$ref": "#/$defs/LinkedInsight"
+          },
+          "title": "Implications",
+          "type": "array"
+        },
+        "coverage": {
+          "items": {
+            "$ref": "#/$defs/CoverageRow"
+          },
+          "title": "Coverage",
+          "type": "array"
+        },
+        "source_audits": {
+          "items": {
+            "$ref": "#/$defs/SourceAudit"
+          },
+          "title": "Source Audits",
+          "type": "array"
+        },
+        "upstream_provenance": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Upstream Provenance",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "unverified_model_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unverified Model Limitations",
+          "type": "array"
+        },
+        "used_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Evidence Ids",
+          "type": "array"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeMetadata"
+        }
+      },
+      "required": [
+        "request",
+        "selected_stakeholders",
+        "observations",
+        "paper_and_inference_findings",
+        "summary",
+        "implications",
+        "coverage",
+        "source_audits",
+        "upstream_provenance",
+        "limitations",
+        "unverified_model_limitations",
+        "used_evidence_ids",
+        "runtime"
+      ],
+      "title": "ResultDetails",
+      "type": "object"
+    },
+    "RuntimeMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "input_schema_version": {
+          "title": "Input Schema Version",
+          "type": "string"
+        },
+        "input_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Sha256"
+        },
+        "as_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "As Of"
+        },
+        "outer_round": {
+          "title": "Outer Round",
+          "type": "integer"
+        },
+        "internal_repair_round": {
+          "title": "Internal Repair Round",
+          "type": "integer"
+        },
+        "semantic_review_succeeded": {
+          "title": "Semantic Review Succeeded",
+          "type": "boolean"
+        },
+        "selection_origin": {
+          "title": "Selection Origin",
+          "type": "string"
+        },
+        "trace": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Trace",
+          "type": "array"
+        },
+        "excluded_claim_count": {
+          "title": "Excluded Claim Count",
+          "type": "integer"
+        },
+        "upstream_paper_reverified": {
+          "const": false,
+          "default": false,
+          "title": "Upstream Paper Reverified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model",
+        "prompt_version",
+        "input_schema_version",
+        "input_sha256",
+        "as_of",
+        "outer_round",
+        "internal_repair_round",
+        "semantic_review_succeeded",
+        "selection_origin",
+        "trace",
+        "excluded_claim_count"
+      ],
+      "title": "RuntimeMetadata",
+      "type": "object"
+    },
+    "SelectedStakeholder": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "domain_id": {
+          "title": "Domain Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "priority": {
+          "enum": [
+            "core",
+            "conditional"
+          ],
+          "title": "Priority",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "domain_id",
+        "name",
+        "reason",
+        "priority"
+      ],
+      "title": "SelectedStakeholder",
+      "type": "object"
+    },
+    "SourceAudit": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "cited": {
+          "title": "Cited",
+          "type": "boolean"
+        },
+        "decision": {
+          "title": "Decision",
+          "type": "string"
+        },
+        "audit": {
+          "additionalProperties": true,
+          "title": "Audit",
+          "type": "object"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "cited",
+        "decision",
+        "audit"
+      ],
+      "title": "SourceAudit",
+      "type": "object"
+    },
+    "TechnologyResult": {
+      "additionalProperties": false,
+      "properties": {
+        "technology_id": {
+          "enum": [
+            "SW-01",
+            "HW-01"
+          ],
+          "title": "Technology Id",
+          "type": "string"
+        },
+        "summary": {
+          "items": {
+            "$ref": "#/$defs/LinkedInsight"
+          },
+          "title": "Summary",
+          "type": "array"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/CriterionResult"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Gaps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "technology_id"
+      ],
+      "title": "TechnologyResult",
+      "type": "object"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "properties": {
+        "limits": {
+          "$ref": "#/$defs/Counters"
+        },
+        "used": {
+          "$ref": "#/$defs/Counters"
+        },
+        "remaining": {
+          "$ref": "#/$defs/Counters"
+        },
+        "delta": {
+          "$ref": "#/$defs/Counters"
+        }
+      },
+      "required": [
+        "limits",
+        "used",
+        "remaining",
+        "delta"
+      ],
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "role": {
+      "const": "stakeholders",
+      "default": "stakeholders",
+      "title": "Role",
+      "type": "string"
+    },
+    "round": {
+      "minimum": 0,
+      "title": "Round",
+      "type": "integer"
+    },
+    "execution_status": {
+      "enum": [
+        "completed",
+        "failed"
+      ],
+      "title": "Execution Status",
+      "type": "string"
+    },
+    "evidence_status": {
+      "enum": [
+        "sufficient",
+        "limited",
+        "unavailable"
+      ],
+      "title": "Evidence Status",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "partial",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "live",
+        "fixture"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "result": {
+      "$ref": "#/$defs/AnalysisResult"
+    },
+    "new_evidence": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EvidenceRecord"
+      },
+      "title": "New Evidence",
+      "type": "object"
+    },
+    "evidence": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EvidenceRecord"
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "references": {
+      "items": {
+        "$ref": "#/$defs/Reference"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "gaps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Gaps",
+      "type": "array"
+    },
+    "follow_up_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Follow Up Questions",
+      "type": "array"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/OutputError"
+      },
+      "title": "Errors",
+      "type": "array"
+    },
+    "usage": {
+      "$ref": "#/$defs/Usage"
+    }
+  },
+  "required": [
+    "run_id",
+    "round",
+    "execution_status",
+    "evidence_status",
+    "status",
+    "mode",
+    "result",
+    "new_evidence",
+    "evidence",
+    "references",
+    "gaps",
+    "follow_up_questions",
+    "errors",
+    "usage"
+  ],
+  "title": "StakeholderOutput",
+  "type": "object"
+}

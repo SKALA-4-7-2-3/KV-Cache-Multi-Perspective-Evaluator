@@ -1,0 +1,646 @@
+{
+  "analysis": {
+    "limitations": {
+      "author_stated": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-d6dcf370cc3e1d621d521ee6"
+          ],
+          "text": "RDKV는 prefill 이후 KV cache를 한 번만 압축하고 decoding 동안 재평가하지 않는다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-d6dcf370cc3e1d621d521ee6"
+          ],
+          "text": "allocation은 generation 중 발생할 수 있는 attention-pattern shifts에 대해 frozen된다."
+        }
+      ],
+      "compute_constraints": [],
+      "data_constraints": [],
+      "generalization_constraints": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-d6dcf370cc3e1d621d521ee6"
+          ],
+          "text": "이 설계는 long prompt와 short generation의 prefill-dominated regime를 대상으로 한다."
+        }
+      ],
+      "inferred": [],
+      "not_reported": [
+        "inferred",
+        "compute_constraints",
+        "data_constraints",
+        "reproducibility_constraints"
+      ],
+      "reproducibility_constraints": []
+    },
+    "scope": {
+      "author_claimed_scope": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-d6dcf370cc3e1d621d521ee6"
+          ],
+          "text": "저자들은 RDKV를 long prompt와 short generation의 prefill-dominated regime을 겨냥한 방법으로 설명한다."
+        }
+      ],
+      "domains": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-56e42bc7c96c4d6550edb67f"
+          ],
+          "text": "RDKV의 방법론은 decoder-only transformer의 KV cache를 대상으로 기술된다."
+        }
+      ],
+      "evaluated_settings": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-fae3872cc54f2a9da942f986"
+          ],
+          "text": "RDKV는 LongBench, Needle-in-a-Haystack, RULER, InfiniteBench에서 평가되었다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-fae3872cc54f2a9da942f986"
+          ],
+          "text": "주요 평가는 LLaMA-3.1-8B-Instruct에서 수행되었고, Mistral-7B-Instruct-v0.3, Qwen3-4B, LLaMA2-13B-Chat, Qwen2.5-72B-Instruct에 대한 cross-architecture 및 cross-scale 결과도 보고되었다."
+        }
+      ],
+      "inferred_scope": [],
+      "modalities": [],
+      "not_reported": [
+        "modalities",
+        "inferred_scope"
+      ],
+      "operating_conditions": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-29dfd536a9e94b95bc3207a5"
+          ],
+          "text": "RDKV의 bit allocation은 prefilling stage 이후 한 번 적용된다."
+        }
+      ],
+      "out_of_scope": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-d6dcf370cc3e1d621d521ee6"
+          ],
+          "text": "RDKV는 decoding 동안 allocation을 재평가하지 않으므로, attention-pattern shift에 대해 allocation이 고정된다."
+        }
+      ],
+      "target_tasks": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-29dfd536a9e94b95bc3207a5"
+          ],
+          "text": "RDKV는 장문맥 LLM 추론에서 KV cache compression을 대상으로 한다."
+        }
+      ]
+    },
+    "technical_overview": {
+      "core_approach": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-2c8145af8dd0a2720dd06f95",
+            "ev-56e42bc7c96c4d6550edb67f"
+          ],
+          "text": "RDKV는 KV cache compression을 rate-distortion 문제로 정식화하고, 고정된 bit budget 하에서 weighted distortion을 최소화하도록 cache unit별 bit-width를 할당한다."
+        }
+      ],
+      "experimental_results": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-5b65954365390806363ad12c"
+          ],
+          "text": "LongBench, RULER, InfiniteBench 및 서로 다른 architecture와 scale의 5개 open-source LLM에서 RDKV는 평가된 baselines보다 long context에서 accuracy, decoding speed, peak memory 측면에서 일관되게 우수했다고 보고되었다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-5b65954365390806363ad12c"
+          ],
+          "text": "RDKV는 single A100 64 GB에서 256K context에 도달했으며, Full KV는 해당 조건에서 도달하지 못했다고 보고되었다."
+        }
+      ],
+      "inference_process": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-29dfd536a9e94b95bc3207a5",
+            "ev-5b65954365390806363ad12c"
+          ],
+          "text": "RDKV는 prefilling stage 이후 한 번 bit allocation을 적용하며, decoding 동안 bit assignment는 고정된다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-5b65954365390806363ad12c"
+          ],
+          "text": "packed-decode layout은 dequantization을 attention에 fuse하여 mixed-bit allocation을 실제 HBM savings로 전환한다."
+        }
+      ],
+      "mechanisms": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-2c8145af8dd0a2720dd06f95",
+            "ev-56e42bc7c96c4d6550edb67f"
+          ],
+          "text": "RDKV는 V cache의 token과 K cache의 channel을 cache unit으로 하여 각각에 bit-width를 할당한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-2c8145af8dd0a2720dd06f95"
+          ],
+          "text": "RDKV는 unit을 eviction했을 때 발생하는 attention distribution 또는 attention logit의 deviation으로 token 또는 channel의 weight를 정의한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-2c8145af8dd0a2720dd06f95"
+          ],
+          "text": "Reverse water-filling은 unit weight를 FP16 retention부터 zero-bit eviction까지의 bit-width로 변환한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-5b65954365390806363ad12c",
+            "ev-56e42bc7c96c4d6550edb67f"
+          ],
+          "text": "RDKV의 bit-width 후보 집합은 B = {0, 2, 4, 8, 16}이다."
+        }
+      ],
+      "not_reported": [
+        "training_process",
+        "requirements"
+      ],
+      "novelty": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-29dfd536a9e94b95bc3207a5",
+            "ev-5b65954365390806363ad12c"
+          ],
+          "text": "RDKV는 eviction을 quantization과 분리된 절차가 아니라 동일한 bit allocation scheme의 zero-rate 경계로 취급하여, 두 방식을 하나의 최적화에서 공동으로 선택한다."
+        }
+      ],
+      "problem_definition": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-29dfd536a9e94b95bc3207a5"
+          ],
+          "text": "긴 입력 context에서 KV cache는 sequence length에 선형적으로 증가하며, 매 decoding step마다 off-chip HBM에서 on-chip memory로 다시 읽혀 memory-bound inference를 유발한다."
+        }
+      ],
+      "requirements": [],
+      "training_process": []
+    }
+  },
+  "diagnostics": [],
+  "evidence_registry": [
+    {
+      "chunk_id": "29dfd536a9e94b95bc3207a5",
+      "content_hash": "5887e822c951db7b496bc082a75cf94ce77dfc519998b10e32cfda36ac37cd1f",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-29dfd536a9e94b95bc3207a5",
+      "page": 1,
+      "section": "Abstract",
+      "snippet": "Large language models (LLMs) have shown strong performance across diverse\ntasks, but their inference with long input contexts is bottlenecked by memory size\nand bandwidth. The Key-Value (KV) cache size grows linearly with sequence\nlength and needs to be re-read from off-chip high-bandwidth memory (HBM) to\non-chip memory at every decoding step, resulting in memory-bound inference.\nExisting methods reduce the cache by either eviction or quantization, but typically\ntreat the two in isolation. In this paper, we cast KV cache compression as a rate-\ndistortion problem, under which eviction and quantization are two end-points of\nthe same bit allocation scheme. This exposes the need to optimize them jointly,\nmotivating our method, RDKV (Rate-Distortion KV cache compression). RDKV\nderives the weight of each token or channel from the distortion that compression\ninduces on the attention computation. Based on these weights, it assigns each token\nor channel a bit-width ranging from full precision down to zero bits guided by\nreverse water-filling, applied once after the prefilling stage. Experiments on Long-\nBench, RULER, and InfiniteBench show that RDKV outperforms the best evaluated\nbaseline b",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "5b65954365390806363ad12c",
+      "content_hash": "70266950935e32cd3e16eeaa37bf615d8b374f5055e8d69d72f597bb48e673bf",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-5b65954365390806363ad12c",
+      "page": 9,
+      "section": "Conclusion",
+      "snippet": "We formulate KV cache compression as a rate-distortion problem. The reverse water-filling solution\nallocates each cache unit a bit-width from B = {0, 2, 4, 8, 16}. Eviction emerges as the zero-rate\nboundary of the same curve as quantization, so sparsification and quantization are selected from a\nsingle optimization rather than composed under pre-allocated ratios. A packed-decode layout fuses\ndequantization into attention, turning the mixed-bit allocation into actual HBM savings. Across\nLongBench, RULER, and InfiniteBench on five open-source LLMs spanning different architectures\nand scales, RDKV consistently outperforms the evaluated baselines in accuracy, decoding speed, and\npeak memory at long context, and reaches 256K on a single A100 64 GB where Full KV does not.\nOur results show that treating eviction and quantization jointly can improve accuracy at no cost to\nefficiency. A natural extension is streaming re-budgeting: re-running the allocation during decoding\nso that the bit assignment adapts to the growing cache instead of being frozen after prefill.\n\n9",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "2c8145af8dd0a2720dd06f95",
+      "content_hash": "65db5418130c405737d49ca0fef7dafe90cf425de3278b19e6d086d8e9136af0",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-2c8145af8dd0a2720dd06f95",
+      "page": 2,
+      "section": null,
+      "snippet": "u wu εu(bu) ( Eq. (6)) versus average\nbit-width ¯b. Lines: median across sequences; shaded: IQR. Lower bound: continuous relaxation\n(Prop. A.3). Right: LongBench score by task category at a per-layer cache budget of 128 FP16-\nequivalent tokens (Btotal = 128L), normalized by FullKV; per-task scores in Tab. 1. Eviction refers\nto Ada-SnapKV [26] in the right panel. Model: LLaMA-3.1-8B-Instruct [42].\n\nand evicted states [16, 17]. But their routing scores remain heuristic and the budget ratios are preset or\nsearched before the final assignment. A natural question is whether both the score and the allocation\ncan be derived from a single objective function.\n\nIn this paper, we present RDKV, a rate–distortion framework for KV cache compression. RDKV\nposes a bit-allocation problem: given a fixed bit budget, assign each token in the V cache and each\nchannel in the K cache a bit-width to minimize a weighted distortion. The weight of each token\nor channel is defined as the deviation in the attention distribution or the attention logit when it is\nevicted. Reverse water-filling converts these weights into bit-widths, from full precision for critical\nunits down to zero bits (eviction) for negligib",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "c3ca22f6f6742b95349a16a4",
+      "content_hash": "3cda41697cf0ea378f56433ae7d0a586be85f73a7a93220a36b3aadbdc5cb677",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-c3ca22f6f6742b95349a16a4",
+      "page": 1,
+      "section": null,
+      "snippet": "RDKV: Rate-Distortion Bit Allocation for Joint\n\nEviction and Quantization of the KV Cache\n\nJunkai Zhang1\nHang Guo2\nLuca Benini1\nYawei Li1",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "07df4fd3c069310e390ba2bb",
+      "content_hash": "0a9451a1e238598bb7c92e781a075f1ab1b964f04a5e123983b0b708432f74e3",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-07df4fd3c069310e390ba2bb",
+      "page": 1,
+      "section": "Introduction",
+      "snippet": "arXiv:2605.08317v1 [cs.LG] 8 May 2026\n\nLarge language models (LLMs) [1, 2, 3] have demonstrated strong performance from open-ended\ngeneration to complex multi-step reasoning. As these capabilities move into production, the input\ncontexts they require have grown from thousands to hundreds of thousands of tokens. Retrieval-\naugmented generation [4], multi-document reasoning, and agentic workflows all routinely operate\nat this scale. At these lengths, inference becomes memory-bound. Transformer decoding stores a\nKey-Value (KV) pair for every token in every layer. The cache therefore grows linearly with sequence\nlength and reaches tens of gigabytes per request [5]. Because every generated token re-reads this\nentire cache through the attention computation [6], memory traffic rather than arithmetic sets the\nper-token decode latency [7]. Reducing the cache footprint without retraining, while preserving\ngeneration quality, has thus become a central problem for efficient long-context inference [8, 9].\n\nA growing number of works address this bottleneck by compressing the KV cache after prefill.\nThese methods fall along two axes: eviction and quantization. Eviction methods score each token or",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "56e42bc7c96c4d6550edb67f",
+      "content_hash": "aae5e7ccf91bd1f43af6fdc54ad8734d607c1f0668803911a5a745a03a2fa962",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-56e42bc7c96c4d6550edb67f",
+      "page": 3,
+      "section": "Methodology",
+      "snippet": "√\n\nConsider a decoder-only transformer [37, 7] with L layers, Hq query heads, Hkv KV heads (group\nsize g = Hq/Hkv) [38], and per-head dimension d. For a prefilled context of T tokens the KV\ncache per layer comprises K, V ∈RHkv×T ×d, with attention weights aτ,t = softmaxt(q⊤\n\nτ kt/\n\nd)\nand output oτ = P\n\nt aτ,t vt. We assign each cache unit u (a token or a channel) a bit-width\nbu ∈B = {0, 2, 4, 8, 16}, from FP16 retention to outright removal, under a total bit budget B. Our\ngoal is to find the allocation {b⋆\n\nu} that minimizes the distortion introduced to the attention computation\nunder this budget constraint.\n\nIn the following, we first quantify the compression cost of each token or channel, and formulate the\nbit allocation as a rate-distortion problem (Sec. 3.1). We then describe the bit allocation pipeline\n(Sec. 3.2) and the packed-decode layout that realizes the mixed-bit cache in hardware (Sec. 3.3). Due\nto space constraints, formal proofs in this section are deferred to Sec. A.\n\n3.1\nRate-Distortion Formulation\n\nTo quantify the compression cost of each unit, we analyze the effect of removing a single token\nor channel from the uncompressed cache. In the V cache, each token enter",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "bd39311a503c78a9760de964",
+      "content_hash": "3002e1b04e841dbc8726a5d447caf96cacfcb07a1ef17f74cdd54af93b41f9f2",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-bd39311a503c78a9760de964",
+      "page": 11,
+      "section": null,
+      "snippet": "[14] Yefei He, Luoming Zhang, Weijia Wu, Jing Liu, Hong Zhou, and Bohan Zhuang. ZipCache:\n\nAccurate and efficient KV cache quantization with salient token identification. Advances in\nNeural Information Processing Systems, 37:68287–68307, 2024.\n\n[15] Jiebin Zhang, Dawei Zhu, Yifan Song, Wenhao Wu, Chuqiao Kuang, Xiaoguang Li, Lifeng\n\nShang, Qun Liu, and Sujian Li. More tokens, lower precision: Towards the optimal token-\nprecision trade-off in KV cache compression. arXiv preprint arXiv:2412.12706, 2024.\n\n[16] Jianlong Lei and Shashikant Ilager. ARKV: Adaptive and resource-efficient KV cache man-\n\nagement under limited memory budget for long-context inference in LLMs. arXiv preprint\narXiv:2603.08727, 2026.\n\n[17] Anonymous. HqeKV: Towards hybrid quantization and eviction for KV cache in long-context\n\nLLM inference. In Submitted to ACL Rolling Review - January 2026, 2026. under review.\n\n[18] Coleman Hooper, Sehoon Kim, Hiva Mohammadzadeh, Michael W Mahoney, Yakun S Shao,\n\nKurt Keutzer, and Amir Gholami. KVQuant: Towards 10 million context length LLM inference\nwith KV cache quantization. Advances in Neural Information Processing Systems, 37:1270–\n1303, 2024.\n\n[19] Xing Li, Zeyu Xing, Yim",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "800642193c02085d37e1b995",
+      "content_hash": "8232ae0a29cbf093a918a6bdae8f3da308810403cb761f934fac399f7d4167a7",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-800642193c02085d37e1b995",
+      "page": 2,
+      "section": "Related Work",
+      "snippet": "Existing KV cache compression methods can be organized by the action they apply: eviction,\nquantization, or both. Meanwhile, they can also be organized by how the compression target is\nspecified. We adopt the latter axis, distinguishing methods that target a prescribed compression ratio\nor tier schedule from methods that allocate a given active-cache budget.\n\nCompression-Ratio-Driven Methods. These methods reduce the stored representation of cache\nentries to reach a target compression ratio. Quantization methods such as KIVI [13], KVQuant [18],\nZipCache [14], and KVTuner [19] exploit asymmetric K/V quantization, outlier handling, salient-\ntoken preservation, or searched precision configurations to lower the bit-width of stored keys and\nvalues. QAQ [20] and MiKV [21] adapt precision by token or KV-pair importance, while AQUA-\nKV [22] exploits K/V dependencies and quantizes prediction residuals. Several recent hybrids add\neviction as the lowest precision tier. HqeKV [17] uses a Tree-structured parzen estimator search (200\ntrials per setting) to determine the fraction of tokens at each bit-width; ARKV [16] estimates per-layer\nOriginal–Quantization ratios from prefill-time attention st",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "fae3872cc54f2a9da942f986",
+      "content_hash": "1e74fc93852a5278fafcc93c3d8e2c70b64dfa48e5ab8f2ab145b2c04c98e89d",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-fae3872cc54f2a9da942f986",
+      "page": 6,
+      "section": "Experiments",
+      "snippet": "Models. We primarily evaluate on LLaMA-3.1-8B-Instruct [42]. Cross-architecture results (Mistral-\n7B-Instruct-v0.3 [43], Qwen3-4B [44]) and cross-scale results (LLaMA2-13B-Chat [45], Qwen2.5-\n72B-Instruct [46]) are listed in Sec. D.\n\nBaselines. We compare against four budget-driven methods. SnapKV [11] scores tokens by attention\nwithin a recent observation window and retains the top-k per head. Ada-SnapKV [26] (hereafter\nAdaKV) extends this with adaptive per-head budget allocation. ThinK [12] applies pruning at the\nchannel level of the K cache rather than the token level (paired with SnapKV). SnapKV+ZipCache [11,\n14] combines token eviction with post-hoc quantization of the retained cache.\n\nBenchmarks. We evaluate on LongBench [47] (16 tasks covering 6 different task categories), Needle-\nin-a-Haystack [48] (single-fact retrieval at varying depths), RULER [49] (11 retrieval and reasoning\ntasks from 4K to 128K), and InfiniteBench [50] (10 tasks with context lengths up to 2M tokens).\n\n6",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "bc01a6f218b2efc234163aaf",
+      "content_hash": "fa19c28249982788e0aa722ba51c27aeca00e823f2b05da09fdb02df3fadcde9",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-bc01a6f218b2efc234163aaf",
+      "page": 17,
+      "section": null,
+      "snippet": "Algorithm 1 RDKV: Rate-Distortion KV Cache Compression\n\nRequire: Prefill KV cache K(ℓ), V (ℓ) for each layer ℓ; per-head budget Bhead; observation win-\n\ndow size Sw; pooling kernel w; bit-width set B = {0, 2, 4, 8, 16}; empirical distortion tables\nεK(b), εV (b)\nEnsure: TriZone packed cache for each (ℓ, h)\n\n1: for each layer ℓ= 1, . . . , L do\n2:\n// Stage 1: Weight computation\n\n√\n\n\u0001\n\n3:\nA ←Softmax\n\nQ(ℓ)\n\nd\n\n[τ−Sw:τ] K(ℓ)⊤/\n\n4:\nfor each KV head h = 1, . . . , Hkv do\n\n5:\nw(h)\n\nt\n←P\n\nτ,g,t for all t\n▷token weight in V cache\n\nτ,g a(h)\n\n6:\nw(h)\n\nt\n←AvgPool1d(w(h)\n\nt\n, w)\n\n7:\nw(h)\n\nc\n←\n1\n√\n\n:,c ∥2 · ∥K(h)\n\n:,c ∥2 for all c\n▷channel weight in K cache\n\nd ∥Q(h)\n\n8:\nend for\n\n9:\n// Stage 2: V-side token allocation (per head)\n10:\nBV ←1\n\n2Bhead;\n¯BV ←BV /d\n11:\nfor each KV head h do\n12:\n{bV\n\nt\n, εV , ¯BV /T)\n\nt }h ←MCKP(w(h)\n\n13:\nT (h)\n\nt > 0}\n\nkept ←{t : bV\n\n14:\nend for\n\n15:\n// Stage 3: K-side channel allocation (per head)\n16:\nBK ←1\n\n\u0001\n\n|T (h)\n\n2Bhead\n17:\nfor each KV head h do\n18:\nk(h)\n\navg ←BK /\n\nkept | · d\n\n19:\n{bK\n\nc\n, εK, k(h)\n\nc }h ←MCKP(w(h)\n\navg )\n20:\nend for\n\n21:\n// Stage 4: TriZone packing\n22:\nfor each KV head h do\n23:\nSort T (h)\n\nt into sub-segments S2, S4, S8\n\nkept by bV\n\n24:\nSort cha",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "d6dcf370cc3e1d621d521ee6",
+      "content_hash": "964168fb509de3f0aa5d6783e694341f1d99777757b1e69ee5eb6a71da7259e1",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-d6dcf370cc3e1d621d521ee6",
+      "page": 28,
+      "section": null,
+      "snippet": "per-token NMSE.\n\nεK(b) (per-channel)\nεV (b) (per-token)\n\nModel\nb=2\nb=4\nb=8\nb=2\nb=4\nb=8\n\nLLaMA-3.1-8B\n0.149\n0.0062\n2.2×10−5\n0.313\n0.0140\n4.9×10−5\n\nLLaMA-2-13B\n0.288\n0.0124\n5.5×10−5\n0.272\n0.0122\n4.4×10−5\n\nMistral-7B\n0.280\n0.0116\n6.9×10−5\n0.296\n0.0130\n4.5×10−5\n\nQwen2.5-72B\n0.296\n0.0164\n4.4×10−3\n0.281\n0.0126\n4.4×10−5\n\nQwen3-4B\n0.347\n0.0147\n1.5×10−4\n0.313\n0.0139\n4.8×10−5\n\nK\nLimitations and Future Work\n\nLimitations. Like SnapKV, AdaKV, and PyramidKV, RDKV compresses the KV cache once after\nprefill and does not re-evaluate during decoding. This is a common design choice in the prefill-\ndominated regime (long prompt, short generation) targeted by these methods. The allocation is\ntherefore frozen with respect to attention-pattern shifts that may occur during generation.\n\nFuture work. The rate-distortion framework can be extended to the decode phase. A natural approach\naccumulates attention weights over a small buffer of recent decode tokens and periodically applies the\nsame MCKP allocation to compress them, keeping decode-phase memory sub-linear in the number\nof generated tokens relative to the uncompressed baseline.\n\nL\nImpact Statement\n\nRDKV reduces the memory footprint and decoding latenc",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "fa79ea24f0b262ec94e401e8",
+      "content_hash": "43611c8953b7e9ede9caeb56ed8d76b8bf0cdd7fd9378c5569b68fd510cb89ef",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-fa79ea24f0b262ec94e401e8",
+      "page": 3,
+      "section": null,
+      "snippet": "Budget-Driven Methods. These methods take an active-cache budget as input and decide which\nunits remain available during decoding. KV cache eviction methods score each cache unit and retain\nthe top-ranked subset under a fixed token count. StreamingLLM [23] keeps sink tokens and a recent\nwindow. H2O [10], SnapKV [11], Scissorhands [24], and NaCl [25] use attention-derived token\nscores. AdaKV [26], PyramidKV [27], and CAKE [28] further distribute the budget across heads or\nlayers. Expected Attention [29] estimates future-query scores rather than relying only on the observed\nwindow. Recent work sharpens the scoring signal beyond attention weights: CriticalKV [30] opti-\nmizes worst-case attention-output perturbation incorporating value states; OBCache [31] applies the\nOptimal Brain framework [32, 33] to estimate each pair’s impact on the attention output; CAOTE [34]\nscores via the output error induced by removal; AnDPro [35] projects value states onto anchor\ndirections; ReST-KV [36] stabilizes scores through layer-wise reconstruction and spatial-temporal\nsmoothing. ThinK [12] extends eviction from tokens to key channels.\n\nHowever, existing budget-driven methods restrict the action to a",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "206288c6c90767f325e851e8",
+      "content_hash": "c64d0d5ff44975584f9c926c4f1bb452994e10f50058377108c6c83ecdcc8949",
+      "content_kind": "text",
+      "document_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "evidence_id": "ev-206288c6c90767f325e851e8",
+      "page": 8,
+      "section": "RDKV",
+      "snippet": "39.46\n\nand AdaKV [26] develop failure bands at intermediate depths where the needle falls below the top-k\nthreshold and is evicted entirely. RDKV assigns the same token a low bit-width instead of discarding\nit. A 2- or 4-bit copy suffices to recover the answer. RDKV (avg. 0.99) thus maintains near-uniform\nretrieval close to FullKV (1.00). Further results are in Sec. F.\n\nRULER. RULER [49] evaluates retrieval and reasoning at extreme context lengths, averaging 11\nsubtasks at sequence lengths from 4k to 128k. Table 2 reports results on LLaMA-3.1-8B-Instruct\nunder Btotal = 1024L. Eviction-only baselines degrade substantially as context grows, falling over 6\npoints below FullKV even at 4k and 17 points at 128k. RDKV stays within 1 point of FullKV up to\n8k and leads the strongest baseline by 4.1–14.2 points across all lengths, because tokens that a top-k\npolicy would discard are instead retained at low bit-width. Per-task breakdowns are in Sec. E.\n\nInfiniteBench. InfiniteBench [50] spans 10 tasks with sequences exceeding 100k tokens (average\n∼200k; the longest task, Zh.QA, reaches ∼2M tokens). Table 3 reports results on LLaMA-3.1-8B-\nInstruct under Btotal = 1024L. RDKV ranks first among ",
+      "source_kind": "paper"
+    }
+  ],
+  "paper": {
+    "abstract": "Large language models (LLMs) have shown strong performance across diverse\ntasks, but their inference with long input contexts is bottlenecked by memory size\nand bandwidth. The Key-Value (KV) cache size grows linearly with sequence\nlength and needs to be re-read from off-chip high-bandwidth memory (HBM) to\non-chip memory at every decoding step, resulting in memory-bound inference.\nExisting methods reduce the cache by either eviction or quantization, but typically\ntreat the two in isolation. In this paper, we cast KV cache compression as a rate-\ndistortion problem, under which eviction and quantization are two end-points of\nthe same bit allocation scheme. This exposes the need to optimize them jointly,\nmotivating our method, RDKV (Rate-Distortion KV cache compression). RDKV\nderives the weight of each token or channel from the distortion that compression\ninduces on the attention computation. Based on these weights, it assigns each token\nor channel a bit-width ranging from full precision down to zero bits guided by\nreverse water-filling, applied once after the prefilling stage. Experiments on Long-\nBench, RULER, and InfiniteBench show that RDKV outperforms the best evaluated\nbaseline by 9.1% on average. On LongBench it recovers 97.81% of full-cache accu-\nracy with only 2.48% cache retention. Compared with full-cache FlashAttention-2\ndecoding, it achieves 4.5× decode speedup and 1.9× peak memory reduction with\n128K context length, while maintaining comparable performance.\n\n1",
+    "arxiv_id": "2605.08317",
+    "authors": [],
+    "page_count": 28,
+    "paper_id": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+    "source_hash": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+    "source_path": "inputs/2605.08317.pdf",
+    "title": "RDKV: Rate-Distortion Bit Allocation for Joint"
+  },
+  "quality": {
+    "audits": [
+      {
+        "claim_key": "technical_overview.problem_definition.0",
+        "evidence_ids": [
+          "ev-29dfd536a9e94b95bc3207a5"
+        ],
+        "reason": "초록은 KV cache가 sequence length에 선형적으로 증가하고, 매 decoding step에 off-chip HBM에서 on-chip memory로 재독되어 memory-bound inference를 초래한다고 직접 서술한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.core_approach.0",
+        "evidence_ids": [
+          "ev-2c8145af8dd0a2720dd06f95",
+          "ev-56e42bc7c96c4d6550edb67f"
+        ],
+        "reason": "논문은 고정 bit budget 아래 weighted distortion을 최소화하도록 V-cache token과 K-cache channel에 bit-width를 배정하는 rate-distortion bit-allocation 문제를 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.novelty.0",
+        "evidence_ids": [
+          "ev-29dfd536a9e94b95bc3207a5",
+          "ev-5b65954365390806363ad12c"
+        ],
+        "reason": "초록과 결론은 eviction을 quantization과 동일한 bit-allocation curve의 zero-rate 경계로 규정하고, 단일 최적화에서 함께 선택한다고 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.mechanisms.0",
+        "evidence_ids": [
+          "ev-2c8145af8dd0a2720dd06f95",
+          "ev-56e42bc7c96c4d6550edb67f"
+        ],
+        "reason": "논문은 V cache의 각 token 및 K cache의 각 channel을 대상으로 bit-width를 할당한다고 직접 설명한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.mechanisms.1",
+        "evidence_ids": [
+          "ev-2c8145af8dd0a2720dd06f95"
+        ],
+        "reason": "논문은 eviction 시 attention distribution의 deviation으로 token weight를, attention logit의 deviation으로 channel weight를 정의한다고 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.mechanisms.2",
+        "evidence_ids": [
+          "ev-2c8145af8dd0a2720dd06f95"
+        ],
+        "reason": "논문은 reverse water-filling이 unit weight를 full precision부터 zero bits(eviction)까지의 bit-width로 변환한다고 직접 서술한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.mechanisms.3",
+        "evidence_ids": [
+          "ev-5b65954365390806363ad12c",
+          "ev-56e42bc7c96c4d6550edb67f"
+        ],
+        "reason": "방법론과 결론이 bit-width 후보 집합을 B = {0, 2, 4, 8, 16}으로 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.inference_process.0",
+        "evidence_ids": [
+          "ev-29dfd536a9e94b95bc3207a5",
+          "ev-5b65954365390806363ad12c"
+        ],
+        "reason": "초록은 allocation이 prefilling stage 후 한 번 적용된다고 하고, 결론은 bit assignment가 prefill 후 frozen된다고 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.inference_process.1",
+        "evidence_ids": [
+          "ev-5b65954365390806363ad12c"
+        ],
+        "reason": "결론은 packed-decode layout이 dequantization을 attention에 fuse하여 mixed-bit allocation을 실제 HBM savings로 전환한다고 직접 서술한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.experimental_results.0",
+        "evidence_ids": [
+          "ev-5b65954365390806363ad12c"
+        ],
+        "reason": "결론은 LongBench, RULER, InfiniteBench 및 architecture·scale이 다른 5개 open-source LLM에서 평가된 baselines 대비 accuracy, decoding speed, peak memory에서 일관되게 우수했다고 보고한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.experimental_results.1",
+        "evidence_ids": [
+          "ev-5b65954365390806363ad12c"
+        ],
+        "reason": "결론은 RDKV가 single A100 64 GB에서 256K에 도달했으며 Full KV는 도달하지 못했다고 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.target_tasks.0",
+        "evidence_ids": [
+          "ev-29dfd536a9e94b95bc3207a5"
+        ],
+        "reason": "초록은 RDKV를 long input contexts에서의 KV cache compression 방법으로 제시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.domains.0",
+        "evidence_ids": [
+          "ev-56e42bc7c96c4d6550edb67f"
+        ],
+        "reason": "방법론은 decoder-only transformer를 전제로 KV cache와 allocation 방식을 정의한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.operating_conditions.0",
+        "evidence_ids": [
+          "ev-29dfd536a9e94b95bc3207a5"
+        ],
+        "reason": "초록은 bit allocation이 prefilling stage 이후 한 번 적용된다고 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.evaluated_settings.0",
+        "evidence_ids": [
+          "ev-fae3872cc54f2a9da942f986"
+        ],
+        "reason": "실험 섹션은 LongBench, Needle-in-a-Haystack, RULER, InfiniteBench에서 평가했다고 열거한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.evaluated_settings.1",
+        "evidence_ids": [
+          "ev-fae3872cc54f2a9da942f986"
+        ],
+        "reason": "실험 섹션은 주 평가 모델이 LLaMA-3.1-8B-Instruct이고, 제시된 네 모델에 대한 cross-architecture 및 cross-scale 결과가 있다고 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.author_claimed_scope.0",
+        "evidence_ids": [
+          "ev-d6dcf370cc3e1d621d521ee6"
+        ],
+        "reason": "제한사항 섹션은 이 방법들이 목표로 하는 prefill-dominated regime를 long prompt와 short generation으로 직접 정의한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.out_of_scope.0",
+        "evidence_ids": [
+          "ev-d6dcf370cc3e1d621d521ee6"
+        ],
+        "reason": "제한사항 섹션은 RDKV가 decoding 중 재평가하지 않으며 generation 중 발생할 수 있는 attention-pattern shifts에 대해 allocation이 frozen된다고 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "limitations.author_stated.0",
+        "evidence_ids": [
+          "ev-d6dcf370cc3e1d621d521ee6"
+        ],
+        "reason": "제한사항 섹션은 RDKV가 prefill 후 KV cache를 한 번 압축하고 decoding 중 재평가하지 않는다고 직접 서술한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "limitations.author_stated.1",
+        "evidence_ids": [
+          "ev-d6dcf370cc3e1d621d521ee6"
+        ],
+        "reason": "제한사항 섹션은 generation 중 발생할 수 있는 attention-pattern shifts에 대해 allocation이 frozen된다고 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "limitations.generalization_constraints.0",
+        "evidence_ids": [
+          "ev-d6dcf370cc3e1d621d521ee6"
+        ],
+        "reason": "제한사항 섹션은 해당 설계 선택이 long prompt와 short generation의 prefill-dominated regime를 대상으로 한다고 직접 설명한다.",
+        "verdict": "supported"
+      }
+    ],
+    "evidence_resolution_rate": 1.0,
+    "indexed_chunks": 141,
+    "ingestion_characters": 90116,
+    "partial_claims": 0,
+    "searched_queries": {
+      "limitations": [
+        "RDKV limitations failure cases rate-distortion assumptions attention distortion proxy KV cache compression",
+        "RDKV ablation token-wise versus channel-wise bit allocation reverse water-filling and importance weighting",
+        "KV cache compression failure cases highly salient long-range tokens low-bit quantization zero-bit eviction",
+        "RDKV future work dynamic online bit allocation across decoding steps changing attention patterns",
+        "RDKV compute overhead prefilling distortion-weight estimation and bit-allocation optimization",
+        "RDKV data and hardware constraints HBM bandwidth GPU implementation mixed-precision KV cache decoding",
+        "threats to validity RDKV benchmark generalization LongBench RULER InfiniteBench model architectures context lengths",
+        "comparison limitations eviction-only quantization-only baselines FlashAttention-2 speed memory measurement methodology",
+        "limitations failure cases assumptions ablation future work compute data constraints threats to validity"
+      ],
+      "scope": [
+        "long-context large language model inference KV cache compression tasks LongBench RULER InfiniteBench",
+        "autoregressive decoder-only transformer attention key-value cache token-wise and channel-wise mixed-precision allocation",
+        "long-context language understanding and retrieval benchmarks LongBench InfiniteBench RULER applicability",
+        "off-chip HBM to on-chip memory bandwidth bottleneck during LLM decoding assumptions",
+        "post-prefill one-shot KV cache compression without retraining calibration or online reallocation",
+        "token modality text-only transformer KV cache compression applicability to long-sequence generation",
+        "128K-context LLM inference mixed-bit KV cache retention and eviction evaluation datasets",
+        "target tasks domains datasets evaluated settings modalities assumptions applicability out of scope"
+      ],
+      "technical_overview": [
+        "RDKV Rate-Distortion KV cache compression joint eviction quantization long-context LLM inference",
+        "rate-distortion bit allocation for transformer key-value cache compression reverse water-filling",
+        "attention-distortion-based token and channel importance weights KV cache quantization eviction",
+        "RDKV prefilling-stage bit-width assignment zero-bit eviction to full-precision KV cache",
+        "memory-bound autoregressive LLM decoding HBM bandwidth KV cache compression training-free inference method",
+        "RDKV LongBench RULER InfiniteBench results 9.1% baseline improvement 97.81% full-cache accuracy 2.48% retention",
+        "RDKV 128K context FlashAttention-2 decoding 4.5x speedup 1.9x peak-memory reduction",
+        "problem definition main contribution method architecture objective loss training inference experimental results"
+      ]
+    },
+    "unsupported_claims": 0,
+    "warnings": []
+  },
+  "run": {
+    "audit_model": "gpt-5.6-terra",
+    "audit_provider": "openai",
+    "embedding_model": "gemini-embedding-2",
+    "finished_at": "2026-09-21T09:59:29.984144Z",
+    "gemini_model": null,
+    "index_version": "1.2.0",
+    "openai_model": "gpt-5.6-terra",
+    "prompt_version": "1.0.0",
+    "quality_repairs": 0,
+    "run_id": "d540dcfdd23144808cab4c5cf04b3971",
+    "started_at": "2026-09-21T09:58:37.218848Z",
+    "token_usage": {
+      "input_tokens": 17937,
+      "output_tokens": 5589,
+      "total_tokens": 23526
+    }
+  },
+  "schema_version": "1.1.0",
+  "status": "succeeded"
+}
