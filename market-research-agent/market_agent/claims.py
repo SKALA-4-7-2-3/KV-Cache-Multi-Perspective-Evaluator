@@ -84,6 +84,16 @@ def validate_claims(data, claims, evidence):
 def criterion_supported(claim):
     """시장 역할에 명백히 맞지 않는 기술 설명을 의미 검토의 독립 최소 조건으로 거른다."""
     quote=re.sub(r'no cost to efficiency','',claim.citation.quote,flags=re.I)
+    # 버전/거리 등 수치도 주변 문장만으로 덧붙이지 않는다. FP8 같은 이름의 숫자는 제외한다.
+    numbers=lambda text:set(re.findall(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?',text))
+    quote_numbers=numbers(quote)
+    months='January February March April May June July August September October November December'.split()
+    for number,month in enumerate(months,1):
+        if re.search(r'\b'+month+r'\s+\d{1,4}\b',quote):quote_numbers.add(str(number))
+    if not numbers(claim.statement)<=quote_numbers:
+        return False
+    if claim.criterion_id=='standardization':
+        return bool(re.search(r'standard|specification|consortium|IEEE|JEDEC|표준|규격',quote,re.I))
     if claim.criterion_id=='commercialization':
         return bool(re.search(r'product|commercial|launch|releas|licen[cs]e|available|repository|github|제품|출시|라이선스',quote,re.I))
     if claim.criterion_id=='adoption':
