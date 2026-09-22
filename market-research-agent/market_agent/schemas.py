@@ -70,7 +70,7 @@ class Technology(Record):
 
 class MarketInput(Record):
     role: Literal["market"] = "market"
-    schema_version: Literal["0.1", "1.1.0"]
+    schema_version: Literal["0.1", "1.1.0", "1.0.0"]
     run_id: str
     domain: str
     as_of: date
@@ -83,8 +83,10 @@ class MarketInput(Record):
     provenance: str
     notes: str
     warnings: list[str] = Field(default_factory=list)
-    input_format: Literal['markdown', 'paper_analysis_json'] = 'markdown'
+    input_format: Literal['markdown', 'paper_analysis_json', 'technical_bundle_json'] = 'markdown'
     source_documents: list[dict] = Field(default_factory=list)
+    source_registry: list[dict] = Field(default_factory=list)
+    comparison: dict = Field(default_factory=dict)
 
 
 class Metric(Record):

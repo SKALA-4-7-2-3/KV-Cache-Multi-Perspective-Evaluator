@@ -97,6 +97,9 @@ def model_background(data, technology):
     if not document:
         return technology.summary[:6000]
     lines = []
+    for obs in document.get('experiment_observations',[])[:8]:
+        lines.append('[experiment] ' + json.dumps({k:v for k,v in obs.items()
+            if k not in {'evidence_ids','context_evidence_ids','observation_id'}},ensure_ascii=False))
     for group, fields in document['analysis'].items():
         lines.append(f'[{group}]')
         for field, items in fields.items():

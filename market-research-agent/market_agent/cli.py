@@ -46,8 +46,9 @@ def save_run(state, output, key):
     cache.mkdir(parents=True, exist_ok=False)
     (cache / 'sources').mkdir()
     data = state["data"]
-    if data.input_format == 'paper_analysis_json':
-        document=data.source_documents[0] if len(data.source_documents)==1 else data.source_documents
+    if data.input_format != 'markdown':
+        document=([data.source_registry,data.comparison,*data.source_documents] if data.input_format=='technical_bundle_json'
+            else (data.source_documents[0] if len(data.source_documents)==1 else data.source_documents))
         (cache/'input.json').write_text(json.dumps(document,ensure_ascii=False,indent=2),encoding='utf-8')
     else:
         (cache / "input.md").write_text(data.raw_markdown, encoding="utf-8")
@@ -89,7 +90,7 @@ def check_reuse(output, key):
         raise InputError('snapshot_mismatch: 입력·모델·코드·프롬프트·출력 버전이 다릅니다')
     manifest = json.loads((cache / 'manifest.json').read_text())
     files = manifest.get('files', {})
-    input_name='input.json' if saved.get('input',{}).get('input_format')=='paper_analysis_json' else 'input.md'
+    input_name='input.json' if saved.get('input',{}).get('input_format','markdown')!='markdown' else 'input.md'
     if not {'run.json', input_name} <= files.keys():
         raise InputError('snapshot_integrity: 필수 내부 자료 누락')
     for name, digest in files.items():

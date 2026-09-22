@@ -142,7 +142,13 @@ def read_input(path: str | Path | list, *, as_of=None, domain=None, limits=None,
                 value=json.loads(p.read_text(encoding='utf-8-sig'))
             except json.JSONDecodeError as exc:
                 raise InputError(f'invalid_json: {p.name}, {exc.lineno}줄') from None
-            documents.extend(value if isinstance(value,list) else [value])
+            documents.append(value)
+        if len(documents)==1 and isinstance(documents[0],list) and any(isinstance(d,dict) and 'dossier_version' in d for d in documents[0]):
+            documents=documents[0]
+        if any(isinstance(d,dict) and ('dossier_version' in d or 'comparison_version' in d) for d in documents):
+            from .dossier_input import parse_bundle
+            return parse_bundle(documents,as_of=as_of,domain=domain,limits=limits,approaches=approaches)
+        documents=[d for value in documents for d in (value if isinstance(value,list) else [value])]
         return parse_paper_analyses(documents,as_of=as_of,domain=domain,limits=limits,approaches=approaches)
     if len(paths)!=1 or paths[0].suffix.lower()=='.json':
         raise InputError('mixed_input_formats: MD는 한 파일, JSON은 1~2개 문서로 입력하세요')
