@@ -1,0 +1,1784 @@
+{
+  "analysis": {
+    "limitations": {
+      "author_stated": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+          ],
+          "text": "RDKV는 prefill 후 KV cache를 한 번만 압축하고 decoding 중에는 재평가하지 않으므로, allocation은 generation 중 발생할 수 있는 attention-pattern shift에 대해 고정된다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+          ],
+          "text": "저자들은 decode phase에 rate-distortion framework를 확장하는 것을 future work로 제시했으며, 최근 decode token의 작은 buffer에 attention weight를 누적하고 주기적으로 MCKP allocation을 적용하는 방안을 제안한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.94,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0018:elem-2605.08317-25836a41-p0018-text-group-051-63eabbf9dd56:span-00000-00723"
+          ],
+          "text": "Needle-in-a-Haystack 추가 실험에서 RDKV의 잔여 miss는 FullKV 자체가 recall을 잃기 시작하는 depth와 length에 집중된다고 저자들이 보고한다."
+        }
+      ],
+      "compute_constraints": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c00"
+          ],
+          "text": "LLaMA-3.1-8B-Instruct, 128K context length, A100 64 GB 조건에서 Table 12는 RDKV의 Net RDKV overhead를 FullKV prefill 대비 +1,740 ms 및 +6.0%로 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c00"
+          ],
+          "text": "같은 Table 12 조건에서 RDKV TTFT는 30,583 ms이며 FullKV prefill baseline의 106.0%로 보고된다."
+        }
+      ],
+      "data_constraints": [],
+      "generalization_constraints": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c11",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c11",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c00"
+          ],
+          "text": "InfiniteBench의 LLaMA-3.1-8B-Instruct, Btotal=1024L 조건에서 RDKV의 Avg.는 39.46이고 FullKV reference upper bound의 Avg.는 45.38이므로, 이 평가 조건에서는 FullKV 성능과의 차이가 남아 있다."
+        }
+      ],
+      "inferred": [
+        {
+          "claim_type": "analyst_inference",
+          "confidence": 0.88,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+          ],
+          "text": "따라서 긴 generation에서 attention pattern이 prefill 때와 달라지는 경우, 현재의 정적 allocation이 계속 적절하다는 실증 검증은 제시되지 않았다."
+        }
+      ],
+      "not_reported": [],
+      "reproducibility_constraints": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+          ],
+          "text": "Algorithm 1은 empirical distortion tables εK(b), εV(b)를 입력으로 요구하므로, 논문이 명시한 allocation 절차를 재현하려면 이 empirical table이 필요하다."
+        }
+      ]
+    },
+    "scope": {
+      "author_claimed_scope": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+          ],
+          "text": "저자들은 RDKV가 model weights나 training procedures를 수정하지 않고 장문맥 LLM inference의 memory footprint와 decoding latency를 줄인다고 주장한다."
+        }
+      ],
+      "domains": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+          ],
+          "text": "저자들은 document summarization, multi-document QA, retrieval-augmented generation을 장문맥 LLM serving의 적용 사례로 제시한다."
+        }
+      ],
+      "evaluated_settings": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0016:elem-2605.08317-25836a41-p0016-text-group-047-5ce58404e337:span-00000-01621"
+          ],
+          "text": "LongBench의 주 결과는 LLaMA-3.1-8B-Instruct에서 다섯 cache budget으로 보고되었고, 추가로 Mistral-7B-Instruct-v0.3, Qwen3-4B, LLaMA-2-13B-Chat, Qwen2.5-72B-Instruct를 평가했으며 Qwen2.5-72B-Instruct는 2-GPU tensor parallelism 조건이었다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228"
+          ],
+          "text": "InfiniteBench 10개 태스크의 표 기반 평가는 LLaMA-3.1-8B-Instruct와 Btotal = 1024L 조건에서 수행되었다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+          ],
+          "text": "RULER의 본문 결과는 LLaMA-3.1-8B-Instruct 및 Btotal = 1024L 조건의 Table 2로 보고되었다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0022:table-09:span-00000-00305"
+          ],
+          "text": "Table 9는 LLaMA-3.1-8B-Instruct에서 Btotal = 2048L로 수행한 11개 RULER 태스크의 4k, 8k, 16k, 32k, 64k, 128k context-length 평가를 보고한다."
+        }
+      ],
+      "inferred_scope": [
+        {
+          "claim_type": "analyst_inference",
+          "confidence": 0.92,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+            "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181"
+          ],
+          "text": "클라우드 서빙 관점에서 직접 근거가 있는 적용 범위는 prefill 후 KV cache를 한 번 압축하는 prefill-dominated regime의 장문맥 text LLM과 단일 A100 64 GB에서의 decode 평가 조건이다."
+        }
+      ],
+      "modalities": [
+        {
+          "claim_type": "analyst_inference",
+          "confidence": 0.93,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494",
+            "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+          ],
+          "text": "보고된 평가는 텍스트 장문맥 LLM의 KV cache compression 및 decoding 조건에 한정되어 있다."
+        }
+      ],
+      "not_reported": [],
+      "operating_conditions": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181"
+          ],
+          "text": "latency·peak-memory 평가는 단일 A100 64 GB에서 LLaMA-3.1-8B-Instruct를 사용해 8K부터 256K까지의 context length에서 수행되었고, FullKV와 AdaKV에는 FA2가 사용되었다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+          ],
+          "text": "평가 프로토콜에서 모든 방법은 Btotal = nL, n ∈ {64, 128, 256, 512, 1024}의 matched per-layer cache budget 아래 평가되었다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0016:elem-2605.08317-25836a41-p0016-text-group-047-5ce58404e337:span-00000-01621"
+          ],
+          "text": "추가 LongBench 평가에서는 모든 방법이 동일한 probe configuration, Sw = 32 및 w = 5를 사용했다."
+        }
+      ],
+      "out_of_scope": [],
+      "target_tasks": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+          ],
+          "text": "LongBench에서 single-document QA, multi-document QA, summarization, few-shot learning, synthetic, code를 포괄하는 장문맥 이해 16개 태스크를 평가했다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+          ],
+          "text": "RULER에서 4k부터 128k까지의 sequence length에 걸친 retrieval 및 reasoning 11개 subtask를 평가했다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+          ],
+          "text": "InfiniteBench에서 10개 태스크를 평가했으며, 이 benchmark의 sequence는 100k tokens를 넘고 평균은 약 200k tokens이며 Zh.QA는 약 2M tokens에 이른다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+          ],
+          "text": "Needle-in-a-Haystack에서 서로 다른 depth에 삽입한 single fact retrieval을 평가했으며, 본문 비교 조건은 32k context length 및 Btotal = 64L이다."
+        }
+      ]
+    },
+    "technical_overview": {
+      "core_approach": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241"
+          ],
+          "text": "RDKV는 고정 bit budget에서 V cache의 token과 K cache의 channel마다 bit-width를 배정하여 weighted distortion을 최소화하는 rate–distortion KV cache compression 방법이다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241"
+          ],
+          "text": "RDKV는 eviction을 zero-bit allocation, quantization을 finite-bit allocation으로 같은 allocation curve의 양 끝점으로 두어 공동 최적화한다."
+        }
+      ],
+      "experimental_results": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+          ],
+          "text": "논문 abstract는 LongBench, RULER, InfiniteBench에서 RDKV가 best evaluated baseline보다 평균 9.1% 우수했다고 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+          ],
+          "text": "논문 abstract는 LongBench에서 RDKV가 full-cache accuracy의 97.81%를 2.48% cache retention으로 회복했다고 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+          ],
+          "text": "LLaMA-3.1-8B-Instruct의 LongBench에서 Btotal=1024L일 때 RDKV average는 49.47로 FullKV와 0.35 points 이내였고, Btotal=64L일 때 strongest baseline보다 2.7 points 앞섰다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+          ],
+          "text": "LLaMA-3.1-8B-Instruct의 RULER, Btotal=1024L에서 RDKV는 4K~128K 전체 길이에 걸쳐 strongest baseline보다 4.1~14.2 points 앞섰고 8K까지 FullKV와 1 point 이내였다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c11",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c11",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c11",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c11",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228"
+          ],
+          "text": "InfiniteBench의 LLaMA-3.1-8B-Instruct, Btotal=1024L에서 Table 11의 average는 RDKV 39.46, AdaKV 38.06, SnapKV 37.91, reference upper bound인 FullKV 45.38이다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+          ],
+          "text": "LLaMA-3.1-8B-Instruct, single A100 64 GB, 128K context에서 FullKV decode latency는 82 ms/token이고 RDKV는 약 18 ms/token으로, 논문은 4.5× speedup을 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154"
+          ],
+          "text": "동일 장치의 128K context에서 FullKV peak memory는 58.1 GB, RDKV는 30.5 GB이며 논문은 1.9× reduction을 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154"
+          ],
+          "text": "동일 장치에서 FullKV는 256K에서 OOM이었고 RDKV는 44.5 GB를 사용했으며, 128K RULER accuracy는 RDKV 67.0, AdaKV 58.4로 8.5 points 차이였다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c00"
+          ],
+          "text": "LongBench average action-space ablation에서 128L/512L의 Joint (RDKV)는 47.43/49.22, Quant-only는 39.06/40.59, Evict-only는 42.53/47.18, Tri-state는 46.91/49.05였다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c00"
+          ],
+          "text": "TriZone decode-latency ablation에서 16K/64K의 RDKV w/ TriZone은 17.99/18.02 ms/token이고 RDKV w/o TriZone은 36.05/36.47 ms/token이었다."
+        }
+      ],
+      "inference_process": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+          ],
+          "text": "RDKV는 prefilling stage 직후 한 번 allocation을 적용하며, Algorithm 1의 입력은 layer별 prefill KV cache, per-head budget Bhead, observation window Sw, pooling kernel w, bit-width set, empirical distortion table εK(b) 및 εV(b)이다."
+        }
+      ],
+      "mechanisms": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0005:figure-02:whole"
+          ],
+          "text": "V token weight는 w_t=Σ_τa_{τ,t}이고, K channel weight는 w_c=||Q_{:,c}||₂||K_{:,c}||₂/√d이다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+          ],
+          "text": "각 KV head에서 MCKP/reverse water-filling은 bit-width 집합 {0, 2, 4, 8, 16}으로 V token을 먼저 allocation하고, bit-width가 0보다 큰 retained token에 대해서만 K channel을 allocation한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+          ],
+          "text": "TriZone packing은 V sub-segment와 retained K row를 quantize·byte-pack해 Zone A에 두고, 16-bit V row는 FP16으로 Zone B에 저장한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241"
+          ],
+          "text": "TriZone의 packed-decode layout은 dequantization을 attention kernel에 fuse한다."
+        }
+      ],
+      "not_reported": [],
+      "novelty": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241"
+          ],
+          "text": "논문은 continuous optimum이 zero-rate와 finite-rate unit을 혼합한다고 정식화하고, hardware-supported bit-width에 대한 discrete knapsack을 Lagrangian relaxation 기반 reverse water-filling으로 풀며, TriZone packed-decode layout으로 mixed-bit allocation을 실제 메모리 절감으로 전환한다고 제시한다."
+        }
+      ],
+      "problem_definition": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+          ],
+          "text": "장문맥 LLM 추론에서 KV cache는 시퀀스 길이에 선형 비례해 증가하며, 매 decoding step마다 off-chip HBM에서 on-chip memory로 재읽혀 memory-bound inference를 유발한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+          ],
+          "text": "기존 KV cache 축소 방법은 eviction 또는 quantization을 대체로 분리하여 취급한다."
+        }
+      ],
+      "requirements": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181"
+          ],
+          "text": "보고된 decode latency·peak-memory 측정은 LLaMA-3.1-8B-Instruct를 single A100 64 GB에서 8K~256K context length로 평가했으며, FullKV와 AdaKV는 FA2를 사용했다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r01-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r01-c00",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+          ],
+          "text": "LLaMA-3.1-8B-Instruct의 128K context length, A100 64 GB prefill에서 Table 12는 FullKV prefill (FA2) 28,843 ms를 baseline으로 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+          ],
+          "text": "동일 Table 12에서 RDKV의 net overhead는 +1,740 ms(+6.0%)이고 TTFT는 30,583 ms(FullKV prefill의 106.0%)이다."
+        }
+      ],
+      "training_process": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+          ],
+          "text": "RDKV는 model weights 또는 training procedure를 수정하지 않는 inference-time KV cache compression 방법이다."
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc01",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "text": "장문맥 LLM 추론에서 KV cache의 선형 증가와 매 decoding step의 HBM 재읽기는 memory-bound inference를 유발한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc02",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241"
+      ],
+      "text": "RDKV는 token/channel별 bit allocation으로 weighted distortion을 최소화하고 eviction과 quantization을 하나의 rate–distortion 최적화로 공동 선택한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc03",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0005:figure-02:whole"
+      ],
+      "text": "RDKV는 V token weight w_t=Σ_τa_{τ,t}와 K channel weight w_c=||Q_{:,c}||₂||K_{:,c}||₂/√d를 이용한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc04",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+      ],
+      "text": "RDKV는 prefilling 후 한 번 {0,2,4,8,16} bit-width에서 MCKP/reverse water-filling으로 allocation하고 TriZone packed cache를 생성한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc05",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "text": "논문 abstract는 LongBench, RULER, InfiniteBench에서 RDKV가 best evaluated baseline보다 평균 9.1% 우수했다고 보고한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc06",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "text": "논문 abstract는 LongBench에서 full-cache accuracy의 97.81%를 2.48% cache retention으로 회복했다고 보고한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc07",
+      "claim_type": "observed_result",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "text": "LLaMA-3.1-8B-Instruct의 RULER Btotal=1024L에서 RDKV는 4K~128K 전체 길이에 strongest baseline보다 4.1~14.2 points 앞섰다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc08",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228"
+      ],
+      "text": "InfiniteBench의 LLaMA-3.1-8B-Instruct, Btotal=1024L Table 11 average는 RDKV 39.46, AdaKV 38.06, SnapKV 37.91, FullKV 45.38이다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc09",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "text": "LLaMA-3.1-8B-Instruct, single A100 64 GB, 128K context에서 RDKV는 약 18 ms/token으로 FullKV의 82 ms/token 대비 4.5× speedup을 보고한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc10",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154"
+      ],
+      "text": "동일 장치의 128K context에서 RDKV peak memory는 30.5 GB이고 FullKV는 58.1 GB이며, 논문은 1.9× reduction을 보고한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc11",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154"
+      ],
+      "text": "동일 장치에서 FullKV는 256K에서 OOM이고 RDKV는 44.5 GB를 사용했으며, 128K RULER accuracy는 RDKV 67.0, AdaKV 58.4였다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc12",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+      ],
+      "text": "128K A100 64 GB prefill에서 RDKV net overhead는 +1,740 ms(+6.0%)이고 TTFT는 30,583 ms(106.0%)다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc13",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:whole",
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c00"
+      ],
+      "text": "LongBench action-space ablation에서 Joint (RDKV)의 average는 128L/512L에 47.43/49.22였고, Quant-only는 39.06/40.59, Evict-only는 42.53/47.18, Tri-state는 46.91/49.05였다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::technical_overview::tc14",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:whole",
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c02"
+      ],
+      "text": "TriZone ablation에서 16K/64K decode latency는 TriZone 사용 시 17.99/18.02 ms/token, 미사용 시 36.05/36.47 ms/token이다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c1",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+      ],
+      "text": "LongBench에서 single-document QA, multi-document QA, summarization, few-shot learning, synthetic, code를 포괄하는 장문맥 이해 16개 태스크를 평가했다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c2",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "text": "RULER에서 4k부터 128k까지의 sequence length에 걸친 retrieval 및 reasoning 11개 subtask를 평가했다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c3",
+      "claim_type": "observed_result",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "text": "InfiniteBench에서 10개 태스크를 평가했으며, 이 benchmark의 sequence는 100k tokens를 넘고 평균은 약 200k tokens이며 Zh.QA는 약 2M tokens에 이른다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c4",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181"
+      ],
+      "text": "latency·peak-memory 평가는 단일 A100 64 GB에서 LLaMA-3.1-8B-Instruct를 사용해 8K부터 256K까지의 context length에서 수행되었고, FullKV와 AdaKV에는 FA2가 사용되었다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c5",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+      ],
+      "text": "평가 프로토콜에서 모든 방법은 Btotal = nL, n ∈ {64, 128, 256, 512, 1024}의 matched per-layer cache budget 아래 평가되었다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c6",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0016:elem-2605.08317-25836a41-p0016-text-group-047-5ce58404e337:span-00000-01621"
+      ],
+      "text": "LongBench의 주 결과는 LLaMA-3.1-8B-Instruct에서 다섯 cache budget으로 보고되었고, 추가로 Mistral-7B-Instruct-v0.3, Qwen3-4B, LLaMA-2-13B-Chat, Qwen2.5-72B-Instruct를 평가했으며 Qwen2.5-72B-Instruct는 2-GPU tensor parallelism 조건이었다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c7",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "text": "저자들은 document summarization, multi-document QA, retrieval-augmented generation을 장문맥 LLM serving의 적용 사례로 제시한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c8",
+      "claim_type": "analyst_inference",
+      "confidence": 0.93,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494",
+        "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+      ],
+      "text": "보고된 평가는 텍스트 장문맥 LLM의 KV cache compression 및 decoding 조건에 한정되어 있다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c9",
+      "claim_type": "analyst_inference",
+      "confidence": 0.92,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181"
+      ],
+      "text": "클라우드 서빙 관점에서 직접 근거가 있는 적용 범위는 prefill 후 KV cache를 한 번 압축하는 prefill-dominated regime의 장문맥 text LLM과 단일 A100 64 GB에서의 decode 평가 조건이다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c10",
+      "claim_type": "observed_result",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "text": "RULER의 본문 결과는 LLaMA-3.1-8B-Instruct 및 Btotal = 1024L 조건의 Table 2로 보고되었다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::scope::sc-c11",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0022:table-09:span-00000-00305"
+      ],
+      "text": "Table 9는 LLaMA-3.1-8B-Instruct에서 Btotal = 2048L로 수행한 11개 RULER 태스크의 4k, 8k, 16k, 32k, 64k, 128k context-length 평가를 보고한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c1",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "text": "RDKV는 prefill 후 KV cache를 한 번만 압축하고 decoding 중에는 재평가하지 않으므로, allocation은 generation 중 발생할 수 있는 attention-pattern shift에 대해 고정된다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c2",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "text": "저자들은 decode phase에 rate-distortion framework를 확장하는 것을 future work로 제시했으며, 최근 decode token의 작은 buffer에 attention weight를 누적하고 주기적으로 MCKP allocation을 적용하는 방안을 제안한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c3",
+      "claim_type": "author_claim",
+      "confidence": 0.94,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0018:elem-2605.08317-25836a41-p0018-text-group-051-63eabbf9dd56:span-00000-00723"
+      ],
+      "text": "Needle-in-a-Haystack 추가 실험에서 RDKV의 잔여 miss는 FullKV 자체가 recall을 잃기 시작하는 depth와 length에 집중된다고 저자들이 보고한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c4",
+      "claim_type": "analyst_inference",
+      "confidence": 0.88,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "text": "따라서 긴 generation에서 attention pattern이 prefill 때와 달라지는 경우, 현재의 정적 allocation이 계속 적절하다는 실증 검증은 제시되지 않았다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c5",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c00"
+      ],
+      "text": "LLaMA-3.1-8B-Instruct, 128K context length, A100 64 GB 조건에서 Table 12는 RDKV의 Net RDKV overhead를 FullKV prefill 대비 +1,740 ms 및 +6.0%로 보고한다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c6",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c00"
+      ],
+      "text": "같은 Table 12 조건에서 RDKV TTFT는 30,583 ms이며 FullKV prefill baseline의 106.0%로 보고된다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c7",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c00"
+      ],
+      "text": "InfiniteBench의 LLaMA-3.1-8B-Instruct, Btotal=1024L 조건에서 RDKV의 Avg.는 39.46이고 FullKV reference upper bound의 Avg.는 45.38이므로, 이 평가 조건에서는 FullKV 성능과의 차이가 남아 있다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::limitations::lim-c8",
+      "claim_type": "author_claim",
+      "confidence": 0.97,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+      ],
+      "text": "Algorithm 1은 empirical distortion tables εK(b), εV(b)를 입력으로 요구하므로, 논문이 명시한 allocation 절차를 재현하려면 이 empirical table이 필요하다."
+    },
+    {
+      "claim_id": "2605.08317-25836a41::auto-claim-3125c280c50f",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "text": "Best evaluated baseline 대비 평균 성능 우위: 9.1 %; evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2605.08317-25836a41::auto-claim-3e400a8f5d26",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "text": "LongBench full-cache accuracy recovery: 97.81 %; dataset=LongBench, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2605.08317-25836a41::auto-claim-0d552beb4d76",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "text": "Cache retention: 2.48 %; dataset=LongBench, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2605.08317-25836a41::auto-claim-dbb86129949a",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "text": "Decode speedup versus FullKV FA2: 4.5 ×; baseline=FullKV (FA2), model=LLaMA-3.1-8B-Instruct, hardware=single A100 64 GB, context=128K, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2605.08317-25836a41::auto-claim-c7c5d1de8aae",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154",
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:whole"
+      ],
+      "text": "RDKV peak memory: 30.5 GB; baseline=FullKV 58.1 GB, model=LLaMA-3.1-8B-Instruct, hardware=single A100 64 GB, context=128K, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2605.08317-25836a41::auto-claim-b5dd0e66ded3",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:elem-2605.08317-25836a41-p0023-text-group-082-82131257f4ec:span-00000-00250",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+      ],
+      "text": "RDKV TTFT: 30583 ms; baseline=FullKV prefill (FA2) 28,843 ms, model=LLaMA-3.1-8B-Instruct, hardware=A100 64 GB, context=128K, evaluation_mode=measured"
+    }
+  ],
+  "critical_inventory": [
+    {
+      "category": "problem",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc01"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci01",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "장문맥 KV cache의 HBM bandwidth·memory 병목"
+    },
+    {
+      "category": "contribution",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc02"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci02",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "eviction과 quantization의 joint rate–distortion allocation"
+    },
+    {
+      "category": "mechanism",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc03"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0005:figure-02:whole"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci03",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "attention-derived token/channel distortion weights"
+    },
+    {
+      "category": "mechanism",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc04"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci04",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "prefill 후 MCKP/reverse water-filling 및 TriZone packing"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc05"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci05",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "전체 benchmark headline 평균 우위"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc06"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci06",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "LongBench cache-retention/accuracy 결과"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc07"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci07",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "RULER 장문맥 정확도 우위"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc08"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci08",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "InfiniteBench 평균 비교"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc09"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci09",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "128K decode latency 측정"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc10",
+        "2605.08317-25836a41::technical_overview::tc11"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci10",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "128K·256K memory와 RULER latency–accuracy 결과"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc12"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci11",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "128K prefill/TTFT overhead"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc13"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-04:whole"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci12",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "joint action-space ablation"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::technical_overview::tc14"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0009:table-05:whole"
+      ],
+      "inventory_id": "2605.08317-25836a41::technical_overview::ci13",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "TriZone latency ablation"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c1"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i1",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "LongBench 장문맥 이해 태스크 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c2"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i2",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "RULER retrieval·reasoning 및 4k–128k 길이 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c3"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i3",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "InfiniteBench ultra-long-context 태스크·길이 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c4"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i4",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "단일 A100 64 GB의 8K–256K latency·memory 평가 조건"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c5"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i5",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "matched per-layer cache budget 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c6"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0016:elem-2605.08317-25836a41-p0016-text-group-047-5ce58404e337:span-00000-01621"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i6",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "LongBench 모델·스케일 및 2-GPU tensor parallelism 설정"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c7"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i7",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "저자가 제시한 장문맥 serving 적용 사례"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c8"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494",
+        "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i8",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "텍스트 장문맥 LLM 평가에 근거한 modality 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c9"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181",
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i9",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "prefill-dominated, prefill-once 및 single-A100 근거에 한정한 보수적 적용 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c10"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i10",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "RULER 본문 Table 2의 1024L 평가 조건"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2605.08317-25836a41::scope::sc-c11"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0022:table-09:span-00000-00305"
+      ],
+      "inventory_id": "2605.08317-25836a41::scope::sc-i11",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "RULER Table 9의 2048L 및 4k–128k 평가 조건"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2605.08317-25836a41::limitations::lim-c1"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "inventory_id": "2605.08317-25836a41::limitations::lim-i1",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "decode 중 재평가하지 않아 allocation이 generation 중 attention-pattern shift에 고정됨"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2605.08317-25836a41::limitations::lim-c2"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "inventory_id": "2605.08317-25836a41::limitations::lim-i2",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "decode-phase 재배정은 future work로 남아 있음"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2605.08317-25836a41::limitations::lim-c3"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0018:elem-2605.08317-25836a41-p0018-text-group-051-63eabbf9dd56:span-00000-00723"
+      ],
+      "inventory_id": "2605.08317-25836a41::limitations::lim-i3",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Needle-in-a-Haystack에서 잔여 miss가 보고됨"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2605.08317-25836a41::limitations::lim-c4"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+      ],
+      "inventory_id": "2605.08317-25836a41::limitations::lim-i4",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "긴 generation의 attention shift에 대한 정적 allocation 검증 공백"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2605.08317-25836a41::limitations::lim-c5",
+        "2605.08317-25836a41::limitations::lim-c6"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+      ],
+      "inventory_id": "2605.08317-25836a41::limitations::lim-i5",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "128K A100 64 GB prefill에서 +1,740 ms/+6.0% overhead"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2605.08317-25836a41::limitations::lim-c7"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c11",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228"
+      ],
+      "inventory_id": "2605.08317-25836a41::limitations::lim-i6",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "InfiniteBench 조건에서 FullKV 대비 남은 quality gap"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2605.08317-25836a41::limitations::lim-c8"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+      ],
+      "inventory_id": "2605.08317-25836a41::limitations::lim-i7",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "절차 재현에는 empirical distortion tables가 필요함"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::auto-claim-3125c280c50f"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "inventory_id": "2605.08317-25836a41::auto-inventory-ef79a2a1dffb",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Best evaluated baseline 대비 평균 성능 우위: 9.1 %; evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::auto-claim-3e400a8f5d26"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "inventory_id": "2605.08317-25836a41::auto-inventory-8ff4045cb2db",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "LongBench full-cache accuracy recovery: 97.81 %; dataset=LongBench, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::auto-claim-0d552beb4d76"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "inventory_id": "2605.08317-25836a41::auto-inventory-ae6aaeec3078",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Cache retention: 2.48 %; dataset=LongBench, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::auto-claim-dbb86129949a"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "inventory_id": "2605.08317-25836a41::auto-inventory-093b2458d374",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Decode speedup versus FullKV FA2: 4.5 ×; baseline=FullKV (FA2), model=LLaMA-3.1-8B-Instruct, hardware=single A100 64 GB, context=128K, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::auto-claim-c7c5d1de8aae"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154",
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:whole"
+      ],
+      "inventory_id": "2605.08317-25836a41::auto-inventory-dff158061b4c",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "RDKV peak memory: 30.5 GB; baseline=FullKV 58.1 GB, model=LLaMA-3.1-8B-Instruct, hardware=single A100 64 GB, context=128K, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2605.08317-25836a41::auto-claim-b5dd0e66ded3"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:elem-2605.08317-25836a41-p0023-text-group-082-82131257f4ec:span-00000-00250",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+      ],
+      "inventory_id": "2605.08317-25836a41::auto-inventory-9e7434b678cc",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "RDKV TTFT: 30583 ms; baseline=FullKV prefill (FA2) 28,843 ms, model=LLaMA-3.1-8B-Instruct, hardware=A100 64 GB, context=128K, evaluation_mode=measured"
+    }
+  ],
+  "dossier_version": "1.0.0",
+  "evidence_ids": [
+    "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494",
+    "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241",
+    "paper:2605.08317-25836a41@25836a419005:p0005:figure-02:whole",
+    "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344",
+    "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127",
+    "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154",
+    "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181",
+    "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:whole",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r01-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r02-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r03-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:cell-r04-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-04:whole",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r01-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-05:cell-r02-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0009:table-05:whole",
+    "paper:2605.08317-25836a41@25836a419005:p0016:elem-2605.08317-25836a41-p0016-text-group-047-5ce58404e337:span-00000-01621",
+    "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474",
+    "paper:2605.08317-25836a41@25836a419005:p0018:elem-2605.08317-25836a41-p0018-text-group-051-63eabbf9dd56:span-00000-00723",
+    "paper:2605.08317-25836a41@25836a419005:p0022:table-09:span-00000-00305",
+    "paper:2605.08317-25836a41@25836a419005:p0023:elem-2605.08317-25836a41-p0023-text-group-082-82131257f4ec:span-00000-00250",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r01-c11",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r02-c11",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r03-c11",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:cell-r06-c11",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-11:span-00000-00228",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r01-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r01-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r07-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c00",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+    "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164",
+    "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+  ],
+  "experiment_observations": [
+    {
+      "baseline": null,
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "hardware": null,
+      "metric": "Best evaluated baseline 대비 평균 성능 우위",
+      "model": null,
+      "observation_id": "2605.08317-25836a41::technical_overview::eo01",
+      "unit": "%",
+      "value": "9.1",
+      "value_max": null,
+      "value_min": null,
+      "workload": null
+    },
+    {
+      "baseline": null,
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": "LongBench",
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "hardware": null,
+      "metric": "LongBench full-cache accuracy recovery",
+      "model": null,
+      "observation_id": "2605.08317-25836a41::technical_overview::eo02",
+      "unit": "%",
+      "value": "97.81",
+      "value_max": null,
+      "value_min": null,
+      "workload": null
+    },
+    {
+      "baseline": null,
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": "LongBench",
+      "direction": "lower_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494"
+      ],
+      "hardware": null,
+      "metric": "Cache retention",
+      "model": null,
+      "observation_id": "2605.08317-25836a41::technical_overview::eo03",
+      "unit": "%",
+      "value": "2.48",
+      "value_max": null,
+      "value_min": null,
+      "workload": null
+    },
+    {
+      "baseline": "FullKV (FA2)",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "128K",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "hardware": "single A100 64 GB",
+      "metric": "Decode speedup versus FullKV FA2",
+      "model": "LLaMA-3.1-8B-Instruct",
+      "observation_id": "2605.08317-25836a41::technical_overview::eo04",
+      "unit": "×",
+      "value": "4.5",
+      "value_max": null,
+      "value_min": null,
+      "workload": null
+    },
+    {
+      "baseline": "FullKV 58.1 GB",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "128K",
+      "dataset": null,
+      "direction": "lower_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0009:elem-2605.08317-25836a41-p0009-text-group-031-baa0e3a046d9:span-00000-01154",
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:whole"
+      ],
+      "hardware": "single A100 64 GB",
+      "metric": "RDKV peak memory",
+      "model": "LLaMA-3.1-8B-Instruct",
+      "observation_id": "2605.08317-25836a41::technical_overview::eo05",
+      "unit": "GB",
+      "value": "30.5",
+      "value_max": null,
+      "value_min": null,
+      "workload": null
+    },
+    {
+      "baseline": "FullKV prefill (FA2) 28,843 ms",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "128K",
+      "dataset": null,
+      "direction": "lower_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c01",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c02",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:cell-r08-c00",
+        "paper:2605.08317-25836a41@25836a419005:p0023:elem-2605.08317-25836a41-p0023-text-group-082-82131257f4ec:span-00000-00250",
+        "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+      ],
+      "hardware": "A100 64 GB",
+      "metric": "RDKV TTFT",
+      "model": "LLaMA-3.1-8B-Instruct",
+      "observation_id": "2605.08317-25836a41::technical_overview::eo06",
+      "unit": "ms",
+      "value": "30583",
+      "value_max": null,
+      "value_min": null,
+      "workload": null
+    }
+  ],
+  "paper": {
+    "abstract": "Large language models (LLMs) have shown strong performance across diverse\ntasks, but their inference with long input contexts is bottlenecked by memory size\nand bandwidth. The Key-Value (KV) cache size grows linearly with sequence\nlength and needs to be re-read from off-chip high-bandwidth memory (HBM) to\non-chip memory at every decoding step, resulting in memory-bound inference.\nExisting methods reduce the cache by either eviction or quantization, but typically\ntreat the two in isolation. In this paper, we cast KV cache compression as a rate-\ndistortion problem, under which eviction and quantization are two end-points of\nthe same bit allocation scheme. This exposes the need to optimize them jointly,\nmotivating our method, RDKV (Rate-Distortion KV cache compression). RDKV\nderives the weight of each token or channel from the distortion that compression\ninduces on the attention computation. Based on these weights, it assigns each token\nor channel a bit-width ranging from full precision down to zero bits guided by\nreverse water-filling, applied once after the prefilling stage. Experiments on Long-\nBench, RULER, and InfiniteBench show that RDKV outperforms the best evaluated\nbaseline by 9.1% on average. On LongBench it recovers 97.81% of full-cache accu-\nracy with only 2.48% cache retention. Compared with full-cache FlashAttention-2\ndecoding, it achieves 4.5× decode speedup and 1.9× peak memory reduction with\n128K context length, while maintaining comparable performance.\n1",
+    "arxiv_id": "2605.08317",
+    "authors": [],
+    "page_count": 28,
+    "paper_id": "2605.08317-25836a41",
+    "source_hash": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+    "source_path": "inputs/2605.08317.pdf",
+    "title": "RDKV: Rate-Distortion Bit Allocation for Joint"
+  },
+  "unverified_items": [
+    {
+      "attempts": 1,
+      "filters": {
+        "document_id": "2605.08317-25836a41"
+      },
+      "item_id": "2605.08317-25836a41::scope::sc-u1",
+      "reason": "제공된 증거에는 단일 A100 64 GB 조건은 있으나, 해당 프로덕션 운영 변수를 명시한 평가는 확인되지 않는다.",
+      "searched_queries": [
+        "concurrency",
+        "batch size",
+        "multi-tenant"
+      ],
+      "topic": "프로덕션 클라우드 서빙의 concurrency, batch size, request arrival rate, multi-tenant interference 조건"
+    }
+  ]
+}

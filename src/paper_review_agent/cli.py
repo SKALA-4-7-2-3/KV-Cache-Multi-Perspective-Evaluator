@@ -13,6 +13,7 @@ from paper_review_agent.e2e_validation import (
     create_retrieval_e2e_validation_artifact,
 )
 from paper_review_agent.research_api import pull_embedding_model, run_technical_research
+from paper_review_agent.technical_markdown import export_technical_markdown
 from paper_review_agent.technical_schemas import TechnicalResearchRequest
 from paper_review_agent.technical_validation import validate_technical_research
 
@@ -136,3 +137,22 @@ def validate_technical_command(
     typer.echo(report.model_dump_json(indent=2))
     if not report.valid:
         raise typer.Exit(code=1)
+
+
+@app.command("export-technical-md")
+def export_technical_markdown_command(
+    path: Annotated[
+        Path,
+        typer.Argument(exists=True, dir_okay=False, help="기술조사 run.json"),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", file_okay=False, help="기본값: <run 디렉터리>/markdown"),
+    ] = None,
+) -> None:
+    try:
+        written = export_technical_markdown(path, output)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    for item in written:
+        typer.echo(item)

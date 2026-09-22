@@ -23,7 +23,8 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 _PAGE_TOKEN = re.compile(r"(?:^|:)p(?P<page>\d{4})(?=:)")
 _NUMBER_TOKEN = re.compile(
-    r"(?<![A-Za-z0-9.\-])[-+]?\d[\d,]*(?:\.\d+)?(?:\s*[×xX%])?"
+    r"(?<![A-Za-z0-9.\-])[-+]?(?:\d{1,3}(?:[, \u00a0\u202f]\d{3})+|\d+)"
+    r"(?:\.\d+)?(?:\s*[×xX%])?"
 )
 _NUMBER_WORDS = {
     "zero": "0",
@@ -57,7 +58,6 @@ class _EvidenceLocatorKey:
     def element_suffix(self) -> str:
         return f"{self.element_id}:{self.suffix}"
 
-
 class EvidenceIdNormalizer:
     """Resolve only exact or uniquely identifiable locator-tail references."""
 
@@ -89,6 +89,23 @@ class EvidenceIdNormalizer:
             key.evidence_id
             for key in candidates
             if reference.endswith(key.page_element_suffix)
+        )
+        if resolved is not None:
+            return resolved
+
+        # A parser can preserve the same page/span while changing only the
+        # public element name when adjacent blocks are coalesced (for example
+        # ``text-007`` versus ``text-group-007``). Accept that model-produced
+        # alias only when page + locator suffix identifies exactly one supplied
+        # evidence item. Ambiguous spans remain unknown and fail closed.
+        alias_page_hints = {
+            int(match.group("page")) for match in _PAGE_TOKEN.finditer(reference)
+        }
+        resolved = _only(
+            key.evidence_id
+            for key in candidates
+            if reference.endswith(f":{key.suffix}")
+            and key.page in alias_page_hints
         )
         if resolved is not None:
             return resolved

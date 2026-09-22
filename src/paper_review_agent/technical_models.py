@@ -191,9 +191,14 @@ Requirements:
   `:cell-rNN-cNN` (two-digit minimum); aggregate `:whole` or `:rows-rNN-rNN`
   table evidence is context only.
 - Every numeric value in a narrative claim must occur verbatim in one cited evidence snippet.
+- Preserve non-directional comparisons exactly: `within X points` must not be rewritten as
+  `X points lower` or `X points higher` unless the cited evidence explicitly states the direction.
 - If a paper-reported rounded delta differs from subtraction of displayed rounded endpoints, do not
   present it as your own exact arithmetic. Attribute the reported delta separately or omit it while
   preserving the endpoints.
+- If a paper-reported aggregate differs from the sum of displayed rounded components, preserve the
+  aggregate only as an explicitly attributed author-reported value and disclose the displayed-sum
+  discrepancy in the same claim (or omit the aggregate). Never imply that you independently derived it.
 - confidence reflects evidence directness; do not default to 0.99.
 - IDs must be unique. Copy evidence IDs byte-for-byte from the registry below; never reconstruct,
   shorten, concatenate, or copy an ID from repair feedback.
@@ -282,6 +287,11 @@ Facet contract rules:
   rule does not require exhaustive task-by-method cells from a benchmark score table.
 - Numeric statements must cite the exact sentence span or individual table cell ID. Do not estimate
   unlabeled chart coordinates. A simulated result is not physical end-to-end validation.
+- Preserve non-directional comparisons exactly: `within X points` must not be rewritten as
+  `X points lower` or `X points higher` unless the cited evidence explicitly states the direction.
+- If a paper-reported aggregate differs from the sum of displayed rounded components, preserve the
+  aggregate only as an explicitly attributed author-reported value and disclose the displayed-sum
+  discrepancy in the same claim (or omit the aggregate). Never imply that you independently derived it.
 - Absence must be explicit in the paper. Otherwise use not_reported or an UnverifiedItem with actual
   searched queries. Clearly label analyst inference and keep it narrower than its evidence.
 - On repair, replace or narrow every rejected item while preserving supported records from the

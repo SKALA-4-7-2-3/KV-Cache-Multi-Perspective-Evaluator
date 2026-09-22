@@ -46,6 +46,7 @@ outputs/<job-id>/technical/
 
 ```bash
 uv run paper-review validate-technical outputs/<job-id>/technical/run.json
+uv run paper-review export-technical-md outputs/<job-id>/technical/run.json
 uv run pytest
 ```
 
@@ -53,6 +54,11 @@ uv run pytest
 [`examples/results/technical-bge-e2e-two-papers`](examples/results/technical-bge-e2e-two-papers)에
 포함되어 있다. PDF 원본과 비밀 정보는 포함하지 않았고 공개 저장소용 상대경로와 해시를
 사용한다.
+
+장문맥 문서 QA 데이터센터·클라우드 서빙 관점의 별도 성공 결과는
+[`examples/results/technical-long-context-qa-datacenter`](examples/results/technical-long-context-qa-datacenter)에
+포함되어 있다. 각 예시의 `markdown/README.md`에서 사람이 읽기 쉬운 분석 결과를 확인할 수
+있다.
 
 ## 보안·운영 원칙
 
