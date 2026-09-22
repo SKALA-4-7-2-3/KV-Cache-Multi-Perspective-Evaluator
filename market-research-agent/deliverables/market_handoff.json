@@ -1,0 +1,944 @@
+{
+  "schema_version": "1.0.0",
+  "role": "market",
+  "run_id": "market-921516a0251e1e63",
+  "as_of": "2026-09-22",
+  "domain": "cloud_datacenter",
+  "mode": "live",
+  "status": "provisional",
+  "execution_status": "partial",
+  "provenance": {
+    "input_hash": "921516a0251e1e6315fd3c5c86f1a127847f73a3e4feb542647abbe5a22c8c5e",
+    "model": "gpt-4.1-mini",
+    "result_schema_version": "0.5"
+  },
+  "coverage": {
+    "expected": 12,
+    "provided": 12,
+    "grounded": 3,
+    "provisional": 9,
+    "scenario": 0,
+    "research_plan": 0
+  },
+  "technologies": [
+    {
+      "tech_id": "SW-01",
+      "name": "RDKV",
+      "approach": "SW",
+      "paper": "RDKV: Rate-Distortion Bit Allocation for Joint",
+      "paper_url": "https://arxiv.org/abs/2605.08317",
+      "status": "provisional"
+    },
+    {
+      "tech_id": "HW-01",
+      "name": "Photonic-CXL",
+      "approach": "HW",
+      "paper": "A Photonic-CXL Memory Appliance for Scalable KV",
+      "paper_url": "https://arxiv.org/abs/2607.27187",
+      "status": "provisional"
+    }
+  ],
+  "assessments": [
+    {
+      "tech_id": "SW-01",
+      "criterion_id": "market_size_growth",
+      "judgment": "RDKV: 우선 공략 시장을 장문맥·고동시성 추론에서 GPU 메모리 비용이 병목인 운영자로 설정한다. 추론 소프트웨어·AI 서버 시장 자료는 수요의 대리 지표로 사용하고, 선정 기법의 매출 규모는 별도로 산정한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "목표 고객 수 × 도입 가능 비율 × 연간 소프트웨어 지출로 시장 범위를 산정하고 중복 수요를 제거한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: RDKV market size forecast region revenue methodology"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "insufficient_evidence"
+      ],
+      "criterion_name": "시장 규모·성장",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-10918f51d2988ce3",
+          "locator": "Training (Pre and Post); 추출 텍스트 문자 16621:19301",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+          "locator": "page 28; RB-P",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "SW-01",
+      "criterion_id": "commercialization",
+      "judgment": "RDKV: 제품화 경로는 기존 추론 엔진에 추가하는 KV 최적화 기능·플러그인으로 잡는다. 독립 제품 판매 가능성을 결정하기 전에 코드 공개 범위, 상업적 이용 권리, 설치·지원 책임을 검증하는 단계로 평가한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "저장소·라이선스·배포 버전·지원 GPU를 확인하고 재현 가능한 설치 예제를 확보한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "근거 추출·평가의 처리 오류가 남아 있어 결론을 보류함",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: RDKV implementation repository license product release"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "processing_error",
+        "insufficient_evidence"
+      ],
+      "criterion_name": "제품화",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-3d04744dcf69e3b9",
+          "locator": "Appendix K Limitations and Future Work; 추출 텍스트 문자 103037:105295",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "MKT-04009e815f3e5b00",
+          "locator": "검색 발췌",
+          "review_status": "search_excerpt",
+          "reason": "검색 발췌: 잠정 검토에 사용하며 원문·문맥의 추가 확인 필요"
+        },
+        {
+          "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+          "locator": "page 28; RB-P",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "SW-01",
+      "criterion_id": "adoption",
+      "judgment": "RDKV: 도입 우선순위는 메모리 병목이 있고 품질 허용 오차를 측정할 수 있는 추론 팀의 제한된 PoC로 설정한다. 관련 기술군의 사용 사례는 후보 고객 발굴 자료로 활용하며 선정 기법의 운영 실적과 구분한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "기존 방식과 같은 모델·문맥 길이·동시성에서 품질 하한과 지연 SLO를 충족하면 단계적으로 도입한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: RDKV customer deployment production case study"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "insufficient_evidence"
+      ],
+      "criterion_name": "실제 채택",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-21cb830879f6bc36",
+          "locator": "Main Navigation; 추출 텍스트 문자 451:3033",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+          "locator": "page 28; RB-P",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "SW-01",
+      "criterion_id": "ecosystem_support",
+      "judgment": "RDKV: 생태계 진입점은 기존 추론 엔진의 KV 캐시 관리·양자화 확장 경로로 설정한다. 관련 기능의 존재는 통합 가능성의 단서로 활용하고, 선정 알고리즘의 커널·스케줄러 호환성을 별도 검증한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "추론 엔진 버전, KV 레이아웃, 혼합 정밀도 커널 및 배치 스케줄러 조합의 호환성 표를 작성한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: RDKV inference engine support implementation version documentation"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "insufficient_evidence"
+      ],
+      "criterion_name": "생태계 지원",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-04009e815f3e5b00",
+          "locator": "검색 발췌",
+          "review_status": "search_excerpt",
+          "reason": "검색 발췌: 잠정 검토에 사용하며 원문·문맥의 추가 확인 필요"
+        },
+        {
+          "evidence_id": "MKT-3d04744dcf69e3b9",
+          "locator": "Appendix K Limitations and Future Work; 추출 텍스트 문자 103037:105295",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241",
+          "locator": "page 2; Introduction",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "SW-01",
+      "criterion_id": "standardization",
+      "judgment": "RDKV: 표준화 평가는 특정 인증 획득보다 런타임 인터페이스·KV 저장 형식·정밀도 표현의 호환성을 우선한다. 엔진별 비표준 부분을 어댑터로 분리할 수 있는 경우 통합 후보로 평가한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "공통 인터페이스와 엔진 전용 커널을 구분하고 버전 변경 시 회귀 검사 범위를 정한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: RDKV standards specification compatibility documentation"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "insufficient_evidence"
+      ],
+      "criterion_name": "표준화",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-c39c7687a7f2c94d",
+          "locator": "본문; 추출 텍스트 문자 0:6617",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존; 생성 주장 검증 오류: missing_or_invalid_quote"
+        },
+        {
+          "evidence_id": "MKT-f9b0871a27a2e068",
+          "locator": "검색 발췌",
+          "review_status": "search_excerpt",
+          "reason": "검색 발췌: 잠정 검토에 사용하며 원문·문맥의 추가 확인 필요"
+        },
+        {
+          "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+          "locator": "page 28; RB-P",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "SW-01",
+      "criterion_id": "business_value",
+      "judgment": "자료 발행자의 설명: RDKV는 쿼리당 GPU 사용 시간을 줄여 LLM 서비스의 에너지 소비와 탄소 발자국을 낮추어 환경적으로 지속 가능한 긴 컨텍스트 추론 배포에 기여한다. 자료 발행자의 설명: RDKV는 모델 가중치나 훈련 절차를 변경하지 않고도 긴 컨텍스트 LLM 추론의 메모리 사용량과 디코딩 지연을 줄인다.",
+      "basis": "inference",
+      "relation_to_technology": "exact",
+      "conditions": [
+        "발행일 미확인: 기준일 당시 상태 추가 확인 필요",
+        "연구상 기술 효과는 고객 가치의 전제이며 실제 고객 비용·ROI 실측 결과가 아님",
+        "환경·에너지 효과는 연구 저자의 전망이며 실측 고객 성과 미검증",
+        "전망·계획에 근거한 추론이며 실제 고객 성과 미검증"
+      ],
+      "metric": null,
+      "gaps": [],
+      "verdict": "conditional",
+      "observation": "",
+      "generation_method": "verified_claim",
+      "evaluation_level": null,
+      "evaluation_mode": "grounded",
+      "confidence": "medium",
+      "research_status": "reviewed",
+      "unknown_reasons": [],
+      "criterion_name": "비용·고객 가치·사업화 조건",
+      "citations": [
+        {
+          "evidence_id": "MKT-3d04744dcf69e3b9",
+          "subject": "RDKV",
+          "source_character": "웹 발행자 설명 (arxiv.org); 독립 검증 미확인; 근거 수준: projection",
+          "locator": "Appendix K Limitations and Future Work; 추출 텍스트 문자 103037:105295"
+        },
+        {
+          "evidence_id": "MKT-3d04744dcf69e3b9",
+          "subject": "RDKV",
+          "source_character": "웹 발행자 설명 (arxiv.org); 독립 검증 미확인; 근거 수준: research_experiment",
+          "locator": "Appendix K Limitations and Future Work; 추출 텍스트 문자 103037:105295"
+        }
+      ],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-3d04744dcf69e3b9",
+          "locator": "Appendix K Limitations and Future Work; 추출 텍스트 문자 103037:105295",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "MKT-04009e815f3e5b00",
+          "locator": "검색 발췌",
+          "review_status": "search_excerpt",
+          "reason": "검색 발췌: 잠정 검토에 사용하며 원문·문맥의 추가 확인 필요"
+        },
+        {
+          "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+          "locator": "page 28; RB-P",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "HW-01",
+      "criterion_id": "market_size_growth",
+      "judgment": "Photonic-CXL: 우선 공략 시장을 장문맥·고동시성 추론용 메모리 용량 확대를 검토하는 데이터센터로 설정한다. CXL·메모리 풀링·AI 인프라 시장은 인접 수요의 대리 지표이며 선정 어플라이언스의 시장 규모와 구분한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "신규·증설 클러스터 수 × 호환 가능한 호스트 비율 × 설치당 지출로 수요를 산정하고 교체 주기를 반영한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "관련 페이지의 본문을 충분히 확보하지 못함",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: Photonic-CXL market size forecast region revenue methodology"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "content_insufficient",
+        "insufficient_evidence"
+      ],
+      "criterion_name": "시장 규모·성장",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-a9bf199eefe9de6c",
+          "locator": "검색 발췌",
+          "review_status": "search_excerpt",
+          "reason": "검색 발췌: 잠정 검토에 사용하며 원문·문맥의 추가 확인 필요"
+        },
+        {
+          "evidence_id": "MKT-d316bcf872a8b405",
+          "locator": "검색 발췌",
+          "review_status": "search_excerpt",
+          "reason": "검색 발췌: 잠정 검토에 사용하며 원문·문맥의 추가 확인 필요"
+        },
+        {
+          "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+          "locator": "page 2; 80 layers, 8 KV heads, and 128-dimensional head size). In",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "HW-01",
+      "criterion_id": "commercialization",
+      "judgment": "Photonic-CXL: 제품화 경로는 메모리 어플라이언스와 호스트·인터커넥트·관리 소프트웨어를 묶은 공급 모델로 설정한다. 공급사 자료를 바탕으로 구매 가능한 구성과 연구 제안의 범위를 구분하는 실증 단계로 평가한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "발주 가능한 SKU, 납기, 호스트 지원 목록, 통합 책임 및 보증·운영 지원 범위를 확인한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "관련 페이지의 본문을 충분히 확보하지 못함",
+        "관련 후보의 원문에 접근하지 못함",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: Photonic-CXL implementation repository license product release"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "content_insufficient",
+        "source_inaccessible",
+        "insufficient_evidence"
+      ],
+      "criterion_name": "제품화",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-d7fb69b7aaf4ebb3",
+          "locator": "Photonic Fabric™ Technology: How Optical Connectivity Enables the Next Generation of AI Infrastructure; 추출 텍스트 문자 1726:8626",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "MKT-2cea37426c89e77b",
+          "locator": "Press release from: [QYResearch.Inc](/news/archive/252528/QYResearch-Inc.html \"archive und pressrelease of QYResearch.Inc\"); 추출 텍스트 문자 3737:5478",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존; 생성 주장 검증 오류: missing_or_invalid_quote"
+        },
+        {
+          "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-026-37aaf9c29c0e:span-00000-02701",
+          "locator": "page 10; 2.0 switched memory pool (Beluga), measured via Intel MLC.",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        },
+        {
+          "evidence_id": "MKT-a1762b5ee8e10808",
+          "locator": "본문; 추출 텍스트 문자 0:1676",
+          "review_status": "excluded",
+          "reason": "제목·메뉴 외에 분석 가능한 본문을 확보하지 못함"
+        }
+      ],
+      "context_findings": [
+        {
+          "statement": "자료 발행자의 설명: Marvell Photonic Fabric 기술은 Marvell Photonic Fabric Memory Module, Photonic Fabric NIC, Photonic Fabric chiplet을 중심으로 구축되어 AI 랙 간 최대 30미터 거리에서 메모리 공유를 가능하게 한다.",
+          "basis": "fact",
+          "relation_to_technology": "adjacent",
+          "conditions": [
+            "선정 논문과 제품·구현의 동일성 미확인"
+          ],
+          "metric": null,
+          "citations": [
+            {
+              "evidence_id": "MKT-d7fb69b7aaf4ebb3",
+              "subject": "Marvell Photonic Fabric",
+              "source_character": "웹 발행자 설명 (www.marvell.com); 독립 검증 미확인; 근거 수준: publisher_statement",
+              "locator": "Photonic Fabric™ Technology: How Optical Connectivity Enables the Next Generation of AI Infrastructure; 추출 텍스트 문자 1726:8626"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tech_id": "HW-01",
+      "criterion_id": "adoption",
+      "judgment": "Photonic-CXL: 도입 우선순위는 메모리 확장 수요가 크고 호스트·네트워크 구성을 통제할 수 있는 데이터센터의 실증으로 설정한다. 관련 제품의 고객 사례는 참고하되 선정 구조의 실제 배포 증거를 별도로 확보한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "단일 호스트 실증 후 동시 접속 부하, 장애 복구, 지연 p95 및 운영 절차를 확인하여 확대한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "관련 페이지의 본문을 충분히 확보하지 못함",
+        "근거 추출·평가의 처리 오류가 남아 있어 결론을 보류함",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: Photonic-CXL customer deployment production case study"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "content_insufficient",
+        "processing_error",
+        "insufficient_evidence"
+      ],
+      "criterion_name": "실제 채택",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-d7fb69b7aaf4ebb3",
+          "locator": "Photonic Fabric™ Technology: How Optical Connectivity Enables the Next Generation of AI Infrastructure; 추출 텍스트 문자 1726:8626",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-026-37aaf9c29c0e:span-00000-02701",
+          "locator": "page 10; 2.0 switched memory pool (Beluga), measured via Intel MLC.",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "HW-01",
+      "criterion_id": "ecosystem_support",
+      "judgment": "인접 시장 근거에 따른 조건부 평가: 자료 발행자의 설명: CXL 2.0 규격은 스위칭, 메모리 풀링, 영속 메모리 지원을 도입하며 완전한 하위 호환성을 유지한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "2020년 11월 발표",
+        "선정 논문과 제품·구현의 동일성 미확인",
+        "관련 기술군의 지원 경로이며 선정 구현의 플러그인·커널·인터페이스 호환성 검증 필요"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 구현의 규격 준수·인증 미확인"
+      ],
+      "verdict": "conditional",
+      "observation": "",
+      "generation_method": "verified_claim",
+      "evaluation_level": null,
+      "evaluation_mode": "grounded",
+      "confidence": "medium",
+      "research_status": "reviewed",
+      "unknown_reasons": [],
+      "criterion_name": "생태계 지원",
+      "citations": [
+        {
+          "evidence_id": "MKT-a49cd0f64f79e986",
+          "subject": "CXL 2.0",
+          "source_character": "웹 발행자 설명 (computeexpresslink.org); 독립 검증 미확인; 근거 수준: publisher_statement",
+          "locator": "본문; 추출 텍스트 문자 0:1512"
+        }
+      ],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-d7fb69b7aaf4ebb3",
+          "locator": "Photonic Fabric™ Technology: How Optical Connectivity Enables the Next Generation of AI Infrastructure; 추출 텍스트 문자 1726:8626",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "MKT-a49cd0f64f79e986",
+          "locator": "본문; 추출 텍스트 문자 0:1512",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole",
+          "locator": "page 8; 2.0 switched memory pool (Beluga), measured via Intel MLC.",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "HW-01",
+      "criterion_id": "standardization",
+      "judgment": "Photonic-CXL: CXL 규격은 호환성 요구를 정의하는 기준으로 활용한다. 규격 존재와 선정 어플라이언스의 적합성 입증을 구분하고, 광학 패브릭·관리 기능의 구현별 차이를 실증 대상으로 평가한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "대상 CXL 버전·풀링 기능·상호운용 시험 결과를 확인하고 전용 확장 기능의 종속성을 기록한다.",
+        "잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님"
+      ],
+      "metric": null,
+      "gaps": [
+        "선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인",
+        "관련 페이지의 본문을 충분히 확보하지 못함",
+        "확보 자료로 해당 결론을 뒷받침하기 어려움",
+        "다음 확인: Photonic-CXL standards specification compatibility documentation"
+      ],
+      "verdict": "provisional",
+      "observation": "",
+      "generation_method": "deterministic_fallback",
+      "evaluation_level": null,
+      "evaluation_mode": "provisional",
+      "confidence": "low",
+      "research_status": "reviewed",
+      "unknown_reasons": [
+        "content_insufficient",
+        "insufficient_evidence"
+      ],
+      "criterion_name": "표준화",
+      "citations": [],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-a49cd0f64f79e986",
+          "locator": "본문; 추출 텍스트 문자 0:1512",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존"
+        },
+        {
+          "evidence_id": "MKT-2cea37426c89e77b",
+          "locator": "Press release from: [QYResearch.Inc](/news/archive/252528/QYResearch-Inc.html \"archive und pressrelease of QYResearch.Inc\"); 추출 텍스트 문자 3737:5478",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존; 생성 주장 검증 오류: missing_or_invalid_quote"
+        },
+        {
+          "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+          "locator": "page 2; 80 layers, 8 KV heads, and 128-dimensional head size). In",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    },
+    {
+      "tech_id": "HW-01",
+      "criterion_id": "business_value",
+      "judgment": "인접 시장 근거에 따른 조건부 평가: 자료 발행자의 설명: Marvell Photonic Fabric Memory Appliance는 DRAM과 스토리지 사이의 새로운 공유 메모리 계층을 확장하여 더 높은 용량과 낮은 지연의 AI 추론을 가능하게 한다.",
+      "basis": "inference",
+      "relation_to_technology": "adjacent",
+      "conditions": [
+        "선정 논문과 제품·구현의 동일성 미확인",
+        "기술 효과가 고객 비용 절감으로 이어지는지는 워크로드·품질·통합비·운영비 검증 필요"
+      ],
+      "metric": null,
+      "gaps": [
+        "실제 고객 비용 절감·ROI 실측 근거 부재"
+      ],
+      "verdict": "conditional",
+      "observation": "",
+      "generation_method": "verified_claim",
+      "evaluation_level": null,
+      "evaluation_mode": "grounded",
+      "confidence": "medium",
+      "research_status": "reviewed",
+      "unknown_reasons": [],
+      "criterion_name": "비용·고객 가치·사업화 조건",
+      "citations": [
+        {
+          "evidence_id": "MKT-d7fb69b7aaf4ebb3",
+          "subject": "Marvell Photonic Fabric Memory",
+          "source_character": "웹 발행자 설명 (www.marvell.com); 독립 검증 미확인; 근거 수준: publisher_statement",
+          "locator": "Photonic Fabric™ Technology: How Optical Connectivity Enables the Next Generation of AI Infrastructure; 추출 텍스트 문자 1726:8626"
+        }
+      ],
+      "supporting_materials": [
+        {
+          "evidence_id": "MKT-2cea37426c89e77b",
+          "locator": "Press release from: [QYResearch.Inc](/news/archive/252528/QYResearch-Inc.html \"archive und pressrelease of QYResearch.Inc\"); 추출 텍스트 문자 5872:8960",
+          "review_status": "reference_only",
+          "reason": "접근한 원자료: 이 항목의 주장 검증과 별개로 재검토 가능한 자료를 보존; 생성 주장 검증 오류: missing_or_invalid_quote"
+        },
+        {
+          "evidence_id": "MKT-b66db687ab78fab6",
+          "locator": "검색 발췌",
+          "review_status": "search_excerpt",
+          "reason": "검색 발췌: 잠정 검토에 사용하며 원문·문맥의 추가 확인 필요"
+        },
+        {
+          "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+          "locator": "page 2; 80 layers, 8 KV heads, and 128-dimensional head size). In",
+          "review_status": "provided_context",
+          "reason": "기술 조사 입력의 요약: 도입 시나리오의 전제이며 시장 실적을 증명하지 않음"
+        }
+      ],
+      "context_findings": []
+    }
+  ],
+  "sources": {
+    "MKT-10918f51d2988ce3": {
+      "evidence_id": "MKT-10918f51d2988ce3",
+      "title": "DeepSeek Debates: Chinese Leadership On Cost, True Training ...",
+      "url": "https://newsletter.semianalysis.com/p/deepseek-debates",
+      "publisher": "newsletter.semianalysis.com",
+      "published_at": "2025-01-31",
+      "retrieved_at": "2026-09-22T02:58:08.709119+00:00",
+      "access_status": "full_text",
+      "access_scope": "추출 본문",
+      "content_status": "substantive",
+      "quote_excerpt": "KV Cache is a memory mechanism in transformer models that stores data representing the context of the conversation, reducing unnecessary computation.",
+      "quote_truncated": false
+    },
+    "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393": {
+      "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393",
+      "title": "RDKV: Rate-Distortion Bit Allocation for Joint",
+      "url": "https://arxiv.org/abs/2605.08317",
+      "publisher": null,
+      "published_at": null,
+      "retrieved_at": null,
+      "access_status": "provided_summary",
+      "access_scope": "evidence_registry 발췌; 전체 논문·시장 사실 검증 아님",
+      "content_status": "unchecked",
+      "quote_excerpt": "RDKV reduces the memory footprint and decoding latency of long-context LLM inference without modifying model weights or training procedures.",
+      "quote_truncated": false
+    },
+    "MKT-3d04744dcf69e3b9": {
+      "evidence_id": "MKT-3d04744dcf69e3b9",
+      "title": "RDKV: Rate-Distortion Bit Allocation for Joint",
+      "url": "https://arxiv.org/html/2605.08317",
+      "publisher": "arxiv.org",
+      "published_at": null,
+      "retrieved_at": "2026-09-22T02:57:50.457292+00:00",
+      "access_status": "full_text",
+      "access_scope": "추출 본문",
+      "content_status": "substantive",
+      "quote_excerpt": "RDKV reduces the memory footprint and decoding latency of long-context LLM inference without modifying model weights or training procedures.",
+      "quote_truncated": false
+    },
+    "MKT-04009e815f3e5b00": {
+      "evidence_id": "MKT-04009e815f3e5b00",
+      "title": "KV Cache Quantization - LLM Compressor Docs",
+      "url": "https://docs.vllm.ai/projects/llm-compressor/en/latest/examples/quantization_kv_cache",
+      "publisher": "docs.vllm.ai",
+      "published_at": "2025-07-23",
+      "retrieved_at": "2026-09-22T03:02:25.646009+00:00",
+      "access_status": "snippet",
+      "access_scope": "검색 발췌",
+      "content_status": "unchecked",
+      "quote_excerpt": "`llmcompressor` supports quantizing `fp8` KV Cache for memory savings and inference acceleration with `vllm`.",
+      "quote_truncated": false
+    },
+    "MKT-21cb830879f6bc36": {
+      "evidence_id": "MKT-21cb830879f6bc36",
+      "title": "Efficient Large Language Model Inference with Coupled Quantization",
+      "url": "https://neurips.cc/virtual/2024/poster/93558",
+      "publisher": "neurips.cc",
+      "published_at": "2024-09-27",
+      "retrieved_at": "2026-09-22T02:57:51.368414+00:00",
+      "access_status": "full_text",
+      "access_scope": "추출 본문",
+      "content_status": "substantive",
+      "quote_excerpt": "As batch size, context length, or model size increases, the size of key and value (KV) cache quickly becomes the main contributor to GPU memory",
+      "quote_truncated": true
+    },
+    "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241": {
+      "evidence_id": "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241",
+      "title": "RDKV: Rate-Distortion Bit Allocation for Joint",
+      "url": "https://arxiv.org/abs/2605.08317",
+      "publisher": null,
+      "published_at": null,
+      "retrieved_at": null,
+      "access_status": "provided_summary",
+      "access_scope": "evidence_registry 발췌; 전체 논문·시장 사실 검증 아님",
+      "content_status": "unchecked",
+      "quote_excerpt": "In this paper, we present RDKV,",
+      "quote_truncated": true
+    },
+    "MKT-c39c7687a7f2c94d": {
+      "evidence_id": "MKT-c39c7687a7f2c94d",
+      "title": "Quantized KV Cache",
+      "url": "https://docs.vllm.ai/en/latest/features/quantization/quantized_kvcache",
+      "publisher": "docs.vllm.ai",
+      "published_at": "2026-01-25",
+      "retrieved_at": "2026-09-22T02:58:09.171119+00:00",
+      "access_status": "full_text",
+      "access_scope": "추출 본문",
+      "content_status": "substantive",
+      "quote_excerpt": "`--kv-cache-dtype-skip-layers` `# Skip every sliding-window attention layer. vllm serve <model> \\ --kv-cache-dtype fp8 \\ --kv-cache-dtype-skip-layers sliding_window # Skip specific layer indices. vllm serve <model> \\",
+      "quote_truncated": true
+    },
+    "MKT-f9b0871a27a2e068": {
+      "evidence_id": "MKT-f9b0871a27a2e068",
+      "title": "Nvidia, CXL, and the Battle to Improve AI Inference Economics",
+      "url": "https://io-fund.com/ai-stocks/nvidia-cxl-ai-inference-economics",
+      "publisher": "io-fund.com",
+      "published_at": "2026-07-12",
+      "retrieved_at": "2026-09-22T03:02:25.646039+00:00",
+      "access_status": "snippet",
+      "access_scope": "검색 발췌",
+      "content_status": "unchecked",
+      "quote_excerpt": "Two architectural paths are competing to solve the KV cache bottleneck: Nvidia's proprietary CMX platform and the open, vendor-agnostic CXL standard.",
+      "quote_truncated": false
+    },
+    "MKT-a9bf199eefe9de6c": {
+      "evidence_id": "MKT-a9bf199eefe9de6c",
+      "title": "Compute Express Link (CXL) Component Market Size ($12.3 Billion ...",
+      "url": "https://www.strategicmarketresearch.com/market-report/compute-express-link-component-market",
+      "publisher": "www.strategicmarketresearch.com",
+      "published_at": "2025-10-06",
+      "retrieved_at": "2026-09-22T03:02:25.646000+00:00",
+      "access_status": "snippet",
+      "access_scope": "검색 발췌",
+      "content_status": "unchecked",
+      "quote_excerpt": "Asia Pacific is projected to grow the fastest over the forecast period, with China, South Korea, and Japan ramping [...] | | | --- |",
+      "quote_truncated": true
+    },
+    "MKT-d316bcf872a8b405": {
+      "evidence_id": "MKT-d316bcf872a8b405",
+      "title": "CXL Memory Expansion | Introl Blog",
+      "url": "https://introl.com/blog/cxl-memory-expansion-pooling-disaggregated-memory-ai-data-center-2025",
+      "publisher": "introl.com",
+      "published_at": "2026-02-01",
+      "retrieved_at": "2026-09-22T03:02:25.646052+00:00",
+      "access_status": "snippet",
+      "access_scope": "검색 발췌",
+      "content_status": "unchecked",
+      "quote_excerpt": "CXL market revenue projections reach $15 billion by 2028, with DRAM behind CXL expected to constitute more than $12 billion of that total.³ For organizations",
+      "quote_truncated": true
+    },
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814": {
+      "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+      "title": "A Photonic-CXL Memory Appliance for Scalable KV",
+      "url": "https://arxiv.org/abs/2607.27187",
+      "publisher": null,
+      "published_at": null,
+      "retrieved_at": null,
+      "access_status": "provided_summary",
+      "access_scope": "evidence_registry 발췌; 전체 논문·시장 사실 검증 아님",
+      "content_status": "unchecked",
+      "quote_excerpt": "The PF Memory Appliance architecture, a photonic-CXL hybrid achieving 32 TB shared memory through a switch-free optical fiber shuffle, with bandwidth and latency evaluated through",
+      "quote_truncated": true
+    },
+    "MKT-d7fb69b7aaf4ebb3": {
+      "evidence_id": "MKT-d7fb69b7aaf4ebb3",
+      "title": "Photonic Fabric™ Technology: How Optical Connectivity Enables ...",
+      "url": "https://www.marvell.com/blogs/photonic-fabric-technology-optical-connectivity-ai-infrastructure.html",
+      "publisher": "www.marvell.com",
+      "published_at": "2026-08-04",
+      "retrieved_at": "2026-09-22T02:57:51.595922+00:00",
+      "access_status": "full_text",
+      "access_scope": "추출 본문",
+      "content_status": "substantive",
+      "quote_excerpt": "Built around the Marvell® Photonic Fabric™ Memory Module, Photonic Fabric NIC and Marvell® Photonic Fabric™ chiplet, the platform enables memory sharing across multiple AI racks",
+      "quote_truncated": true
+    },
+    "MKT-2cea37426c89e77b": {
+      "evidence_id": "MKT-2cea37426c89e77b",
+      "title": "CXL Memory Expansion Module Market Forecast to Grow at 31.5 ...",
+      "url": "https://www.openpr.com/news/4612968/cxl-memory-expansion-module-market-forecast-to-grow-at-31-5-cagr",
+      "publisher": "www.openpr.com",
+      "published_at": "2026-08-25",
+      "retrieved_at": "2026-09-22T02:58:08.944869+00:00",
+      "access_status": "full_text",
+      "access_scope": "추출 본문",
+      "content_status": "substantive",
+      "quote_excerpt": "This distinction is important because CXL Memory Expansion Modules represent a new layer of server architecture rather than a simple replacement for traditional memory products.",
+      "quote_truncated": false
+    },
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-026-37aaf9c29c0e:span-00000-02701": {
+      "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-026-37aaf9c29c0e:span-00000-02701",
+      "title": "A Photonic-CXL Memory Appliance for Scalable KV",
+      "url": "https://arxiv.org/abs/2607.27187",
+      "publisher": null,
+      "published_at": null,
+      "retrieved_at": null,
+      "access_status": "provided_summary",
+      "access_scope": "evidence_registry 발췌; 전체 논문·시장 사실 검증 아님",
+      "content_status": "unchecked",
+      "quote_excerpt": null,
+      "quote_truncated": true
+    },
+    "MKT-a1762b5ee8e10808": {
+      "evidence_id": "MKT-a1762b5ee8e10808",
+      "title": "A Photonic-CXL Memory Appliance for Scalable KV",
+      "url": "https://arxiv.org/abs/2607.27187",
+      "publisher": "arxiv.org",
+      "published_at": null,
+      "retrieved_at": "2026-09-22T02:57:51.153171+00:00",
+      "access_status": "full_text",
+      "access_scope": "Abstract 페이지",
+      "content_status": "metadata_only",
+      "quote_excerpt": null,
+      "quote_truncated": false
+    },
+    "MKT-a49cd0f64f79e986": {
+      "evidence_id": "MKT-a49cd0f64f79e986",
+      "title": "Compute Express Link™ 2.0 Specification: Memory Pooling",
+      "url": "https://computeexpresslink.org/event/compute-express-link-2-0-specification-memory-pooling",
+      "publisher": "computeexpresslink.org",
+      "published_at": "2026-05-13",
+      "retrieved_at": "2026-09-22T02:58:09.417119+00:00",
+      "access_status": "full_text",
+      "access_scope": "추출 본문",
+      "content_status": "substantive",
+      "quote_excerpt": "In November 2020, the CXL Consortium announced the CXL 2.0 specification which introduces support for switching, memory pooling, and support for persistent memory – all",
+      "quote_truncated": true
+    },
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole": {
+      "evidence_id": "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole",
+      "title": "A Photonic-CXL Memory Appliance for Scalable KV",
+      "url": "https://arxiv.org/abs/2607.27187",
+      "publisher": null,
+      "published_at": null,
+      "retrieved_at": null,
+      "access_status": "provided_summary",
+      "access_scope": "evidence_registry 발췌; 전체 논문·시장 사실 검증 아님",
+      "content_status": "unchecked",
+      "quote_excerpt": null,
+      "quote_truncated": true
+    },
+    "MKT-b66db687ab78fab6": {
+      "evidence_id": "MKT-b66db687ab78fab6",
+      "title": "Marvell Advances AI Memory Infrastructure Portfolio to Accelerate ...",
+      "url": "https://www.marvell.com/company/newsroom/marvell-ai-memory-infrastructure-agentic-ai-inference.html",
+      "publisher": "www.marvell.com",
+      "published_at": "2026-08-04",
+      "retrieved_at": "2026-09-22T03:02:25.645974+00:00",
+      "access_status": "snippet",
+      "access_scope": "검색 발췌",
+      "content_status": "unchecked",
+      "quote_excerpt": "By expanding memory access across AI clusters and enabling KV cache to be loaded from a shared memory tier rather than [...] tier rather than",
+      "quote_truncated": true
+    }
+  },
+  "errors": [
+    {
+      "stage": "extract",
+      "code": "extract_failed",
+      "tech_id": "HW-01",
+      "criterion_id": "commercialization",
+      "round": "0",
+      "url": "https://arxiv.org/html/2607.27187"
+    },
+    {
+      "stage": "claims",
+      "code": "missing_or_invalid_quote",
+      "scope": "cell",
+      "tech_id": "SW-01",
+      "criterion_id": "commercialization"
+    },
+    {
+      "stage": "claims",
+      "code": "missing_or_invalid_quote",
+      "scope": "cell",
+      "tech_id": "HW-01",
+      "criterion_id": "adoption"
+    }
+  ],
+  "warnings": [
+    "SW-01: arXiv 버전 미제공: 조회 자료와 입력 분석의 버전 동일성 추가 확인 필요",
+    "HW-01: arXiv 버전 미제공: 조회 자료와 입력 분석의 버전 동일성 추가 확인 필요",
+    "comparison의 결합 가설은 공동 실험 결과가 아니며 not_comparable 수치는 직접 비교 금지"
+  ]
+}
