@@ -1,12 +1,15 @@
-"""Integration boundary; never imports or executes the Research agent."""
+"""Connect four perspective/review agents and the report writer.
+
+The default saved-RAG path never imports the heavyweight research runtime.
+"""
 
 from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 for relative in (
-    "domain-agent/src", "stakeholder-agent", "market-research-agent",
-    "review-agent", "report-agent/src",
+    "agent/domain/src", "agent/stakeholder", "agent/market",
+    "agent/review", "report/src",
 ):
     location = str(ROOT / relative)
     if location not in sys.path:

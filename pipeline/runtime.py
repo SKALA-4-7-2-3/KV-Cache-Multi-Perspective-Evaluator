@@ -33,6 +33,7 @@ def run_market(papers, request, *, as_of, model):
     from market_agent.tools import TavilyWeb
     domains = request.get("domains", [])
     domain = "; ".join(f"{d['name']}: {d.get('scenario', '')}" for d in domains)
+    domain = "\n".join(part for part in (request.get("original_request"), domain) if part)
     data = parse_paper_analyses(
         papers, as_of=date.fromisoformat(as_of), domain=domain or "클라우드 데이터센터",
     )

@@ -6,9 +6,10 @@ RDKV와 Photonic-CXL의 논문 분석 JSON 두 개와 사용자 요청 JSON을 �
 
 ## 설치와 실행
 
-Python 3.11~3.14, uv를 사용한다. 이 폴더에서 실행한다.
+Python 3.11~3.14, uv를 사용한다. `agent/stakeholder` 폴더에서 실행한다.
 
 ```bash
+cd agent/stakeholder
 uv sync --extra dev
 uv run stakeholder-agent --papers examples/papers/rdkv.json examples/papers/photonic-cxl.json --request examples/request.json --as-of 2026-09-22 --demo --output outputs/stakeholders-demo.json
 ```

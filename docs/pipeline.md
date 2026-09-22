@@ -1,40 +1,84 @@
-# Saved Research → Agent Pipeline → PDF
+# PDF·자연어 요청 → RAG → 평가·종합 → 보고서
 
-Research는 다시 실행하지 않습니다. 기본 입력은 research 브랜치 `3c19ec6`의
-`examples/results/technical-bge-e2e-two-papers`이며, 원본 코드와 저장 결과를 유지합니다.
-기본 요청은 `stakeholder-agent/examples/request.json`의 클라우드 데이터센터 LLM 운영 상황입니다.
+기본 실행은 Research를 다시 실행하지 않고 research 브랜치 `3c19ec6`의 저장 결과
+`rag/examples/results/technical-bge-e2e-two-papers`를 사용합니다. 기존 코드와 결과는 `rag/`에 있습니다.
+
+입력은 [config/pipeline.json](../config/pipeline.json)에서 관리합니다.
+
+| 항목 | 내용 |
+| --- | --- |
+| `pdfs` | `rag/papers/2605.08317.pdf`, `rag/papers/2607.27187.pdf` 등 논문 경로 |
+| `instruction` | 사용자가 요청한 자연어 문장 |
+| `request` | 평가 목적·도메인·요구조건·추가 맥락 |
+| `rag.mode` | 기본값 `saved`; 명시적으로 다시 조사할 때 `live` |
+| `rag.saved_output` | 기존 RAG 결과 폴더 |
+
+기본 요청은 “장문맥 문서 QA를 제공하는 데이터센터, 클라우드 서빙입장에서 보고서를 작성하고자해.”입니다.
+**새 요청은 후속 평가·종합·보고서의 맥락에 적용됩니다. 과거 RAG 결과가 새 요청으로 재생성된 것은 아닙니다.**
 
 ## 실행
 
 저장소 루트에서 실행합니다. 통합 환경은 Python 3.12이며 Research용 임베딩·GPU 패키지는 설치하지 않습니다.
+무거운 논문 처리 의존성과 가상환경은 `rag/`에 분리되어 있습니다.
 
 ```bash
-uv sync --project integration
-integration/.venv/bin/python -m pipeline --output outputs/integration/first-report
+uv sync --frozen
+uv run --frozen python -m pipeline --output outputs/my-report
 ```
 
 `OPENAI_API_KEY`, `TAVILY_API_KEY`를 환경변수로 제공하거나 기존
-`stakeholder-agent/.env`에 설정합니다. 명시적인 프로젝트 파일이 기존 환경변수보다 우선합니다.
+루트 `.env`에 설정합니다. 루트 파일이 없을 때는 기존 `agent/stakeholder/.env`를 사용합니다.
+지정된 환경 파일이 기존 환경변수보다 우선합니다.
 다른 파일은 `--env-file`로 지정할 수 있습니다.
 기본 모델은 `gpt-4.1-mini`이며 `--model`로 선택합니다.
 실제 외부 API를 호출합니다. `.env`나 인증 정보는 결과에 저장하지 않습니다.
 
 ```bash
 # 입력, 모델, 조사 기준일이 같은 실행을 이어서 진행
-integration/.venv/bin/python -m pipeline --output outputs/integration/first-report --resume
+uv run --frozen python -m pipeline --output outputs/my-report --resume
 
 # 특정 단계만 다시 실행 (그 출력이 바뀌면 이후 결과도 다시 생성)
-integration/.venv/bin/python -m pipeline --output outputs/integration/first-report --resume --rerun review
+uv run --frozen python -m pipeline --output outputs/my-report --resume --rerun review
 
 # 저장 결과 입력 변환까지만 수행 (외부 API 호출 없음)
-integration/.venv/bin/python -m pipeline --output outputs/integration/prepare-only --stop-after prepare
+uv run --frozen python -m pipeline --output outputs/prepare-only --stop-after prepare
+
+# 기본 설정 파일 또는 자연어 요청 변경
+uv run --frozen python -m pipeline --input config/pipeline.json
+uv run --frozen python -m pipeline --instruction "장문맥 문서 QA를 제공하는 데이터센터, 클라우드 서빙입장에서 보고서를 작성하고자해."
 ```
 
 실행일이 달라진 후 재개하려면 기존 `run.json`의 날짜를 `--as-of YYYY-MM-DD`로 전달합니다.
 `--research`, `--request`로 다른 결과 폴더와 사용자 요청 JSON을 지정할 수 있습니다.
 입력·모델이 바뀌면 새로운 출력 폴더를 사용합니다.
 
+`--instruction`으로 자연어 요청을 덮어쓰고, `--pdf`를 반복하여 논문 경로를 지정할 수 있습니다.
+PDF를 바꿔 새 논문을 분석하려면 그에 맞는 저장 결과를 지정하거나 RAG를 명시적으로 다시 실행해야 합니다.
+
+```bash
+# RAG까지 실제 실행하려는 경우에만 선택
+uv run --frozen python -m pipeline --run-rag \
+  --pdf rag/papers/2605.08317.pdf \
+  --pdf rag/papers/2607.27187.pdf \
+  --output outputs/fresh-research-report
+```
+
+`--run-rag` 또는 설정의 `rag.mode: live`는 실제 논문 처리·조사를 선택하는 옵션입니다.
+기본 `saved` 모드에서는 RAG를 재실행하지 않습니다. RAG의 별도 의존성과 설정은
+[RAG 안내](../rag/README.md)를 참고하세요. 저장 결과 기반 통합을 위해 RAG 처리 로직을 변경하지 않았습니다.
+
 ## 연결 구조
+
+`agent/`의 에이전트는 **4개**이며 RAG와 보고서 생성은 별도 모듈입니다.
+
+| 위치 | 역할 |
+| --- | --- |
+| `rag/` | 논문 분석·실험 조건·원문 근거 또는 저장 결과 제공 |
+| `agent/domain/` | 데이터센터·클라우드 서빙 적용성 |
+| `agent/market/` | 시장·제품·생태계 |
+| `agent/stakeholder/` | 운영 조직의 이익·부담·도입 조건 |
+| `agent/review/` | 세 관점의 연결과 조건부 종합 |
+| `report/` | 보고서 작성·LaTeX·PDF 생성 |
 
 1. `pipeline/research_input.py`: 원본 실행·논문 dossier·비교·근거 파일을 읽고 역할별 입력으로 변환합니다.
 2. `pipeline/runtime.py`: Domain → Stakeholder → Market을 실제 호출합니다.

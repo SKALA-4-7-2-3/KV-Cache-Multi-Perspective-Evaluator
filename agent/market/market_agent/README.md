@@ -1,6 +1,6 @@
 # JSON 입력 기반 시장조사 에이전트
 
-기술 조사 담당자의 paper_analysis JSON 입력에서 RDKV(SW)와 Photonic-CXL(HW)의 시장성을 조사합니다. [설치 안내](../README.md)에 따라 가상환경을 준비하고 이 패키지의 상위 폴더 `market-research-agent`에서 실행합니다.
+기술 조사 담당자의 paper_analysis JSON 입력에서 RDKV(SW)와 Photonic-CXL(HW)의 시장성을 조사합니다. [설치 안내](../README.md)에 따라 가상환경을 준비하고 이 패키지의 상위 폴더 `agent/market`에서 실행합니다.
 
 ## 1. 실행
 
@@ -13,7 +13,7 @@ python -m market_agent.cli --input market_agent/fixtures/paper_analysis_sw.json 
 python -m market_agent.cli --input market_agent/fixtures/paper_analysis_sw.json market_agent/fixtures/paper_analysis_hw.json --mode live --debug
 ```
 
-실제 실행에는 프로젝트 루트의 `.env`에 OPENAI_API_KEY와 TAVILY_API_KEY가 필요합니다. `.env.example`에는 빈 항목만 있으며 실제 키는 Git에서 제외합니다. 기본 모델은 gpt-4.1-mini이며 `--model`로 변경할 수 있습니다. 프로세스 환경변수가 `.env`보다 우선하며 `--env-file`로 다른 파일을 지정합니다.
+실제 독립 실행에는 `agent/market/.env`에 OPENAI_API_KEY와 TAVILY_API_KEY가 필요합니다. `.env.example`에는 빈 항목만 있으며 실제 키는 Git에서 제외합니다. 기본 모델은 gpt-4.1-mini이며 `--model`로 변경할 수 있습니다. 프로세스 환경변수가 `.env`보다 우선하며 `--env-file`로 다른 파일을 지정합니다.
 
 실제 실행은 검색어·URL을 Tavily에 보내고, 기술 정보·수집 문단·검증된 근거를 OpenAI에 보냅니다. `fixture` 결과는 실제 시장 조사가 아닙니다.
 

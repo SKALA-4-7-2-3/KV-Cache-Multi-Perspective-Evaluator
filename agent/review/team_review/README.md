@@ -14,7 +14,7 @@ MD 5절에는 최종 TRL과 1~9단계의 판정·이유·Evidence ID를 전달�
 
 ## 설치와 실행
 
-Python 3.12 또는 3.13. 저장소 루트에서:
+Python 3.12 또는 3.13. 저장소의 `agent/review` 폴더에서:
 
 ```bash
 python -m pip install ".[review-graph,review-llm]"

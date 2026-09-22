@@ -15,7 +15,7 @@
 
 ## 설치와 실행
 
-VS Code에서 이 `market-research-agent` 폴더를 열거나, 저장소 루트에서 `cd market-research-agent`로 이동합니다. **Python 3.11**을 사용합니다. `requirements.txt`는 함께 있는 `requirements.lock.txt`의 하위 의존성 버전도 적용합니다. 두 파일을 함께 보관하세요.
+VS Code에서 이 `agent/market` 폴더를 열거나, 저장소 루트에서 `cd agent/market`으로 이동합니다. **Python 3.11**을 사용합니다. `requirements.txt`는 함께 있는 `requirements.lock.txt`의 하위 의존성 버전도 적용합니다. 두 파일을 함께 보관하세요.
 
 ```bash
 python3.11 -m venv .venv

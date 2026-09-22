@@ -95,7 +95,7 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
     """
 
     repository = Path(__file__).resolve().parents[1]
-    report_source = str(repository / "report-agent" / "src")
+    report_source = str(repository / "report" / "src")
     if report_source not in sys.path:
         sys.path.insert(0, report_source)
 

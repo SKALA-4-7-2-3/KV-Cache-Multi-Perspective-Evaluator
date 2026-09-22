@@ -21,7 +21,7 @@
 ## 디렉터리
 
 ```text
-kv-domain-agent/
+agent/domain/
 ├── main.py                       # 간단 실행 진입점
 ├── requirements.txt             # 팀 환경용 의존성 목록
 ├── examples/
@@ -44,7 +44,7 @@ kv-domain-agent/
 팀 프로젝트의 Python 3.11+ 가상환경에서 실행합니다.
 
 ```bash
-cd kv-domain-agent
+cd agent/domain
 python -m venv .venv
 source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -e ".[openai,graph]"

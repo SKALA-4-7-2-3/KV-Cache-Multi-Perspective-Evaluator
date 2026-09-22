@@ -1,0 +1,23 @@
+{
+  "instruction": "장문맥 문서 QA를 제공하는 데이터센터, 클라우드 서빙입장에서 보고서를 작성하고자해.",
+  "pdfs": [
+    "rag/papers/2605.08317.pdf",
+    "rag/papers/2607.27187.pdf"
+  ],
+  "rag": {
+    "mode": "saved",
+    "saved_output": "rag/examples/results/technical-bge-e2e-two-papers"
+  },
+  "request": {
+    "objective": "장문맥 문서 QA를 제공하는 데이터센터·클라우드 서빙 운영 조직의 관점에서 RDKV와 Photonic-CXL의 기대 이익, 도입 및 운영 부담, 적용 조건을 근거와 함께 비교하여 보고서를 작성한다.",
+    "domains": [
+      {
+        "id": "D-01",
+        "name": "클라우드 데이터센터",
+        "scenario": "장문맥 문서 QA를 제공하는 LLM 추론·클라우드 서빙 운영"
+      }
+    ],
+    "requirements": {},
+    "additional_context": "운영 조직의 관점에 집중한다. 출처가 보고한 내용과 조건부 해석을 구분하고, 활용한 자료를 본문과 참고문헌에 연결한다. 요구 성능과 예산은 입력되지 않았으므로 임의로 만들지 않는다."
+  }
+}

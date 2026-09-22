@@ -1,50 +1,21 @@
-[build-system]
-requires = ["hatchling>=1.27"]
-build-backend = "hatchling.build"
-
 [project]
-name = "kv-cache-technical-research-agent"
+name = "kv-cache-integration"
 version = "0.1.0"
-description = "Evidence-grounded multi-paper technical research agent"
-readme = "README.md"
+description = "Run downstream evaluation and reporting from saved technical research"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "chromadb>=1.0,<2",
-  "flagembedding==1.4.2",
-  "huggingface-hub>=0.34,<1",
-  "langchain-core>=1.0,<2",
-  "langchain-openai>=1.0,<2",
-  "langgraph>=1.0,<2",
-  "langgraph-checkpoint-sqlite>=3.0,<4",
-  "numpy>=2.0,<3",
-  "openai>=2.0,<3",
-  "pdfplumber>=0.11,<1",
-  "pydantic>=2.10,<3",
-  "python-dotenv>=1.0,<2",
-  "pymupdf>=1.25,<2",
-  "tenacity>=9.0,<10",
-  "torch>=2.6,<3",
-  "transformers>=4.48,<5",
-  "typer>=0.15,<1",
+  "langgraph==1.0.9",
+  "langgraph-checkpoint==2.1.2",
+  "langgraph-prebuilt==1.0.8",
+  "langgraph-sdk==0.3.8",
+  "langchain-core==1.0.1",
+  "langchain-openai==1.0.1",
+  "pydantic==2.12.3",
+  "openai>=2,<3",
+  "python-dotenv==1.2.1",
+  "httpx==0.28.1",
+  "beautifulsoup4>=4.14,<5",
+  "markdown-it-py>=3,<5",
+  "PyYAML>=6,<7",
+  "pypdf>=6,<7",
 ]
-
-[project.optional-dependencies]
-dev = ["pytest>=8.3,<10", "pytest-cov>=6.0,<8"]
-
-[project.scripts]
-paper-review = "paper_review_agent.cli:app"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/paper_review_agent"]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cpu" }
-
-[tool.pytest.ini_options]
-addopts = "-q"
-testpaths = ["tests"]

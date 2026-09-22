@@ -15,9 +15,10 @@ RDKV(SW 압축)와 Photonic-CXL(HW 메모리 확장)을 여러 관점에서 평�
 
 ## 빠른 시작
 
-Python 3.12 또는 3.13에서 저장소 루트를 기준으로 실행합니다.
+Python 3.12 또는 3.13에서 `agent/review` 폴더를 기준으로 실행합니다.
 
 ```bash
+cd agent/review
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install ".[review-graph,review-llm]"
