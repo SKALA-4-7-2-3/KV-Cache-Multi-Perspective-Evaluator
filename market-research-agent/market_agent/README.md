@@ -1,6 +1,6 @@
 # JSON 입력 기반 시장조사 에이전트
 
-> 현재 계약은 0.6입니다. OpenAIAnalyst와 CLI fixture는 검색→자료 종합→별도 검토 Graph를 사용합니다. 기존 extract/compose 주입 제공자는 호환 경로로 지원합니다. [현재 설계](../docs/ADAPTIVE_SYNTHESIS.md)를 우선 참고하세요. 아래 이전 회차 설명은 구형 동작일 수 있습니다.
+> 현재 내부 계약은 0.6, 외부 전달 JSON 계약은 1.0.0입니다. [JSON 출력 계약](../docs/JSON_OUTPUT.md)을 참고하세요. OpenAIAnalyst와 CLI fixture는 검색→자료 종합→별도 검토 Graph를 사용합니다. 기존 extract/compose 주입 제공자는 호환 경로로 지원합니다. [현재 설계](../docs/ADAPTIVE_SYNTHESIS.md)를 우선 참고하세요. 아래 이전 회차 설명은 구형 동작일 수 있습니다.
 기술 조사 담당자의 paper_analysis JSON 입력에서 RDKV(SW)와 Photonic-CXL(HW)의 시장성을 조사합니다. [설치 안내](../README.md)에 따라 가상환경을 준비하고 이 패키지의 상위 폴더 `market-research-agent`에서 실행합니다.
 
 ## 1. 실행
@@ -22,7 +22,7 @@ python -m market_agent.cli --input market_agent/fixtures/paper_analysis_sw.json 
 
 | 위치 | 내용 |
 | --- | --- |
-| `market_agent/outputs/<실행시각>/market_handoff.md` | 통합 에이전트에 전달할 기술당 시장성 6개 항목과 인용 |
+| `market_agent/outputs/<실행시각>/market_handoff.json` | 통합 에이전트에 전달할 기술당 시장성 6개 항목과 인용 |
 | `market_agent/.cache/<출력경로 해시>/run.json` | 결과·오류·사용량·후보/검토 통과 근거 풀·자료/주장별 검토·포함/제외 기록 |
 | 내부 캐시 `sources/`, `manifest.json` | 실제 추출 응답과 파일 무결성 검사 |
 | 내부 캐시 `debug.json` | `--debug` 사용 시 추출/평가 단계별 모델 응답과 Graph 경로 |
@@ -84,7 +84,7 @@ flowchart LR
 | quotes.py / claims.py | Claim 검증·ID 발급, 평가 ID 변환, 관련 정보와 제외 사유 |
 | node.py | LangGraph 단계·보완 경로·부모 변경분 |
 | validation.py / research.py | 최종 인용 검사, 실제 검토·처리 오류·미확인 사유 |
-| report.py / cli.py | 단일 MD 출력, 내부 캐시·무결성·재사용 |
+| handoff.py / cli.py | 단일 JSON 출력, 내부 캐시·무결성·재사용 |
 
 ## 6. 부모 Graph에 연결
 

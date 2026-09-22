@@ -13,7 +13,7 @@ python -m market_agent.cli --input evidence_registry.json comparison.json dossie
 python -m market_agent.cli --input evidence_registry.json comparison.json dossiers/sw.json dossiers/hw.json --mode live --as-of 2026-09-22
 ```
 
-이름은 예시이며 구조로 식별합니다. parse는 API를 호출하지 않습니다. 파일이 누락되거나 연결이 틀리면 실제 조사 전에 오류로 종료합니다. 논문 PDF는 자동으로 읽지 않고 첨부 JSON을 배경으로 사용합니다. 외부에 내보내는 결과는 `market_handoff.md` 하나입니다.
+이름은 예시이며 구조로 식별합니다. parse는 API를 호출하지 않습니다. 파일이 누락되거나 연결이 틀리면 실제 조사 전에 오류로 종료합니다. 논문 PDF는 자동으로 읽지 않고 첨부 JSON을 배경으로 사용합니다. 외부에 내보내는 결과는 `market_handoff.json` 하나입니다.
 
 `comparison.metric_comparisons`의 not_comparable, 서로 다른 측정·에뮬레이션·시뮬레이션 조건, `integration_hypotheses`의 미검증 전제는 별도 배경으로 제공됩니다. 상위 confidence는 시장 검증 신뢰도로 복사하지 않습니다. 독립 조회한 웹 인용만 시장 사실의 인용 후보가 됩니다.
 
@@ -83,7 +83,7 @@ python -m market_agent.cli --input technical_sw.json technical_hw.json --domain 
 
 논문 분석 결과와 발췌는 상위 에이전트가 제공한 배경 자료다. 기존 `provided_summary` 신뢰 경계를 적용하여 원문을 직접 조회한 `full_text` 시장 근거로 자동 승격하지 않는다. `quality`의 supported나 높은 confidence는 시장 규모·상용화·실제 고객 채택의 증거를 대신하지 않는다. 시장 조사에서 확보한 웹 원문은 기존 구절 ID·주장·의미 검토를 거친다.
 
-출력은 계속 `market_handoff.md` 한 개다. 입력 논문이 한 개면 6행, 두 개면 12행이며 없는 기술을 추가하지 않는다. 내부 캐시에는 `input.json`과 원래 상위 문서, 정규화한 상태, 검증 기록을 저장한다. 원래 공백·키 순서 대신 JSON의 필드와 값을 보존한다.
+출력은 계속 `market_handoff.json` 한 개다. 입력 논문이 한 개면 6행, 두 개면 12행이며 없는 기술을 추가하지 않는다. 내부 캐시에는 `input.json`과 원래 상위 문서, 정규화한 상태, 검증 기록을 저장한다. 원래 공백·키 순서 대신 JSON의 필드와 값을 보존한다.
 
 입력 내용·기준일·도메인·한도·기술 구분·모델·코드가 달라지면 이전 캐시를 재사용하지 않는다. 기존 MD v0.1 입력도 지원하며 그 경우 `input.md`를 저장한다.
 

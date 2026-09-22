@@ -13,6 +13,7 @@ from .research import annotate
 from .schemas import MarketInput, MarketResult, Evidence, Claim, DraftAnalysis, DraftAssessment
 from .tools import Budget
 from .validation import validate_analysis, normalized
+from .handoff import HANDOFF_FILENAME
 
 
 def revalidate(saved, sources):
@@ -103,7 +104,7 @@ def main(argv=None):
     state=revalidate(saved,sources)
     state['output_checks'][-1]['source_snapshot_hash']=file_hash(args.snapshot)
     save_run(state,args.output,fingerprint(state['data'],state['result'].mode,state['model']))
-    print(f"execution={state['result'].execution_status}; new API calls: 0; handoff: {args.output/'market_handoff.md'}")
+    print(f"execution={state['result'].execution_status}; new API calls: 0; handoff: {args.output/HANDOFF_FILENAME}")
     return {'completed':0,'partial':3,'failed':2}[state['result'].execution_status]
 
 

@@ -1,5 +1,7 @@
 # 시장성 평가
 
+> 현재 최종 출력은 `market_handoff.json`입니다. [JSON 출력 계약 1.0.0](JSON_OUTPUT.md)이 외부 전달 구조를 정의합니다. 아래 MD 표 양식이 있으면 이전 표시 형식의 참고 자료입니다.
+
 평가 기준일: {{as_of}} · 적용 도메인: {{domain}}
 
 ## SW-01 · RDKV
