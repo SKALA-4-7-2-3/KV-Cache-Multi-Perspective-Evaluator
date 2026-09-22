@@ -24,6 +24,8 @@ def metric_text(m):
 def render_report(state):
     data, result = state['data'], state['result']
     lines = ['# 시장성 평가', '', f'평가 기준일: {data.as_of} · 적용 도메인: {esc(data.domain)}', '']
+    if result.mode == 'fixture':
+        lines += ['fixture 모드의 가상 테스트 결과입니다. 실제 시장조사 결과가 아닙니다.', '']
     rows = {(r.tech_id, r.criterion_id): r for r in result.assessments}
     cited = {}
     for tech in data.technologies.values():

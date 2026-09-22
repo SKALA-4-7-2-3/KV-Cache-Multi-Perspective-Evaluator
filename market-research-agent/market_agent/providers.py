@@ -7,7 +7,7 @@ from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
 from .prompts import EXTRACTION_PROMPT, COMPOSITION_PROMPT
-from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment, SelectedExtraction
+from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment, SelectedExtraction, ClaimReview, ReviewedDraftAnalysis
 from .quotes import quote_bank, resolve_quotes
 from .tools import ProviderError
 
@@ -25,7 +25,7 @@ class OpenAIAnalyst:
         self.debug_analyses = []
         self._llm = ChatOpenAI(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
         self._extractor = self._llm.with_structured_output(SelectedExtraction, method="json_schema", strict=True, include_raw=True)
-        self._composer = self._llm.with_structured_output(DraftAnalysis, method="json_schema", strict=True, include_raw=True)
+        self._composer = self._llm.with_structured_output(ReviewedDraftAnalysis, method="json_schema", strict=True, include_raw=True)
 
     def _invoke(self, stage, runnable, schema, prompt, payload):
         try:
@@ -57,6 +57,7 @@ class OpenAIAnalyst:
                 'scope':e.access_scope,'quotes':{k:v for k,v in bank.items() if v['evidence_id']==e.id}}
             material.append(item)
         payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
+            'criteria':CRITERIA,
             'technologies': {k:{'name':v.name,'paper_url':v.url} for k,v in data.technologies.items()},
             'evidence': material, 'previous_claims': {k:v.model_dump(mode='json') for k,v in (previous or {}).items()},
             'validation_issues':issues or []}
@@ -67,8 +68,11 @@ class OpenAIAnalyst:
         payload = {'scope':{'domain':data.domain,'as_of':str(data.as_of)},
             'technologies':{k:v.name for k,v in data.technologies.items()}, 'criteria':CRITERIA,
             'claims':{k:v.model_dump(mode='json') for k,v in claims.items()},
+            'allowed_exact_claims':{t:{c:[k for k,v in claims.items() if
+                (v.tech_id,v.criterion_id,v.relation_to_technology)==(t,c,'exact')] for c in CRITERIA}
+                for t in data.technologies},
             'previous':previous.model_dump(mode='json') if previous else None,'validation_issues':issues or []}
-        return self._invoke('compose',self._composer,DraftAnalysis,COMPOSITION_PROMPT,payload)
+        return self._invoke('compose',self._composer,ReviewedDraftAnalysis,COMPOSITION_PROMPT,payload)
 
     def close(self):
         client = getattr(self._llm, "root_client", None)
@@ -102,4 +106,5 @@ class FixtureAnalyst:
     def compose(self, data, claims, previous=None, issues=None):
         rows=[DraftAssessment(tech_id=t,criterion_id=c,judgment='미확인: fixture 모드에는 실제 시장 근거가 없습니다',
             verdict='unknown',basis='unknown',claim_ids=[],conditions=[],gaps=['fixture 자료']) for t in data.technologies for c in CRITERIA]
-        return DraftAnalysis(assessments=rows,followup_questions=[])
+        return DraftAnalysis(assessments=rows,followup_questions=[],claim_reviews=[
+            ClaimReview(claim_id=k,supported=True,reason='합성 테스트 제공자가 미리 검토한 주장') for k in claims])

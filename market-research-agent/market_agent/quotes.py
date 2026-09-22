@@ -17,18 +17,19 @@ def quote_bank(evidence):
             for paragraph in re.finditer(r'\S[\s\S]*?(?=\n\s*\n|\Z)',body):
                 if paragraph[0].startswith(('#','|','![')):
                     continue
-                for sentence in re.split(r'(?<=[.!?])\s+(?=[A-Z가-힣])|\n',paragraph[0]):
+                for sentence in re.split(r'(?<=[.!?])\s+(?=[A-Z가-힣])',paragraph[0]):
                     if not re.search(keywords,sentence,re.I):
                         continue
-                    words=list(re.finditer(r'\S+',sentence))
-                    for offset in range(0,len(words),25):
-                        window=words[offset:offset+25]
-                        if len(window)<6:
-                            continue
-                        text=sentence[window[0].start():window[-1].end()]
-                        score=len(re.findall(keywords,text,re.I))
-                        context=sentence[max(0,window[0].start()-150):window[-1].end()+150]
-                        candidates.append((score,text,context,locator))
+                    text=sentence.strip()
+                    # 조각난 25단어 창은 인용과 주장 범위가 어긋났다. 내부 검토에는
+                    # 완전한 문장만 사용한다. 외부 보고서의 발췌는 별도로 25단어 제한.
+                    if not 6 <= len(text.split()) <= 100 or not re.search(r'[.!?][*\"\u201d]*$',text):
+                        continue
+                    if '](' in text or re.search(r'\d+\.\d+\.\d+|\b(\d{2,})\1(?:K|\s*GB)|costs?.{0,30}\bpoints\b',text,re.I):
+                        continue
+                    score=len(re.findall(keywords,text,re.I))
+                    score+=4*len(re.findall(r'product|license|customer|serving cost|deploy|available|standard',text,re.I))
+                    candidates.append((score,text,text,locator))
         seen=set()
         for _,text,context,locator in sorted(candidates,key=lambda x:-x[0]):
             if text in seen:
@@ -56,5 +57,12 @@ def resolve_quotes(data, selected, bank, evidence):
             source_character=f'웹 발행자 설명 ({e.publisher or e.url}); 독립 검증 미확인' if e else '잘못된 구절 ID',
             identity_quote=identity,locator=q['locator'] if q else '')
         values=item.model_dump(exclude={'quote_id','subject'})
+        if e:
+            # 사실의 주체를 발행자로 고정한다. 독립 재현 또는 고객 실적을 뜻하지 않는다.
+            values['statement']=f"자료 발행자의 설명: {values['statement']}"
+        if q and re.search(r'\b(could|may|might|potential(?:ly)?)\b|가능성',q['text'],re.I):
+            values['basis']='inference'
+            values['conditions']=list(dict.fromkeys([*values['conditions'],
+                '원문이 제시한 가능성·조건부 전망이며 실제 시장 성과로 검증된 결과가 아님']))
         claims.append(Claim(**values,citation=citation))
     return Extraction(claims=claims,reviews=selected.reviews)

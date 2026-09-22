@@ -50,7 +50,7 @@ class ClaimTests(unittest.TestCase):
         row=next(r for r in result.assessments if r.tech_id=='HW-01' and r.criterion_id=='ecosystem_support')
         self.assertEqual(row.basis,'unknown')
         self.assertEqual(len(row.context_findings),1)
-        self.assertTrue(any(e['code']=='claim_scope_mismatch' for e in errors))
+        self.assertFalse(errors)
 
     def test_duplicate_source_claim_is_not_counted_twice(self):
         from market_agent.claims import validate_claims

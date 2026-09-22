@@ -10,7 +10,7 @@ from .collection import collect_sources
 from .search_plan import initial_questions, repair_questions
 from .research import annotate
 from .validation import validate_analysis
-from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft
+from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft, review_claims
 from .sources import content_quality
 
 
@@ -25,6 +25,8 @@ class RunState(TypedDict, total=False):
     queries: list
     fatal: bool
     claim_pool: dict
+    candidate_pool: dict
+    claim_review_log: dict
     reviews: dict
     extraction_errors: list
     composition_errors: list
@@ -121,29 +123,40 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         draft=state.get('draft',blank_draft())
         current=[e for e in state['errors'] if e['stage'] not in {'compose','validate','llm_compose'}]
         errors=[]
-        if state['claim_pool'] and not state['fatal']:
+        input_pool=state['candidate_pool'] if state['repair_kind']=='compose' else state['claim_pool']
+        pool={k:c for k,c in input_pool.items() if k in initial_pool}
+        candidates={**state.get('candidate_pool',{}),**input_pool}
+        review_log=dict(state.get('claim_review_log',{}))
+        if input_pool and not state['fatal']:
             if budget.remaining('llm'):
                 try:
-                    draft=budget.call('llm',lambda:DraftAnalysis.model_validate(analyst.compose(data,state['claim_pool'],
+                    draft=budget.call('llm',lambda:DraftAnalysis.model_validate(analyst.compose(data,input_pool,
                         previous=state.get('draft'),issues=state['composition_errors'])))
                     update['model_successes']=state['model_successes']+1
                     update['compose_successes']=state['compose_successes']+1
+                    pool,log,review_errors=review_claims(input_pool,draft.claim_reviews)
+                    review_log.update(log)
+                    errors+=review_errors
                 except ProviderError as exc:
                     errors.append(dict(stage='llm_compose',code=exc.code))
                     update['fatal']=exc.fatal
             else:
                 errors.append(dict(stage='llm_compose',code='budget_exhausted:llm'))
-        analysis,link_errors=materialize(data,draft,state['claim_pool'])
+        for key in candidates:
+            if key not in pool and key not in review_log:
+                review_log[key]='unreviewed: 평가 단계가 완료되지 않음'
+        analysis,link_errors=materialize(data,draft,pool)
         analysis,validation_errors=validate_analysis(data,analysis,state['evidence'])
         errors+=link_errors+validation_errors
         # 인용 수정 실패도 미확인의 이유로 보존한다.
         current+=errors
         reviewed={}
-        for c in state['claim_pool'].values():
+        for c in pool.values():
             reviewed.setdefault((c.tech_id,c.criterion_id),[]).append(c.citation.evidence_id)
         analysis=annotate(analysis,data,state['evidence'],state['queries'],current,budget,
             state['model_successes']>0,reviewed=reviewed)
-        update.update(draft=draft,analysis=analysis,composition_errors=errors,errors=current)
+        update.update(draft=draft,analysis=analysis,composition_errors=errors,errors=current,
+            claim_pool=pool,candidate_pool=candidates,claim_review_log=review_log)
         return update
 
     def after_compose(state):
@@ -179,11 +192,12 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     draft=previous_draft(previous,initial_pool,blank_draft())
     analysis,_=materialize(data,draft,initial_pool)
     state=graph.compile().invoke(dict(data=data,round=round_number,evidence=initial_evidence,sources={},analysis=analysis,
-        errors=[],history=[],queries=[],fatal=False,claim_pool=initial_pool,reviews={},extraction_errors=[],composition_errors=[],
+        errors=[],history=[],queries=[],fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},reviews={},extraction_errors=[],composition_errors=[],
         repair_kind='',repair_used=round_number==1,model_successes=0,compose_successes=0,draft=draft),config={'recursion_limit':20})
     state.update(events=list(budget.events),initial_evidence_ids=list(initial_evidence),model=getattr(analyst,'model','injected'),
         token_usage=list(getattr(analyst,'usage',[])),output_checks=list(getattr(analyst,'output_checks',[])),
         debug_analyses=list(getattr(analyst,'debug_analyses',[])),claim_dispositions=pool_dispositions(state['claim_pool'],state['analysis']))
+    state['claim_dispositions'].update({k:v for k,v in state['claim_review_log'].items() if k not in state['claim_pool']})
     return state
 
 

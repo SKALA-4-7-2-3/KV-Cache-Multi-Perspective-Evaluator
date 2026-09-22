@@ -200,9 +200,20 @@ class DraftAssessment(Record):
     gaps: list[str]
 
 
+class ClaimReview(Record):
+    claim_id: str
+    supported: bool
+    reason: str
+
+
 class DraftAnalysis(Record):
     assessments: list[DraftAssessment]
     followup_questions: list[Question]
+    claim_reviews: list[ClaimReview] = Field(default_factory=list)
+
+
+class ReviewedDraftAnalysis(DraftAnalysis):
+    claim_reviews: list[ClaimReview]
 
 
 class MarketResult(Record):

@@ -79,6 +79,25 @@ def validate_claims(data, claims, evidence):
     return pool, errors
 
 
+def review_claims(pool, reviews):
+    """작성 모델이 인용의 의미까지 검토한 주장만 전달한다. 검토 누락은 실패다."""
+    counts = Counter(r.claim_id for r in reviews)
+    by_id = {r.claim_id:r for r in reviews}
+    accepted, log, errors = {}, {}, []
+    for key, claim in pool.items():
+        review = by_id.get(key)
+        if not review or counts[key] != 1 or not review.reason.strip():
+            log[key] = 'unreviewed'
+            errors.append(dict(stage='compose',code='missing_claim_review',tech_id=claim.tech_id,
+                criterion_id=claim.criterion_id,claim_id=key))
+        elif review.supported:
+            accepted[key] = claim
+            log[key] = 'accepted: ' + review.reason
+        else:
+            log[key] = 'rejected: ' + review.reason
+    return accepted, log, errors
+
+
 def materialize(data, draft, pool):
     rows, errors = [], []
     counts = Counter((r.tech_id,r.criterion_id) for r in draft.assessments)
@@ -89,7 +108,11 @@ def materialize(data, draft, pool):
             scoped = {k:c for k,c in pool.items() if c.tech_id==tech and c.criterion_id==criterion}
             row = unknown(tech,criterion,'이번 조사에서 선정 기술 자체를 판단할 직접 근거를 확인하지 못함')
             code = None
-            if d is None or counts[tech,criterion] != 1:
+            if not any(c.relation_to_technology=='exact' for c in scoped.values()):
+                # 직접 근거가 없는 행의 판정은 모델에 맡기지 않는다.
+                # 관련 정보는 아래에서 연결하고 후보의 제외 사유는 별도로 기록한다.
+                row.gaps=['선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인']
+            elif d is None or counts[tech,criterion] != 1:
                 code = 'missing_or_duplicate_assessment'
             elif any(k not in scoped or scoped[k].relation_to_technology!='exact' for k in d.claim_ids):
                 code = 'claim_scope_mismatch'
@@ -103,7 +126,7 @@ def materialize(data, draft, pool):
             else:
                 selected = [scoped[k] for k in dict.fromkeys(d.claim_ids)]
                 citations = [c.citation.model_copy(deep=True) for c in selected]
-                row = Assessment(tech_id=tech,criterion_id=criterion,judgment=d.judgment,verdict=d.verdict,
+                row = Assessment(tech_id=tech,criterion_id=criterion,judgment=' '.join(dict.fromkeys(c.statement for c in selected)),verdict=d.verdict,
                     basis=d.basis,relation_to_technology='exact',evidence_ids=list(dict.fromkeys(c.evidence_id for c in citations)),
                     citations=citations,conditions=list(dict.fromkeys([*d.conditions,*(x for c in selected for x in c.conditions)])),
                     gaps=d.gaps,metric=next((c.metric for c in selected if c.metric),None))
@@ -131,5 +154,5 @@ def pool_dispositions(pool, analysis):
         citations = [*row.citations,*(c for f in row.context_findings for c in f.citations)]
         used = any(c.evidence_id==claim.citation.evidence_id and normalized(c.quote)==normalized(claim.citation.quote) for c in citations)
         dispositions[key] = 'included' if used else ('related_item_limit' if claim.relation_to_technology!='exact'
-            else 'assessment_not_supported: ' + '; '.join(row.gaps))
+            else ('not_selected_for_assessment' if row.basis!='unknown' else 'assessment_not_supported: ' + '; '.join(row.gaps)))
     return dispositions

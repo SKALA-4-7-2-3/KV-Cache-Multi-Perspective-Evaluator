@@ -59,18 +59,37 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(state['result'].usage['llm'],0)
         self.assertTrue(any('본문' in g for r in state['result'].assessments for g in r.gaps))
 
-    def test_one_llm_budget_preserves_valid_context_without_composition(self):
+    def test_composition_repair_rechecks_candidates_after_missing_reviews(self):
+        class Repair(ProductAnalyst):
+            calls=0
+            def compose(self,*args,**kwargs):
+                self.calls+=1
+                result=super().compose(*args,**kwargs)
+                if self.calls==1:result.claim_reviews=[]
+                return result
+        # 추가 원문 예산이 없어 의미 검토 누락에 보완 1회를 사용한다.
+        data=self.data.model_copy(update={'limits':Limits(search=2,extract=6,llm=5)})
+        analyst=Repair()
+        state=run_market(data,ProductWeb(),analyst,mode='fixture')
+        self.assertEqual(analyst.calls,2)
+        self.assertTrue(state['claim_pool'])
+        self.assertTrue(any(r.context_findings for r in state['result'].assessments))
+        self.assertFalse(any(e['code']=='missing_claim_review' for e in state['result'].errors))
+
+    def test_one_llm_budget_keeps_unreviewed_claim_internal(self):
         data=self.data.model_copy(update={'limits':Limits(search=6,extract=10,llm=1)})
         state=run_market(data,ProductWeb(),ProductAnalyst(),mode='fixture')
         self.assertEqual(state['result'].usage['llm'],1)
-        self.assertTrue(any(r.context_findings for r in state['result'].assessments))
+        self.assertFalse(any(r.context_findings for r in state['result'].assessments))
+        self.assertTrue(state['candidate_pool'])
+        self.assertTrue(all(v.startswith('unreviewed') for v in state['claim_dispositions'].values()))
         self.assertTrue(any(e['code'].startswith('budget_') for e in state['result'].errors))
 
     def test_parent_continuation_preserves_previously_valid_context_with_no_budget(self):
         from market_agent.tools import Budget
-        budget=Budget(Limits(search=6,extract=10,llm=1))
+        budget=Budget(Limits(search=6,extract=10,llm=2))
         first=run_market(self.data,ProductWeb(),ProductAnalyst(),mode='fixture',budget=budget,auto_repair=False)
         second=run_market(self.data,ProductWeb(),ProductAnalyst(),mode='fixture',budget=budget,auto_repair=False,
             round_number=1,previous=first['analysis'],existing_evidence=first['evidence'])
         self.assertTrue(any(r.context_findings for r in second['result'].assessments))
-        self.assertEqual(second['result'].usage['llm'],1)
+        self.assertEqual(second['result'].usage['llm'],2)

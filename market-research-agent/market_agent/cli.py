@@ -57,6 +57,8 @@ def save_run(state, output, key):
         "token_usage": state["token_usage"],
         "output_checks": state.get('output_checks', []),
         "claim_pool": {k:v.model_dump(mode='json') for k,v in state.get('claim_pool',{}).items()},
+        "candidate_pool": {k:v.model_dump(mode='json') for k,v in state.get('candidate_pool',{}).items()},
+        "claim_review_log": state.get('claim_review_log',{}),
         "source_reviews": state.get('reviews',{}),
         "claim_dispositions": state.get('claim_dispositions',{}),
         "parent_update": parent_update(state)}

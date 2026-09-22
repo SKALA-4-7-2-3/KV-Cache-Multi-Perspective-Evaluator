@@ -19,7 +19,7 @@ class QuoteTests(unittest.TestCase):
         for item in bank.values():
             self.assertEqual(item['evidence_id'],self.e.id)
             self.assertIn(item['text'],self.e.excerpt)
-            self.assertLessEqual(len(item['text'].split()),25)
+            self.assertLessEqual(len(item['text'].split()),100)
 
     def test_model_selects_id_and_cannot_supply_a_fabricated_quote(self):
         from market_agent.quotes import quote_bank, resolve_quotes
