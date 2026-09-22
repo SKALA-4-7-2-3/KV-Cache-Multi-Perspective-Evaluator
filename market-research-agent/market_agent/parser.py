@@ -1,6 +1,7 @@
-"""input.md v0.1의 고정 구조 파서. 본문은 실행 지시로 사용하지 않는다."""
+"""paper_analysis JSON과 기존 input.md v0.1의 입력 경계. 본문은 실행 지시가 아니다."""
 
 import hashlib
+import json
 import re
 from datetime import date
 from pathlib import Path
@@ -129,5 +130,27 @@ def parse_markdown(text: str) -> MarketInput:
         raise InputError(f"입력 필드 형식 오류 ({type(exc).__name__}): {exc}") from exc
 
 
-def read_input(path: str | Path) -> MarketInput:
-    return parse_markdown(Path(path).read_text(encoding="utf-8-sig"))
+def read_input(path: str | Path | list, *, as_of=None, domain=None, limits=None, approaches=None) -> MarketInput:
+    paths=[Path(p) for p in path] if isinstance(path,(list,tuple)) else [Path(path)]
+    if not paths:
+        raise InputError('missing_input: 입력 파일이 필요합니다')
+    if all(p.suffix.lower()=='.json' for p in paths):
+        from .json_input import parse_paper_analyses
+        documents=[]
+        for p in paths:
+            try:
+                value=json.loads(p.read_text(encoding='utf-8-sig'))
+            except json.JSONDecodeError as exc:
+                raise InputError(f'invalid_json: {p.name}, {exc.lineno}줄') from None
+            documents.extend(value if isinstance(value,list) else [value])
+        return parse_paper_analyses(documents,as_of=as_of,domain=domain,limits=limits,approaches=approaches)
+    if len(paths)!=1 or paths[0].suffix.lower()=='.json':
+        raise InputError('mixed_input_formats: MD는 한 파일, JSON은 1~2개 문서로 입력하세요')
+    if approaches:
+        raise InputError('approach_json_only: MD의 구분은 기술 목록에서 지정하세요')
+    data=parse_markdown(paths[0].read_text(encoding='utf-8-sig'))
+    overrides={k:v for k,v in {'as_of':as_of,'domain':domain,'limits':limits}.items() if v is not None}
+    try:
+        return MarketInput.model_validate({**data.model_dump(),**overrides})
+    except ValidationError:
+        raise InputError('invalid_market_options: 조사 실행 옵션을 확인하세요') from None

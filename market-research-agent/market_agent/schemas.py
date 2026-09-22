@@ -64,11 +64,12 @@ class Technology(Record):
     summary: str = ""
     evidence_ids: list[str] = Field(default_factory=list)
     issues: list[str] = Field(default_factory=list)
+    paper_id: str = ''
 
 
 class MarketInput(Record):
     role: Literal["market"] = "market"
-    schema_version: Literal["0.1"]
+    schema_version: Literal["0.1", "1.1.0"]
     run_id: str
     domain: str
     as_of: date
@@ -81,6 +82,8 @@ class MarketInput(Record):
     provenance: str
     notes: str
     warnings: list[str] = Field(default_factory=list)
+    input_format: Literal['markdown', 'paper_analysis_json'] = 'markdown'
+    source_documents: list[dict] = Field(default_factory=list)
 
 
 class Metric(Record):

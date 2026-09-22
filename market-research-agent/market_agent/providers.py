@@ -58,7 +58,10 @@ class OpenAIAnalyst:
             material.append(item)
         payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
             'criteria':CRITERIA,
-            'technologies': {k:{'name':v.name,'paper_url':v.url} for k,v in data.technologies.items()},
+            'technologies': {k:{'name':v.name,'paper_url':v.url,
+                **({'technical_context':v.summary[:6000],'technical_context_truncated':len(v.summary)>6000,
+                    'input_warnings':v.issues} if data.input_format=='paper_analysis_json' else {})}
+                for k,v in data.technologies.items()},
             'evidence': material, 'previous_claims': {k:v.model_dump(mode='json') for k,v in (previous or {}).items()},
             'validation_issues':issues or []}
         selected=self._invoke('extract',self._extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
@@ -67,6 +70,7 @@ class OpenAIAnalyst:
     def compose(self, data, claims, previous=None, issues=None):
         payload = {'scope':{'domain':data.domain,'as_of':str(data.as_of)},
             'technologies':{k:v.name for k,v in data.technologies.items()}, 'criteria':CRITERIA,
+            'expected_assessment_count':len(data.technologies)*len(CRITERIA),
             'claims':{k:v.model_dump(mode='json') for k,v in claims.items()},
             'allowed_exact_claims':{t:{c:[k for k,v in claims.items() if
                 (v.tech_id,v.criterion_id,v.relation_to_technology)==(t,c,'exact')] for c in CRITERIA}

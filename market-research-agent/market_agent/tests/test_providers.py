@@ -88,6 +88,22 @@ class ProviderTests(unittest.TestCase):
         self.assertNotIn('evidence',composed)
         self.assertIn('claims',composed)
 
+    def test_json_context_preserves_limits_without_forwarding_paths_or_upstream_settings(self):
+        requests=[]
+        def handler(request):
+            requests.append(json.loads(request.content))
+            return self.completion(Extraction(claims=[],reviews=[]).model_dump_json())
+        data=read_input(Path(__file__).parents[1]/'fixtures/paper_analysis_hw.json')
+        provider=self.provider(handler)
+        provider.extract(data,data.evidence)
+        payload=json.loads(requests[0]['messages'][1]['content'])
+        context=payload['technologies']['HW-01']['technical_context']
+        self.assertIn('limitations',context)
+        self.assertIn('적용 조건',context)
+        self.assertNotIn('/unavailable/',json.dumps(payload))
+        self.assertNotIn('upstream-test-model',json.dumps(payload))
+        self.assertEqual(payload['evidence'],[])
+
 
 if __name__ == "__main__":
     unittest.main()

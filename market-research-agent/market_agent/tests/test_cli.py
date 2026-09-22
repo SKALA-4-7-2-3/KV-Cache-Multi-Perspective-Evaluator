@@ -37,6 +37,41 @@ class CliTests(unittest.TestCase):
         self.assertIn('"search": 6', done.stdout)
         self.assertIn("SW-01", done.stdout)
 
+    def test_json_files_accept_market_options_and_preserve_json_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output=Path(tmp)/'json-run'
+            args=['--input',str(INPUT.parent/'paper_analysis_sw.json'),str(INPUT.parent/'paper_analysis_hw.json'),
+                '--as-of','2026-09-22','--domain','on_device','--search-limit','2','--extract-limit','6','--llm-limit','3']
+            parsed=self.invoke(*args,'--mode','parse')
+            self.assertEqual(parsed.returncode,0,parsed.stderr)
+            config=json.loads(parsed.stdout)
+            self.assertEqual(config['input_format'],'paper_analysis_json')
+            self.assertEqual(config['limits'],{'search':2,'extract':6,'llm':3})
+            run_args=[*args,'--mode','fixture','--output',str(output)]
+            done=self.invoke(*run_args)
+            self.assertEqual(done.returncode,0,done.stderr)
+            cache=cache_path(output)
+            self.assertTrue((cache/'input.json').exists())
+            self.assertFalse((cache/'input.md').exists())
+            self.assertEqual(len(json.loads((cache/'input.json').read_text())),2)
+            self.assertEqual(self.invoke(*run_args,'--reuse').returncode,0)
+            changed=[*run_args,'--as-of','2026-09-23','--reuse']
+            self.assertIn('snapshot_mismatch',self.invoke(*changed).stderr)
+
+    def test_repeated_input_flags_and_single_document_work(self):
+        sw,hw=[str(INPUT.parent/f'paper_analysis_{x}.json') for x in ['sw','hw']]
+        done=self.invoke('--input',sw,'--input',hw,'--mode','parse')
+        self.assertEqual(done.returncode,0,done.stderr)
+        self.assertEqual(len(json.loads(done.stdout)['technologies']),2)
+        single=self.invoke('--input',hw,'--mode','parse')
+        self.assertEqual(single.returncode,0,single.stderr)
+        self.assertEqual(json.loads(single.stdout)['technologies'],['HW-01'])
+
+    def test_bad_json_options_fail_without_using_keys(self):
+        bad=self.invoke('--input',str(INPUT.parent/'paper_analysis_sw.json'),'--search-limit','-1','--mode','parse')
+        self.assertNotEqual(bad.returncode,0)
+        self.assertNotIn('Traceback',bad.stderr)
+
     def test_fixture_writes_report_and_explicit_reuse_skips_execution(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "run"

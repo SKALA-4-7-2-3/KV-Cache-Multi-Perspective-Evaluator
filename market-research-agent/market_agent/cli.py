@@ -1,4 +1,4 @@
-"""python -m market_agent.cli --input input.md --mode fixture|live|parse"""
+"""paper_analysis JSON(1~2개) 또는 기존 MD 입력을 처리하는 CLI."""
 
 import argparse
 import hashlib
@@ -6,7 +6,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -17,6 +17,7 @@ from .prompts import PROMPT_VERSION
 from .providers import FixtureAnalyst, FixtureWeb, OpenAIAnalyst
 from .report import render_report
 from .tools import ProviderError, TavilyWeb
+from .schemas import Limits
 
 
 def fingerprint(data, mode, model):
@@ -24,7 +25,8 @@ def fingerprint(data, mode, model):
     for path in sorted(Path(__file__).parent.glob("*.py")):
         code.update(path.name.encode())
         code.update(path.read_bytes())
-    value = [data.input_hash, mode, model, PROMPT_VERSION, code.hexdigest()]
+    value = [data.input_hash, data.input_format, str(data.as_of), data.domain, data.limits.model_dump(),
+        [(t.id,t.approach,t.name) for t in data.technologies.values()], mode, model, PROMPT_VERSION, code.hexdigest()]
     return hashlib.sha256(json.dumps(value).encode()).hexdigest()
 
 
@@ -44,7 +46,11 @@ def save_run(state, output, key):
     cache.mkdir(parents=True, exist_ok=False)
     (cache / 'sources').mkdir()
     data = state["data"]
-    (cache / "input.md").write_text(data.raw_markdown, encoding="utf-8")
+    if data.input_format == 'paper_analysis_json':
+        document=data.source_documents[0] if len(data.source_documents)==1 else data.source_documents
+        (cache/'input.json').write_text(json.dumps(document,ensure_ascii=False,indent=2),encoding='utf-8')
+    else:
+        (cache / "input.md").write_text(data.raw_markdown, encoding="utf-8")
     for doc_id, body in state["sources"].items():
         if not re.fullmatch(r'[\w-]+', doc_id):
             raise InputError('invalid_document_id')
@@ -81,10 +87,11 @@ def check_reuse(output, key):
         raise InputError('snapshot_mismatch: 입력·모델·코드·프롬프트·출력 버전이 다릅니다')
     manifest = json.loads((cache / 'manifest.json').read_text())
     files = manifest.get('files', {})
-    if not {'run.json', 'input.md'} <= files.keys():
+    input_name='input.json' if saved.get('input',{}).get('input_format')=='paper_analysis_json' else 'input.md'
+    if not {'run.json', input_name} <= files.keys():
         raise InputError('snapshot_integrity: 필수 내부 자료 누락')
     for name, digest in files.items():
-        if not re.fullmatch(r'(run.json|input.md|debug.json|sources/[\w-]+\.md)', name):
+        if not re.fullmatch(r'(run\.json|input\.(?:md|json)|debug\.json|sources/[\w-]+\.md)', name):
             raise InputError('snapshot_integrity: 잘못된 저장 경로')
         p = cache / name
         if not p.is_file() or p.is_symlink() or file_hash(p) != digest:
@@ -99,8 +106,14 @@ def check_reuse(output, key):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="MD 입력 기반 시장조사 에이전트")
-    parser.add_argument("--input", required=True, type=Path)
+    parser = argparse.ArgumentParser(description="기술 조사 JSON 입력 기반 시장조사 에이전트")
+    parser.add_argument("--input", required=True, type=Path, nargs='+', action='extend',
+        help='paper_analysis JSON 1~2개 또는 기존 MD 한 개')
+    parser.add_argument('--as-of', type=date.fromisoformat, help='조사 기준일 YYYY-MM-DD (JSON 기본: 실행일)')
+    parser.add_argument('--domain', help='조사 도메인 (JSON 기본: cloud_datacenter)')
+    parser.add_argument('--approach', nargs='+', choices=['SW','HW'], help='새 논문은 JSON 문서 순서대로 SW/HW 지정')
+    for name in ['search','extract','llm']:
+        parser.add_argument(f'--{name}-limit',type=int,help='시장 에이전트의 전체 실행 시도 상한')
     parser.add_argument("--mode", choices=["parse", "fixture", "live"], default="fixture")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--reuse", action="store_true", help="같은 입력·코드·모델의 저장 결과만 재사용")
@@ -110,11 +123,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
     web = analyst = None
     try:
-        data = read_input(args.input)
+        data = read_input(args.input,as_of=args.as_of,domain=args.domain,approaches=args.approach)
+        overrides={name:getattr(args,f'{name}_limit') for name in ['search','extract','llm']
+            if getattr(args,f'{name}_limit') is not None}
+        if overrides:
+            if any(value<0 for value in overrides.values()):
+                raise InputError('invalid_limits: 호출 한도는 0 이상의 정수여야 합니다')
+            data.limits=Limits(**{**data.limits.model_dump(),**overrides})
         if args.mode == "parse":
             print(json.dumps({"role": data.role, "run_id": data.run_id, "domain": data.domain,
                 "as_of": str(data.as_of), "limits": data.limits.model_dump(),
                 "technologies": list(data.technologies), "evidence": list(data.evidence),
+                "input_format":data.input_format,"schema_version":data.schema_version,
                 "warnings": data.warnings, "input_hash": data.input_hash}, ensure_ascii=False, indent=2))
             return 0
         output = args.output or Path(__file__).parent / "outputs" / datetime.now().strftime("%Y%m%d_%H%M%S_%f")
