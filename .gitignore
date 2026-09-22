@@ -12,7 +12,6 @@ dist/
 
 # OS / Editor
 .DS_Store
-
 # Env & secrets
 .env
 .env.*
@@ -20,7 +19,6 @@ dist/
 .venv/
 venv/
 env/
-
 # LaTeX compiler by-products
 *.aux
 *.log
@@ -34,3 +32,9 @@ env/
 *.blg
 *.bcf
 *.run.xml
+data/
+inputs/
+outputs/
+work/
+tmp/
+*.pdf

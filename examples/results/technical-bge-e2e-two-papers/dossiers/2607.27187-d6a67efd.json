@@ -1,0 +1,2737 @@
+{
+  "analysis": {
+    "limitations": {
+      "author_stated": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "저자들은 disk storage 실험을 포함한 empirical characterization가 LLaMA-8B와 LLaMA-405B에 집중되었다고 명시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "저자들은 MoE variants와 DeepSeek·Qwen 등 새 architecture에 대한 추가 characterization를 future work로 남긴다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "저자들은 PF Memory Appliance serving evaluation의 performance projections가 emulation으로 characterise한 bandwidth·latency parameters를 LLMServingSim에 입력해 얻어진 것이라고 명시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "저자들은 physical PF Memory Appliance hardware에서 end-to-end inference workloads로 검증하는 일은 아직 pending이라고 명시한다."
+        }
+      ],
+      "compute_constraints": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "physical PF Memory Appliance hardware가 올해 후반에 उपलब्ध해진 뒤에야 end-to-end validation을 수행할 계획이라고 저자들은 밝힌다."
+        }
+      ],
+      "data_constraints": [
+        {
+          "claim_type": "analyst_inference",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "disk storage characterization의 모델 범위는 LLaMA-8B와 LLaMA-405B에 집중되어 있어, MoE variants의 disk-storage behavior는 이 study에서 추가 characterization 대상으로 남아 있다."
+        }
+      ],
+      "generalization_constraints": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "PF Memory Appliance의 적용성은 현재 KV cache management를 넘어 host 간 model weight sharing 및 fault-tolerant serving용 checkpoint storage까지는 검증되지 않았으며, 저자들은 이를 future exploration으로 제시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "저자들은 disaggregated inference deployments에서 cross-host KV reuse의 이득을 정량화하기 위한 multi-GPU·multi-host serving evaluation을 future work로 제시한다."
+        }
+      ],
+      "inferred": [
+        {
+          "claim_type": "analyst_inference",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "따라서 이 논문의 serving-level 결론은 physical end-to-end validation이 아니라 emulation-characterized parameter를 사용한 simulation에 근거한 것으로 한정해야 한다."
+        },
+        {
+          "claim_type": "analyst_inference",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "클라우드 서버 구축 관점에서, PF Memory Appliance와 CXL switch hierarchies·active optical interconnects·추가 서버 provisioning 간 cost-benefit 비교는 아직 deployment guidance로 확정할 수 없다."
+        }
+      ],
+      "not_reported": [
+        "제공된 근거에는 physical PF Memory Appliance에서 수행한 end-to-end inference workload의 측정 구성·재현 절차가 보고되지 않았고, 저자도 해당 검증이 pending이라고 명시한다."
+      ],
+      "reproducibility_constraints": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+          ],
+          "text": "Figure 7은 PFMA integration layer와 runtime library를 “conceptual stage, specs to be finalized later”로 표시하므로, framework integration의 specification은 확정되지 않았다."
+        }
+      ]
+    },
+    "scope": {
+      "author_claimed_scope": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-03:whole"
+          ],
+          "text": "저자들은 PF Memory Appliance를 intermediate switching 없이 최대 16 host servers를 연결하는 full-mesh photonic-CXL shared-memory appliance로 제시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "저자들은 PF Memory Appliance의 배치 목표를 16 hosts가 공유하는 32 TB DDR5 memory 및 host당 128 GB/s unidirectional bandwidth로 제시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+          ],
+          "text": "저자들은 vLLM, SGLang, Dynamo, PyTorch, LMCache에 대한 PFMA integration path를 제시하며, 그림은 PFMA integration layer를 framework별 custom으로 표시한다."
+        }
+      ],
+      "domains": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0001:elem-2607.27187-d6a67efd-p0001-text-group-001-9bb3b434ba81:span-00000-02992"
+          ],
+          "text": "저자들은 long context 및 high concurrency가 요구되는 enterprise LLM application을 적용 영역으로 제시하고, legal document analysis, medical diagnosis, personalized tutoring를 예로 든다."
+        }
+      ],
+      "evaluated_settings": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "Table I의 Repeated Request Benchmark testing matrix는 모든 configuration에서 batch sizes {1, 2, 8, 16, 32}를 사용하며, standard context lengths는 1K–100K tokens, Maverick은 최대 1M tokens, Scout은 최대 4M tokens이다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03"
+          ],
+          "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-8B·1×A100 행은 Host Memory 3.3×–27.5×, Disk Storage 0.53×–1.72×로 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c03"
+          ],
+          "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-8B·1×H100 행은 Host Memory 1.9×–11.8×를 보고하고 Disk Storage는 —로 표기한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03"
+          ],
+          "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-8B·1×H200 행은 Host Memory 1.5×–17.2×, Disk Storage 0.38×–1.27×로 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c03"
+          ],
+          "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-70B·2×H200 행은 Host Memory 2.7×–51.4×를 보고하고 Disk Storage는 —로 표기한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-405B·8×H200 행은 Host Memory 2.7×–100.0×, Disk Storage 2.1×–9.7×로 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c03"
+          ],
+          "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 Maverick·8×H200 행은 Host Memory 2.7×–23.1×을 보고하고 Disk Storage는 —로 표기한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c03"
+          ],
+          "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 Scout·8×H200 행은 Host Memory 2.6×–54.6×을 보고하고 Disk Storage는 —로 표기한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "KV retrieval characterization은 LLaMA-8B(1 GPU), LLaMA-70B(2×H200, TP=2), LLaMA-405B(8×H200, TP=8, BF16), LLaMA Maverick 및 LLaMA Scout(각 8×H200, TP=8, BF16)를 평가한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "실험 인프라는 local A100 server와 Runpod H100/H200 cloud instances를 포함하며, A100 testbed는 A100 80 GB HBM2e, PCIe 4.0 ×16, 512 GB system DRAM, 7 TB local disk이고, H100/H200 testbed는 PCIe 5.0 ×16 및 최대 2 TB host DRAM의 multi-GPU node이다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+          ],
+          "text": "Serving simulation은 50–300 conversations의 multi-turn conversation workload에서 32 TB PF Memory Appliance와 2 TB CPU baseline을 비교한다."
+        }
+      ],
+      "inferred_scope": [
+        {
+          "claim_type": "analyst_inference",
+          "confidence": 0.91,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "분석자 추론: 클라우드 서버 구축 관점에서 논문의 직접 근거 범위는 local A100 server와 Runpod H100/H200 instances에서의 KV cache tiering characterization, 별도의 PF appliance hardware emulation, 그리고 parameterized serving simulation까지이다."
+        }
+      ],
+      "modalities": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "논문은 vLLM with LMCache로 request 간 KV blocks를 offload·retrieve하고, primary user-facing latency metric으로 TTFT를 사용한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "PF Memory Appliance 설계 평가는 Siemens Veloce Strato-M의 hardware emulation으로 수행되고, serving 평가는 emulation-characterized bandwidth·latency parameter를 LLMServingSim에 입력한 simulation이다."
+        }
+      ],
+      "not_reported": [
+        "Table I의 각 speedup range를 특정 prompt length·batch size 조합에 대응시키는 명시적 매핑은 제공되지 않는다.",
+        "실제 cloud production cluster에 physical PF Memory Appliance를 배포하여 end-to-end 측정한 조건은 제공된 근거에 보고되지 않는다."
+      ],
+      "operating_conditions": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "text": "Repeated Request Benchmark는 100% cache hit rate의 ideal condition에서 identical repeated request의 KV cache load latency를 측정하도록 설계되었다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "입력 생성 단계는 batch size 1–32 및 prompt length 1K–4M tokens를 구성하고, initial request의 prefill이 complete KV cache를 생성·저장한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "비교 tier는 host memory path의 system DRAM과 disk storage path의 SSD이며, no-cache baseline은 full KV re-computation이다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+          ],
+          "text": "PF Memory Appliance latency 평가는 idle latency(단일 write 뒤 read)와, 64-byte offset의 read/write sequence가 CXL credit exchange limit를 초과하는 loaded latency를 구분한다."
+        }
+      ],
+      "out_of_scope": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "Physical PF Memory Appliance hardware에서 end-to-end inference workload를 검증하는 것은 평가 범위에 포함되지 않았으며, 저자들은 이를 pending으로 명시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "text": "Empirical disk-storage characterization은 8B와 405B 모델에 집중하며, MoE variants의 추가 characterization은 future work로 제시된다."
+        }
+      ],
+      "target_tasks": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "text": "논문은 LLM inference에서 repeated request의 KV cache retrieval을 대상으로 하며, identical repeated request에서 memory hierarchy별 load latency를 측정한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "text": "저자들은 disaggregated LLM inference에서 prefill worker가 생성한 KV tensor를 decode worker로 전달하는 맥락을 제시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+          ],
+          "text": "End-to-end serving 평가는 multi-turn conversation workload에서 conversation 수에 따른 mean TTFT와 total prefix-cache hit rate를 다룬다."
+        }
+      ]
+    },
+    "technical_overview": {
+      "core_approach": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "PF Memory Appliance는 electrical switch를 passive optical fiber shuffle로 대체하는 photonic fabric–CXL hybrid architecture이며, 32 TB shared memory를 최대 16 host가 공유하도록 제안된다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0004:elem-2607.27187-d6a67efd-p0004-text-group-009-2667c614567e:span-00000-01140"
+          ],
+          "text": "이 설계는 CXL의 byte-addressable load/store memory semantics를 보존하면서 data path에서 electrical switching을 제거하려는 것이다."
+        }
+      ],
+      "experimental_results": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+          ],
+          "text": "Siemens Veloce Strato-M platform emulation에서 PF Memory Appliance CXL pod의 memory-pool-to-host 평균 64-byte access latency는 350 ns이며, 저자들은 electrical CXL switched pool 대비 50% 초과 감소라고 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "Table I의 repeated-request benchmark에서 LLaMA-8B·1×A100 행은 Host Memory speedup 3.3×–27.5× 및 Disk Storage speedup 0.53×–1.72×를 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "Table I의 repeated-request benchmark에서 LLaMA-8B·1×H100 행은 Host Memory speedup 1.9×–11.8×를 보고하고 Disk Storage 열은 —로 표시한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "Table I의 repeated-request benchmark에서 LLaMA-8B·1×H200 행은 Host Memory speedup 1.5×–17.2× 및 Disk Storage speedup 0.38×–1.27×를 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "Table I의 repeated-request benchmark에서 LLaMA-70B·2×H200 행은 Host Memory speedup 2.7×–51.4×를 보고하고 Disk Storage 열은 —로 표시한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "text": "Table I의 repeated-request benchmark에서 LLaMA-405B·8×H200 행은 Host Memory speedup 2.7×–100.0× 및 Disk Storage speedup 2.1×–9.7×를 보고한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "Table I의 repeated-request benchmark에서 Maverick·8×H200 행은 Host Memory speedup 2.7×–23.1×를 보고하고 Disk Storage 열은 —로 표시한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c03",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "Table I의 repeated-request benchmark에서 Scout·8×H200 행은 Host Memory speedup 2.6×–54.6×를 보고하고 Disk Storage 열은 —로 표시한다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+          ],
+          "text": "LLMServingSim serving simulation에서 32 TB PF Memory Appliance는 50–300 conversations에서 mean TTFT 2,690 ms와 prefix-cache hit rate 82%를 유지했고, 2 TB baseline은 100 conversations에서 mean TTFT 8,156 ms, 300 conversations에서 prefix-cache hit rate 6.35%와 6.6× TTFT gap을 보였다."
+        }
+      ],
+      "inference_process": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "Repeated-request benchmark는 batch size와 prompt length를 구성해 prefill로 complete KV cache를 생성·저장하고, host DRAM 또는 SSD retrieval time을 no-cache full KV re-computation과 비교한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+          ],
+          "text": "논문은 host-memory retrieval speedup을 S=Tcompute/Tmemory로 정의하고, Tcompute=b(2sP+2s²nheadhheadL)/MFU 및 Tmemory=K+bsα를 제시한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+          ],
+          "text": "Figure 7은 vLLM CXL KV Connector, SGLang CXL HiCache plugin, Dynamo NIXL CXL Backend, PyTorch NUMA/CUDA host allocation, LMCache CXL storage tier의 framework-specific PFMA integration path를 제시한다."
+        }
+      ],
+      "mechanisms": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-03:whole"
+          ],
+          "text": "PF topology는 16×16 passive fiber shuffle의 256 optical paths로 최대 16 host server를 intermediate switching 없이 full-mesh로 연결한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:elem-2607.27187-d6a67efd-p0005-text-group-010-f0b0912faa3e:span-00000-00848"
+          ],
+          "text": "저자들은 host–memory pair별 dedicated optical path 때문에 16 host가 서로 다른 memory module에 동시에 접근할 때 interconnect fabric contention이 없고 switch-induced latency가 제거된다고 설명한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-04:whole"
+          ],
+          "text": "도면상 server의 Host Processor는 PCIe/CXL로 PF-NIC에 연결되고, PF-NIC는 fiber-optic cable로 PFM에 연결되며, server 및 appliance 측에 External Laser Source(ELS)가 표시된다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0004:figure-02:whole"
+          ],
+          "text": "CXL data plane에서 prefill GPU와 decode GPU는 shared memory에 DMA하고 CPU는 control operation을 담당하며, CXL mode는 write-once-read-many KV reuse를 가능하게 한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+          ],
+          "text": "제안된 PFMA runtime library는 KV block allocator, KV block indexing, rendezvous-based coherency consistency 및 eviction policy manager를 포함한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-026-37aaf9c29c0e:span-00000-02701"
+          ],
+          "text": "저자들은 passive fiber shuffle이 ≤2 m copper reach를 100+ m reach로 확장하고, switch-hop latency를 제거하며, interconnect power를 줄인다고 주장한다."
+        }
+      ],
+      "not_reported": [],
+      "novelty": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:elem-2607.27187-d6a67efd-p0005-text-group-010-f0b0912faa3e:span-00000-00848"
+          ],
+          "text": "저자들이 제시한 차별점은 intermediate switch 없이 all-to-all connectivity를 제공하는 passive fiber shuffle과 host interface의 CXL protocol compatibility를 결합한 점이다."
+        }
+      ],
+      "problem_definition": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "text": "저자들은 long-context·high-concurrency LLM inference의 KV cache retrieval에 tens of terabytes 용량과 100 GB/s 초과 bandwidth가 함께 필요하지만, 현 memory tier는 두 요구를 동시에 충족하지 못하는 capacity-bandwidth gap이 있다고 주장한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "text": "저자들은 electrical CXL deployment의 switch-induced latency(홉당 70–500 ns), multi-meter cable reach 제약, power-hungry retimer 및 super-linear power scaling이 실용적인 TB-scale memory pooling을 방해한다고 주장한다."
+        }
+      ],
+      "requirements": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+          ],
+          "text": "제안 PF Memory Appliance의 명시 설계 용량은 shared DDR5 32 TB이고, host당 unidirectional bandwidth는 128 GB/s이며, 공유 host 수는 최대 16이다."
+        }
+      ],
+      "training_process": []
+    }
+  },
+  "claims": [
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c01",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "저자들은 KV cache retrieval에 tens of terabytes 용량과 100 GB/s 초과 bandwidth가 함께 필요하지만 현 memory tier는 이 두 요구를 동시에 충족하지 못한다고 주장한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c02",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "PF Memory Appliance는 electrical switch를 passive optical fiber shuffle로 대체하는 photonic fabric–CXL hybrid architecture이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c03",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-03:whole"
+      ],
+      "text": "PF topology는 16×16 passive fiber shuffle의 256 optical paths로 최대 16 host server를 intermediate switching 없이 연결한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c04",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "제안 PF Memory Appliance의 명시 설계 용량은 shared DDR5 32 TB, host당 unidirectional bandwidth는 128 GB/s, 공유 host 수는 최대 16이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c05",
+      "claim_type": "observed_result",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+      ],
+      "text": "Emulation에서 PF Memory Appliance CXL pod의 memory-pool-to-host 평균 64-byte access latency는 350 ns이고, 저자들은 electrical CXL switched pool 대비 50% 초과 감소라고 보고한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c06",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03"
+      ],
+      "text": "LLaMA-8B·1×A100의 Host Memory/Disk Storage speedup range는 각각 3.3×–27.5×와 0.53×–1.72×이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c07",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c03"
+      ],
+      "text": "LLaMA-8B·1×H100의 Host Memory speedup range는 1.9×–11.8×이고 Disk Storage 열은 —이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c08",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03"
+      ],
+      "text": "LLaMA-8B·1×H200의 Host Memory/Disk Storage speedup range는 각각 1.5×–17.2×와 0.38×–1.27×이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c09",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c03"
+      ],
+      "text": "LLaMA-70B·2×H200의 Host Memory speedup range는 2.7×–51.4×이고 Disk Storage 열은 —이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c10",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "LLaMA-405B·8×H200의 Host Memory/Disk Storage speedup range는 각각 2.7×–100.0×와 2.1×–9.7×이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c11",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c03"
+      ],
+      "text": "Maverick·8×H200의 Host Memory speedup range는 2.7×–23.1×이고 Disk Storage 열은 —이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c12",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c03"
+      ],
+      "text": "Scout·8×H200의 Host Memory speedup range는 2.6×–54.6×이고 Disk Storage 열은 —이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::technical_overview::to-c13",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "Serving simulation에서 32 TB PF Memory Appliance는 50–300 conversations에서 mean TTFT 2,690 ms 및 prefix-cache hit rate 82%를 보고하며, 300 conversations에서 2 TB baseline 대비 TTFT gap은 6.6×이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s1",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "논문은 LLM inference에서 repeated request의 KV cache retrieval을 대상으로 하며, identical repeated request에서 memory hierarchy별 load latency를 측정한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s2",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "End-to-end serving 평가는 multi-turn conversation workload에서 conversation 수에 따른 mean TTFT와 total prefix-cache hit rate를 다룬다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s3",
+      "claim_type": "author_claim",
+      "confidence": 0.97,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "저자들은 disaggregated LLM inference에서 prefill worker가 생성한 KV tensor를 decode worker로 전달하는 맥락을 제시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s4",
+      "claim_type": "author_claim",
+      "confidence": 0.96,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0001:elem-2607.27187-d6a67efd-p0001-text-group-001-9bb3b434ba81:span-00000-02992"
+      ],
+      "text": "저자들은 long context 및 high concurrency가 요구되는 enterprise LLM application을 적용 영역으로 제시하고, legal document analysis, medical diagnosis, personalized tutoring를 예로 든다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s5",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "Repeated Request Benchmark는 100% cache hit rate의 ideal condition에서 identical repeated request의 KV cache load latency를 측정하도록 설계되었다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s6",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "입력 생성 단계는 batch size 1–32 및 prompt length 1K–4M tokens를 구성하고, initial request의 prefill이 complete KV cache를 생성·저장한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s7",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "비교 tier는 host memory path의 system DRAM과 disk storage path의 SSD이며, no-cache baseline은 full KV re-computation이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s8",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+      ],
+      "text": "PF Memory Appliance latency 평가는 idle latency(단일 write 뒤 read)와, 64-byte offset의 read/write sequence가 CXL credit exchange limit를 초과하는 loaded latency를 구분한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s9",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+      ],
+      "text": "Table I의 Repeated Request Benchmark testing matrix는 모든 configuration에서 batch sizes {1, 2, 8, 16, 32}를 사용하며, standard context lengths는 1K–100K tokens, Maverick은 최대 1M tokens, Scout은 최대 4M tokens이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s10",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03"
+      ],
+      "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-8B·1×A100 행은 Host Memory 3.3×–27.5×, Disk Storage 0.53×–1.72×로 보고한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s11",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c03"
+      ],
+      "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-8B·1×H100 행은 Host Memory 1.9×–11.8×를 보고하고 Disk Storage는 —로 표기한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s12",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03"
+      ],
+      "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-8B·1×H200 행은 Host Memory 1.5×–17.2×, Disk Storage 0.38×–1.27×로 보고한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s13",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c03"
+      ],
+      "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-70B·2×H200 행은 Host Memory 2.7×–51.4×를 보고하고 Disk Storage는 —로 표기한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s14",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 LLaMA-405B·8×H200 행은 Host Memory 2.7×–100.0×, Disk Storage 2.1×–9.7×로 보고한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s15",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c03"
+      ],
+      "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 Maverick·8×H200 행은 Host Memory 2.7×–23.1×을 보고하고 Disk Storage는 —로 표기한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s16",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c03"
+      ],
+      "text": "Table I의 Model/Platform/Host Memory/Disk Storage 조건에서 Scout·8×H200 행은 Host Memory 2.6×–54.6×을 보고하고 Disk Storage는 —로 표기한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s17",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "KV retrieval characterization은 LLaMA-8B(1 GPU), LLaMA-70B(2×H200, TP=2), LLaMA-405B(8×H200, TP=8, BF16), LLaMA Maverick 및 LLaMA Scout(각 8×H200, TP=8, BF16)를 평가한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s18",
+      "claim_type": "author_claim",
+      "confidence": 0.97,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+      ],
+      "text": "실험 인프라는 local A100 server와 Runpod H100/H200 cloud instances를 포함하며, A100 testbed는 A100 80 GB HBM2e, PCIe 4.0 ×16, 512 GB system DRAM, 7 TB local disk이고, H100/H200 testbed는 PCIe 5.0 ×16 및 최대 2 TB host DRAM의 multi-GPU node이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s19",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "Serving simulation은 50–300 conversations의 multi-turn conversation workload에서 32 TB PF Memory Appliance와 2 TB CPU baseline을 비교한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s20",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "논문은 vLLM with LMCache로 request 간 KV blocks를 offload·retrieve하고, primary user-facing latency metric으로 TTFT를 사용한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s21",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "PF Memory Appliance 설계 평가는 Siemens Veloce Strato-M의 hardware emulation으로 수행되고, serving 평가는 emulation-characterized bandwidth·latency parameter를 LLMServingSim에 입력한 simulation이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s22",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-03:whole"
+      ],
+      "text": "저자들은 PF Memory Appliance를 intermediate switching 없이 최대 16 host servers를 연결하는 full-mesh photonic-CXL shared-memory appliance로 제시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s23",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "저자들은 PF Memory Appliance의 배치 목표를 16 hosts가 공유하는 32 TB DDR5 memory 및 host당 128 GB/s unidirectional bandwidth로 제시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s24",
+      "claim_type": "author_claim",
+      "confidence": 0.97,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+      ],
+      "text": "저자들은 vLLM, SGLang, Dynamo, PyTorch, LMCache에 대한 PFMA integration path를 제시하며, 그림은 PFMA integration layer를 framework별 custom으로 표시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s25",
+      "claim_type": "analyst_inference",
+      "confidence": 0.91,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "분석자 추론: 클라우드 서버 구축 관점에서 논문의 직접 근거 범위는 local A100 server와 Runpod H100/H200 instances에서의 KV cache tiering characterization, 별도의 PF appliance hardware emulation, 그리고 parameterized serving simulation까지이다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s26",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "Physical PF Memory Appliance hardware에서 end-to-end inference workload를 검증하는 것은 평가 범위에 포함되지 않았으며, 저자들은 이를 pending으로 명시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::scope::s27",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "Empirical disk-storage characterization은 8B와 405B 모델에 집중하며, MoE variants의 추가 characterization은 future work로 제시된다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c01",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "저자들은 disk storage 실험을 포함한 empirical characterization가 LLaMA-8B와 LLaMA-405B에 집중되었다고 명시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c02",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "저자들은 MoE variants와 DeepSeek·Qwen 등 새 architecture에 대한 추가 characterization를 future work로 남긴다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c03",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "저자들은 PF Memory Appliance serving evaluation의 performance projections가 emulation으로 characterise한 bandwidth·latency parameters를 LLMServingSim에 입력해 얻어진 것이라고 명시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c04",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "저자들은 physical PF Memory Appliance hardware에서 end-to-end inference workloads로 검증하는 일은 아직 pending이라고 명시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c05",
+      "claim_type": "analyst_inference",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "따라서 이 논문의 serving-level 결론은 physical end-to-end validation이 아니라 emulation-characterized parameter를 사용한 simulation에 근거한 것으로 한정해야 한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c06",
+      "claim_type": "author_claim",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "physical PF Memory Appliance hardware가 올해 후반에 उपलब्ध해진 뒤에야 end-to-end validation을 수행할 계획이라고 저자들은 밝힌다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c07",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "저자들은 disaggregated inference deployments에서 cross-host KV reuse의 이득을 정량화하기 위한 multi-GPU·multi-host serving evaluation을 future work로 제시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c08",
+      "claim_type": "analyst_inference",
+      "confidence": 0.96,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "클라우드 서버 구축 관점에서, PF Memory Appliance와 CXL switch hierarchies·active optical interconnects·추가 서버 provisioning 간 cost-benefit 비교는 아직 deployment guidance로 확정할 수 없다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c09",
+      "claim_type": "author_claim",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "text": "PF Memory Appliance의 적용성은 현재 KV cache management를 넘어 host 간 model weight sharing 및 fault-tolerant serving용 checkpoint storage까지는 검증되지 않았으며, 저자들은 이를 future exploration으로 제시한다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::limitations::lim-c10",
+      "claim_type": "observed_result",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+      ],
+      "text": "Figure 7은 PFMA integration layer와 runtime library를 “conceptual stage, specs to be finalized later”로 표시하므로, framework integration의 specification은 확정되지 않았다."
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-afa511536443",
+      "claim_type": "observed_result",
+      "confidence": 0.98,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+      ],
+      "text": "CXL memory-pool-to-host access latency: 350 ns; baseline=electrical CXL switched pool; reported as more than 50% reduction, workload=average 64-byte access, evaluation_mode=emulated"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-22b9bd64f5b6",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "Host Memory KV retrieval speedup over full KV re-computation: 3.3×–27.5×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×A100, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-718b378edfc4",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "Disk Storage KV retrieval speedup over full KV re-computation: 0.53×–1.72×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×A100, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-3227798c0053",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "Host Memory KV retrieval speedup over full KV re-computation: 1.9×–11.8×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×H100, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-45de22b7389b",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "Host Memory KV retrieval speedup over full KV re-computation: 1.5×–17.2×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-881a86a71ccd",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+      ],
+      "text": "Disk Storage KV retrieval speedup over full KV re-computation: 0.38×–1.27×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-4b4e1a3b2cac",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "Host Memory KV retrieval speedup over full KV re-computation: 2.7×–51.4×; baseline=full KV re-computation, model=LLaMA-70B, hardware=2×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-5668ab3583c8",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "text": "Host Memory KV retrieval speedup over full KV re-computation: 2.7×–100.0×; baseline=full KV re-computation, model=LLaMA-405B, hardware=8×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-dcbce55a3cd9",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+      ],
+      "text": "Disk Storage KV retrieval speedup over full KV re-computation: 2.1×–9.7×; baseline=full KV re-computation, model=LLaMA-405B, hardware=8×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-f90a9ca20185",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "Host Memory KV retrieval speedup over full KV re-computation: 2.7×–23.1×; baseline=full KV re-computation, model=Maverick, hardware=8×H200, context=up to 1M tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-5d5e93e591ed",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "text": "Host Memory KV retrieval speedup over full KV re-computation: 2.6×–54.6×; baseline=full KV re-computation, model=Scout, hardware=8×H200, context=up to 4M tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-d73ec7559f08",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "Mean TTFT: 2,690 ms; baseline=2 TB CPU baseline, concurrency=50–300 conversations, workload=multi-turn conversation; 32 TB PF Memory Appliance, evaluation_mode=simulated"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-27a541a61d7c",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "Prefix-cache hit rate: 82 %; baseline=2 TB CPU baseline, concurrency=50–300 conversations, workload=multi-turn conversation; 32 TB PF Memory Appliance, evaluation_mode=simulated"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-938704c23a17",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "Mean TTFT: 8,156 ms; baseline=2 TB baseline, concurrency=100 conversations, workload=multi-turn conversation; 2 TB CPU baseline, evaluation_mode=simulated"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-cd66dfe14e7e",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "Prefix-cache hit rate: 6.35 %; baseline=2 TB baseline, concurrency=300 conversations, workload=multi-turn conversation; 2 TB CPU baseline, evaluation_mode=simulated"
+    },
+    {
+      "claim_id": "2607.27187-d6a67efd::auto-claim-b31c003bdc76",
+      "claim_type": "observed_result",
+      "confidence": 0.99,
+      "context_evidence_ids": [],
+      "critical": true,
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "text": "TTFT gap: 6.6 ×; baseline=2 TB CPU baseline, concurrency=300 conversations, workload=multi-turn conversation; 32 TB PF Memory Appliance, evaluation_mode=simulated"
+    }
+  ],
+  "critical_inventory": [
+    {
+      "category": "problem",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c01"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i01",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "KV cache capacity-bandwidth gap"
+    },
+    {
+      "category": "contribution",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c02"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i02",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Passive-fiber-shuffle photonic-CXL architecture"
+    },
+    {
+      "category": "mechanism",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c03"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-03:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i03",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "16×16 shuffle and 256 optical paths"
+    },
+    {
+      "category": "contribution",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c04"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i04",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "32 TB shared DDR5 and 128 GB/s per-host design"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c05"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i05",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "350 ns 64-byte latency under emulation"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c06"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i06",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I LLaMA-8B A100 speedup ranges"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c07"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i07",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I LLaMA-8B H100 speedup range"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c08"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i08",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I LLaMA-8B H200 speedup ranges"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c09"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i09",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I LLaMA-70B H200 speedup range"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c10"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i10",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I LLaMA-405B H200 speedup ranges"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c11"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i11",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I Maverick H200 speedup range"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c12"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i12",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I Scout H200 speedup range"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::technical_overview::to-c13"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::technical_overview::to-i13",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "32 TB versus 2 TB serving simulation"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s1",
+        "2607.27187-d6a67efd::scope::s2",
+        "2607.27187-d6a67efd::scope::s3"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si1",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Repeated-request KV cache retrieval, disaggregated inference transfer, 및 multi-turn serving의 대상 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s4"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0001:elem-2607.27187-d6a67efd-p0001-text-group-001-9bb3b434ba81:span-00000-02992"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si2",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Enterprise long-context·high-concurrency 적용 도메인"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s5",
+        "2607.27187-d6a67efd::scope::s6",
+        "2607.27187-d6a67efd::scope::s7",
+        "2607.27187-d6a67efd::scope::s8"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si3",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Repeated Request Benchmark의 cache hit, batch/prompt, memory tier, 및 latency workload 조건"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s9",
+        "2607.27187-d6a67efd::scope::s10"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si4",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I 공통 batch/context 및 LLaMA-8B·1×A100 조건별 speedup range"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s11",
+        "2607.27187-d6a67efd::scope::s12"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si5",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I LLaMA-8B·1×H100 및 LLaMA-8B·1×H200 조건별 speedup range"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s13",
+        "2607.27187-d6a67efd::scope::s14"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si6",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I LLaMA-70B·2×H200 및 LLaMA-405B·8×H200 조건별 speedup range"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s15",
+        "2607.27187-d6a67efd::scope::s16"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si7",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Table I Maverick·8×H200 및 Scout·8×H200 조건별 speedup range"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s17",
+        "2607.27187-d6a67efd::scope::s18",
+        "2607.27187-d6a67efd::scope::s19",
+        "2607.27187-d6a67efd::scope::s20",
+        "2607.27187-d6a67efd::scope::s21"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si8",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "모델, local/cloud testbed, serving-simulation, 및 평가 modality"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s22",
+        "2607.27187-d6a67efd::scope::s23",
+        "2607.27187-d6a67efd::scope::s24"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-03:whole",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si9",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "PF appliance 배치 규모와 software integration의 저자 주장 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s25"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si10",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "클라우드 구축 관점의 보수적 직접근거 범위"
+    },
+    {
+      "category": "scope",
+      "claim_ids": [
+        "2607.27187-d6a67efd::scope::s26",
+        "2607.27187-d6a67efd::scope::s27"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::scope::si11",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Physical end-to-end validation 및 MoE disk characterization의 범위 밖 조건"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c01"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i01",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "disk storage empirical characterization의 모델 범위 제약"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c02"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i02",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "MoE·DeepSeek·Qwen architecture에 대한 추가 characterization 필요"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c03"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i03",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "LLMServingSim 기반 serving projection"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c04",
+        "2607.27187-d6a67efd::limitations::lim-c05",
+        "2607.27187-d6a67efd::limitations::lim-c06"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i04",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "physical appliance의 end-to-end validation pending"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c07"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i05",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "multi-GPU·multi-host cross-host KV reuse 정량화는 future work"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c08"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i06",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "대안 대비 cost-benefit deployment guidance 미확정"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c09"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i07",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "KV cache management 밖 활용의 미검증 범위"
+    },
+    {
+      "category": "limitation",
+      "claim_ids": [
+        "2607.27187-d6a67efd::limitations::lim-c10"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::limitations::lim-i08",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "PFMA framework integration specification의 conceptual 상태"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-afa511536443"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-16304cadd348",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "CXL memory-pool-to-host access latency: 350 ns; baseline=electrical CXL switched pool; reported as more than 50% reduction, workload=average 64-byte access, evaluation_mode=emulated"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-22b9bd64f5b6"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-4973683b6c97",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Host Memory KV retrieval speedup over full KV re-computation: 3.3×–27.5×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×A100, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-718b378edfc4"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-c5902d0c74a1",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Disk Storage KV retrieval speedup over full KV re-computation: 0.53×–1.72×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×A100, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-3227798c0053"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-5fe637ebab41",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Host Memory KV retrieval speedup over full KV re-computation: 1.9×–11.8×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×H100, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-45de22b7389b"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-6e278bd5d313",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Host Memory KV retrieval speedup over full KV re-computation: 1.5×–17.2×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-881a86a71ccd"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-691ee4ee61db",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Disk Storage KV retrieval speedup over full KV re-computation: 0.38×–1.27×; baseline=full KV re-computation, model=LLaMA-8B, hardware=1×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-4b4e1a3b2cac"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-dc8002adec33",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Host Memory KV retrieval speedup over full KV re-computation: 2.7×–51.4×; baseline=full KV re-computation, model=LLaMA-70B, hardware=2×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-5668ab3583c8"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-5e69115c854b",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Host Memory KV retrieval speedup over full KV re-computation: 2.7×–100.0×; baseline=full KV re-computation, model=LLaMA-405B, hardware=8×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-dcbce55a3cd9"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-632e99704982",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Disk Storage KV retrieval speedup over full KV re-computation: 2.1×–9.7×; baseline=full KV re-computation, model=LLaMA-405B, hardware=8×H200, context=1K–100K tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-f90a9ca20185"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-951310cf83c5",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Host Memory KV retrieval speedup over full KV re-computation: 2.7×–23.1×; baseline=full KV re-computation, model=Maverick, hardware=8×H200, context=up to 1M tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-5d5e93e591ed"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-3eb2ae24a4ec",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Host Memory KV retrieval speedup over full KV re-computation: 2.6×–54.6×; baseline=full KV re-computation, model=Scout, hardware=8×H200, context=up to 4M tokens, workload=repeated request; batch sizes {1, 2, 8, 16, 32}, evaluation_mode=measured"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-d73ec7559f08"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-b7fcc69556d9",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Mean TTFT: 2,690 ms; baseline=2 TB CPU baseline, concurrency=50–300 conversations, workload=multi-turn conversation; 32 TB PF Memory Appliance, evaluation_mode=simulated"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-27a541a61d7c"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-3a1a596749cb",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Prefix-cache hit rate: 82 %; baseline=2 TB CPU baseline, concurrency=50–300 conversations, workload=multi-turn conversation; 32 TB PF Memory Appliance, evaluation_mode=simulated"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-938704c23a17"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-9a2b1e9f952b",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Mean TTFT: 8,156 ms; baseline=2 TB baseline, concurrency=100 conversations, workload=multi-turn conversation; 2 TB CPU baseline, evaluation_mode=simulated"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-cd66dfe14e7e"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-a1fee8429951",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "Prefix-cache hit rate: 6.35 %; baseline=2 TB baseline, concurrency=300 conversations, workload=multi-turn conversation; 2 TB CPU baseline, evaluation_mode=simulated"
+    },
+    {
+      "category": "result",
+      "claim_ids": [
+        "2607.27187-d6a67efd::auto-claim-b31c003bdc76"
+      ],
+      "disposition": "extracted",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "inventory_id": "2607.27187-d6a67efd::auto-inventory-f89744b93c7a",
+      "reason": null,
+      "searched_queries": [],
+      "summary": "TTFT gap: 6.6 ×; baseline=2 TB CPU baseline, concurrency=300 conversations, workload=multi-turn conversation; 32 TB PF Memory Appliance, evaluation_mode=simulated"
+    }
+  ],
+  "dossier_version": "1.0.0",
+  "evidence_ids": [
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0001:elem-2607.27187-d6a67efd-p0001-text-group-001-9bb3b434ba81:span-00000-02992",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c03",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c03",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c03",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c03",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0004:elem-2607.27187-d6a67efd-p0004-text-group-009-2667c614567e:span-00000-01140",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0004:figure-02:whole",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:elem-2607.27187-d6a67efd-p0005-text-group-010-f0b0912faa3e:span-00000-00848",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-03:whole",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:figure-04:whole",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834",
+    "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-026-37aaf9c29c0e:span-00000-02701"
+  ],
+  "experiment_observations": [
+    {
+      "baseline": "electrical CXL switched pool; reported as more than 50% reduction",
+      "concurrency": null,
+      "confidence": 0.98,
+      "context_length": null,
+      "dataset": null,
+      "direction": "lower_is_better",
+      "evaluation_mode": "emulated",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088"
+      ],
+      "hardware": null,
+      "metric": "CXL memory-pool-to-host access latency",
+      "model": null,
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o01",
+      "unit": "ns",
+      "value": "350",
+      "value_max": null,
+      "value_min": null,
+      "workload": "average 64-byte access"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "hardware": "1×A100",
+      "metric": "Host Memory KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-8B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o02",
+      "unit": "×",
+      "value": "3.3×–27.5×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r01-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:span-00000-00125",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "hardware": "1×A100",
+      "metric": "Disk Storage KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-8B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o03",
+      "unit": "×",
+      "value": "0.53×–1.72×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r02-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "hardware": "1×H100",
+      "metric": "Host Memory KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-8B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o04",
+      "unit": "×",
+      "value": "1.9×–11.8×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "hardware": "1×H200",
+      "metric": "Host Memory KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-8B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o05",
+      "unit": "×",
+      "value": "1.5×–17.2×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r03-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+      ],
+      "hardware": "1×H200",
+      "metric": "Disk Storage KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-8B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o06",
+      "unit": "×",
+      "value": "0.38×–1.27×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r04-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "hardware": "2×H200",
+      "metric": "Host Memory KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-70B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o07",
+      "unit": "×",
+      "value": "2.7×–51.4×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+      ],
+      "hardware": "8×H200",
+      "metric": "Host Memory KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-405B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o08r",
+      "unit": "×",
+      "value": "2.7×–100.0×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "1K–100K tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c03",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r05-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:elem-2607.27187-d6a67efd-p0003-text-group-004-2df559764180:span-00000-01330"
+      ],
+      "hardware": "8×H200",
+      "metric": "Disk Storage KV retrieval speedup over full KV re-computation",
+      "model": "LLaMA-405B",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o09",
+      "unit": "×",
+      "value": "2.1×–9.7×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "up to 1M tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r06-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "hardware": "8×H200",
+      "metric": "Host Memory KV retrieval speedup over full KV re-computation",
+      "model": "Maverick",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o10",
+      "unit": "×",
+      "value": "2.7×–23.1×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "full KV re-computation",
+      "concurrency": null,
+      "confidence": 0.99,
+      "context_length": "up to 4M tokens",
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "measured",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c02",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c00",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0003:table-01:cell-r07-c01",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814"
+      ],
+      "hardware": "8×H200",
+      "metric": "Host Memory KV retrieval speedup over full KV re-computation",
+      "model": "Scout",
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o11",
+      "unit": "×",
+      "value": "2.6×–54.6×",
+      "value_max": null,
+      "value_min": null,
+      "workload": "repeated request; batch sizes {1, 2, 8, 16, 32}"
+    },
+    {
+      "baseline": "2 TB CPU baseline",
+      "concurrency": "50–300 conversations",
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": null,
+      "direction": "lower_is_better",
+      "evaluation_mode": "simulated",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "hardware": null,
+      "metric": "Mean TTFT",
+      "model": null,
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o12",
+      "unit": "ms",
+      "value": "2,690",
+      "value_max": null,
+      "value_min": null,
+      "workload": "multi-turn conversation; 32 TB PF Memory Appliance"
+    },
+    {
+      "baseline": "2 TB CPU baseline",
+      "concurrency": "50–300 conversations",
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "simulated",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "hardware": null,
+      "metric": "Prefix-cache hit rate",
+      "model": null,
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o13",
+      "unit": "%",
+      "value": "82",
+      "value_max": null,
+      "value_min": null,
+      "workload": "multi-turn conversation; 32 TB PF Memory Appliance"
+    },
+    {
+      "baseline": "2 TB baseline",
+      "concurrency": "100 conversations",
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": null,
+      "direction": "lower_is_better",
+      "evaluation_mode": "simulated",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "hardware": null,
+      "metric": "Mean TTFT",
+      "model": null,
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o14",
+      "unit": "ms",
+      "value": "8,156",
+      "value_max": null,
+      "value_min": null,
+      "workload": "multi-turn conversation; 2 TB CPU baseline"
+    },
+    {
+      "baseline": "2 TB baseline",
+      "concurrency": "300 conversations",
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": null,
+      "direction": "higher_is_better",
+      "evaluation_mode": "simulated",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "hardware": null,
+      "metric": "Prefix-cache hit rate",
+      "model": null,
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o15",
+      "unit": "%",
+      "value": "6.35",
+      "value_max": null,
+      "value_min": null,
+      "workload": "multi-turn conversation; 2 TB CPU baseline"
+    },
+    {
+      "baseline": "2 TB CPU baseline",
+      "concurrency": "300 conversations",
+      "confidence": 0.99,
+      "context_length": null,
+      "dataset": null,
+      "direction": "lower_is_better",
+      "evaluation_mode": "simulated",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole"
+      ],
+      "hardware": null,
+      "metric": "TTFT gap",
+      "model": null,
+      "observation_id": "2607.27187-d6a67efd::technical_overview::to-o16",
+      "unit": "×",
+      "value": "6.6",
+      "value_max": null,
+      "value_min": null,
+      "workload": "multi-turn conversation; 32 TB PF Memory Appliance"
+    }
+  ],
+  "paper": {
+    "abstract": null,
+    "arxiv_id": "2607.27187",
+    "authors": [],
+    "page_count": 12,
+    "paper_id": "2607.27187-d6a67efd",
+    "source_hash": "d6a67efde2a1ed0e9fb38302708d83e1e43f2c237acd4826ec4daf1bd44e2326",
+    "source_path": "inputs/2607.27187.pdf",
+    "title": "A Photonic-CXL Memory Appliance for Scalable KV"
+  },
+  "unverified_items": [
+    {
+      "attempts": 3,
+      "filters": {
+        "document_id": "2607.27187-d6a67efd"
+      },
+      "item_id": "2607.27187-d6a67efd::technical_overview::to-u01",
+      "reason": "제공된 evidence registry에서 training 또는 fine-tuning 절차를 뒷받침하는 paper-owned evidence를 확인하지 못했다.",
+      "searched_queries": [
+        "training process",
+        "fine-tuning",
+        "training"
+      ],
+      "topic": "학습 또는 fine-tuning 절차"
+    }
+  ]
+}
