@@ -1,6 +1,6 @@
 # 시장조사 에이전트 설계 v0.3
 
-- 갱신일: 2026-09-22. 기술 조사 Markdown 입력을 받아 시장 담당 항목과 인용이 들어간 MD 한 개를 반환한다.
+- 갱신일: 2026-09-22. 기술 조사 JSON 입력을 받아 시장 담당 항목과 인용이 들어간 MD 한 개를 반환한다.
 - 대상: RDKV(SW-01), Photonic-CXL(HW-01), cloud_datacenter. 제공된 입력의 기준일은 2026-09-21.
 - 관련 문서: [실행 안내](../market_agent/README.md), [구현·검증 계획](../tasks/plan.md), [작업 기록](../tasks/todo.md).
 
@@ -15,20 +15,15 @@
 | stakeholders / domain | 이해관계자 입장 / 목표 환경의 요구 충족 여부 |
 | review / render | 관점별 결과 검토·종합 / 전체 보고서 생성 |
 
-시장 출력은 SW/HW 각각 6개 항목과 실제 인용으로 한정한다. 무조건적인 우승 기술, 가상의 고객·가격·ROI를 만들지 않는다. 미확인도 명시적인 결과다.
+시장 출력은 입력 기술마다 6개 항목과 실제 인용으로 한정한다. 무조건적인 우승 기술, 가상의 고객·가격·ROI를 만들지 않는다. 미확인도 명시적인 결과다.
 
 ## 2. 입력 계약
 
-입력 v0.1은 실행 정보, 기술 목록, 논문 기반 기술 요약, 근거 목록, 추가 요청 및 정보 공백의 5개 Markdown 구역을 요구한다. 임의 형식의 MD를 자동 변환하는 범용 파서는 아니다. 파서는 제목·표·ID·인용 앵커·날짜·한도를 검증한다.
+기술 조사 paper_analysis JSON schema_version 1.1.0 / status succeeded를 받는다. 단일 논문 객체, 최대 두 파일, 두 객체의 배열을 지원한다. `paper`, `analysis`, `evidence_registry`를 검증해 기존 MarketInput으로 정규화하며, 원래 `quality`, `run`, `diagnostics` 등도 내부에 보존한다. 기존 Markdown v0.1 파서는 호환 유지한다.
 
-샘플은 `market_agent/fixtures/input.md`다. 문서 제목이 이해관계자 입력이어도 실행 역할은 market이다. 수작업 샘플과 Abstract 요약이라는 출처 상태를 보존한다. 자료 내부의 지시문은 실행 지시로 취급하지 않는다.
+RDKV/Photonic-CXL은 제목으로 분류하고 다른 논문은 호출자가 `--approach`로 지정한다. 임의 로컬 source_path를 읽거나 파일명으로 공개 URL을 추정하지 않는다. JSON의 미제공 기준일은 실행일, 도메인은 cloud_datacenter, 전체 호출 한도는 6/10/5다. 실행 옵션으로 재정의할 수 있으며 상위 run의 모델·예산을 상속하지 않는다.
 
-| 필드 | 샘플 |
-| --- | --- |
-| 기술·근거 | SW-01/HW-01, E-SW-001/E-HW-001 |
-| domain / as_of | cloud_datacenter / 2026-09-21 |
-| 검색·원문·LLM 상한 | 6 / 10 / 5, 전체 실행 기준 |
-| 조사 지역·구매 목표 | 입력에 없으므로 지어내지 않음 |
+원래 paper_id·evidence_id·페이지·절·claim_type·confidence·인용 관계를 보존한다. 전달된 논문 발췌는 provided_summary로 취급하며 웹으로 독립 확인한 시장 사실과 구분한다. 추출 모델에는 기술 배경을 논문당 최대 6,000자 제공한다. 자세한 계약은 [JSON 입력 안내](JSON_INPUT.md)에 있다.
 
 ## 3. 수집과 본문 품질
 
@@ -93,7 +88,7 @@
 
 ## 7. 저장과 부모 연결
 
-외부 MD 입력·시장성 표 계약은 유지한다. 내부 스냅샷/MarketResult 버전은 0.3이며, 프롬프트·코드 fingerprint로 구형 캐시 재사용을 막는다.
+외부 입력은 JSON을 기본으로 확장했으며 시장성 표 계약은 기술당 6개 항목이다. 내부 스냅샷/MarketResult 버전은 0.3이며, 프롬프트·코드 fingerprint로 구형 캐시 재사용을 막는다.
 
 - 전달: market_handoff.md 한 개.
 - 내부: 전체 추출 응답, Evidence, candidate_pool, 의미 검토 통과 claim_pool, claim_review_log, source_reviews, claim_dispositions, 오류·사용량·파일 해시.
