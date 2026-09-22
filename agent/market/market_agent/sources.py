@@ -1,5 +1,6 @@
 """후보 우선순위와 원문 문단 선택. 검색 순위는 사실성 판정이 아니다."""
 import re
+from datetime import date, datetime
 from urllib.parse import urlsplit
 
 from .schemas import Segment
@@ -14,27 +15,57 @@ TERMS = {
 }
 
 
+def publication_date(raw):
+    """명시된 발행 표기·보도자료 dateline만 읽는다. 행사·저작권 날짜는 제외한다."""
+    months=r'January|February|March|April|May|June|July|August|September|October|November|December'
+    for line in raw[:16000].splitlines():
+        explicit=re.search(r'\b(?:published|posted|submitted)(?:\s+(?:on|date))?\s*[:：]?\s*(\d{4}-\d{2}-\d{2})',line,re.I)
+        if explicit:
+            try:return date.fromisoformat(explicit[1])
+            except ValueError:continue
+        dateline=re.search(r'[–—]\s*('+months+r')\s+(\d{1,2}),\s*(\d{4})\s*[–—]',line)
+        if dateline and re.search(r'today announced',line,re.I):
+            try:return datetime.strptime(' '.join(dateline.groups()),'%B %d %Y').date()
+            except ValueError:continue
+    return None
+
+
+def metadata_fragment(text, tech):
+    """제목/메뉴라는 구조 신호만 구분한다. 본문의 길이·어휘는 자격 조건이 아니다."""
+    titles={tech.name.casefold().strip(),tech.paper.casefold().strip()}
+    menus={'home','products','navigation','menu','sign in','log in','contact','about','access paper'}
+    lines=[re.sub(r'^#{1,6}\s*','',line.strip()) for line in text.splitlines() if line.strip()]
+    return bool(lines) and all(re.match(r'^(?:Title|Authors?|Published|Submitted)\s*:',line,re.I)
+        or line.casefold() in titles|menus for line in lines)
+
+
 def content_quality(raw, url, tech):
     """접근 성공과 내용 확보를 구분한다. 의미상 주장의 진실성 검사는 아니다."""
     paper = urlsplit(url).hostname == 'arxiv.org'
-    title = re.search(r'^#+\s*Title:\s*(.+)$', raw, re.M | re.I)
+    title = re.search(r'^(?:#+\s*)?Title:\s*(.+)$', raw, re.M | re.I)
     if paper and title and tech.name.casefold() not in title[1].casefold():
         return 'identity_mismatch', '요청한 논문과 추출 제목이 다름'
     body = re.split(r'^#+\s*(?:Bibliographic|arXivLabs|References & Citations)', raw, maxsplit=1, flags=re.M)[0]
     paragraphs = []
     for block in re.split(r'\n\s*\n', body):
-        text = re.sub(r'^#{1,6}[^\n]*', '', block, flags=re.M)
+        if metadata_fragment(block,tech):continue
+        text = re.sub(r'^#{1,6}\s*', '', block, flags=re.M)
         text = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', text).strip()
         if not text or text.startswith(('#', '|')):
             continue
         if re.match(r'^(arXivLabs|Both individuals|Have an idea|Watch the latest|Navigation)', text, re.I):
             continue
+        # 링크 목록은 본문이 아니지만 짧은 이용 조건·불완전 문장도 실제 자료다.
+        if not re.sub(r'\[[^\]]*\]\([^)]*\)|[\s|*\-]+', '', text):
+            continue
         text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
-        if len(re.findall(r'\w+', text)) >= 6 and re.search(r'[.!?。]|다[.\s]', text):
-            paragraphs.append(text)
+        paragraphs.append(text)
+    table_rows=[line.strip() for line in body.splitlines() if line.strip().startswith('|')]
+    if len(table_rows)>=3 and any(re.match(r'^\|\s*:?-{3,}',line) for line in table_rows) and not re.search(r'cite as|bibliographic',table_rows[0],re.I):
+        return 'substantive', '구조화된 표 본문 확보; 셀의 의미·단위는 별도 검토'
     if not paragraphs:
         return 'metadata_only', '제목·메뉴 외에 분석 가능한 본문을 확보하지 못함'
-    return 'substantive', '문장 형태의 본문 확보; 주장별 검증은 별도'
+    return 'substantive', '제목·메뉴 이외의 본문 확보; 주장별 검증은 별도'
 
 
 def content_fallback(url):
@@ -56,7 +87,7 @@ def relevance(text, tech, criteria):
 def rank_candidates(rows, tech, criteria):
     def score(row):
         host = (urlsplit(row.get('url', '')).hostname or '').lower()
-        first_party = host in {'arxiv.org', 'github.com', 'docs.vllm.ai', 'marvell.com', 'www.marvell.com', 'computeexpresslink.org'}
+        first_party = host in {'github.com', 'docs.vllm.ai', 'marvell.com', 'www.marvell.com', 'computeexpresslink.org'}
         direct = tech.name.casefold() in f"{row.get('title', '')} {row.get('content', '')}".casefold()
         body = f"{row.get('title', '')} {row.get('content', '')}".casefold()
         purpose = any(term in body for c in criteria for term in TERMS[c])

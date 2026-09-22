@@ -9,6 +9,7 @@ from market_agent.parser import read_input
 from market_agent.providers import FixtureAnalyst, FixtureWeb
 from market_agent.node import run_market
 from market_agent.report import render_report
+from market_agent.handoff import render_handoff
 from market_agent.cli import cache_path, save_run
 
 
@@ -19,12 +20,12 @@ INPUT = Path(__file__).parents[1] / "fixtures/input.md"
 class CliTests(unittest.TestCase):
     def test_debug_rounds_stay_in_cache_and_do_not_change_handoff(self):
         state = run_market(read_input(INPUT), FixtureWeb(), FixtureAnalyst(), mode='fixture')
-        expected = render_report(state)
+        expected = render_handoff(state)
         state['debug_analyses'] = [state['analysis'].model_dump(mode='json')]
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp)/'debug-run'
             save_run(state, output, 'test-fingerprint')
-            self.assertEqual((output/'market_handoff.md').read_text(), expected)
+            self.assertEqual((output/'market_handoff.json').read_text(), expected)
             self.assertEqual(len(list(output.iterdir())), 1)
             self.assertTrue((cache_path(output)/'debug.json').exists())
 
@@ -49,12 +50,12 @@ class CliTests(unittest.TestCase):
             self.assertEqual(config['limits'],{'search':2,'extract':6,'llm':3})
             run_args=[*args,'--mode','fixture','--output',str(output)]
             done=self.invoke(*run_args)
-            self.assertEqual(done.returncode,0,done.stderr)
+            self.assertEqual(done.returncode,3,done.stderr)
             cache=cache_path(output)
             self.assertTrue((cache/'input.json').exists())
             self.assertFalse((cache/'input.md').exists())
             self.assertEqual(len(json.loads((cache/'input.json').read_text())),2)
-            self.assertEqual(self.invoke(*run_args,'--reuse').returncode,0)
+            self.assertIn('failed_snapshot',self.invoke(*run_args,'--reuse').stderr)
             changed=[*run_args,'--as-of','2026-09-23','--reuse']
             self.assertIn('snapshot_mismatch',self.invoke(*changed).stderr)
 
@@ -78,15 +79,17 @@ class CliTests(unittest.TestCase):
             args = ["--input", str(INPUT), "--mode", "fixture", "--output", str(output)]
             done = self.invoke(*args)
             self.assertEqual(done.returncode, 0, done.stderr)
-            self.assertEqual([p.name for p in output.iterdir()], ['market_handoff.md'])
-            text = (output / "market_handoff.md").read_text()
+            self.assertEqual([p.name for p in output.iterdir()], ['market_handoff.json'])
+            text = (output / "market_handoff.json").read_text()
+            self.assertEqual(len(json.loads(text)['assessments']), 12)
             self.assertIn("fixture", text)
             self.assertIn("시장 규모·성장", text)
             snapshot = json.loads((cache_path(output) / "run.json").read_text())
-            self.assertEqual(snapshot["output_schema_version"],"0.3")
+            self.assertEqual(snapshot["output_schema_version"],"0.6")
+            self.assertEqual(snapshot['handoff_schema_version'], '1.0.0')
             self.assertIn("claim_pool",snapshot)
             self.assertIn("source_reviews",snapshot)
-            self.assertEqual(snapshot["result"]["usage"]["llm"], 1)
+            self.assertEqual(snapshot["result"]["usage"]["llm"], 4)
             second = self.invoke(*args, "--reuse")
             self.assertEqual(second.returncode, 0, second.stderr)
             self.assertIn("snapshot reused", second.stdout)
@@ -98,10 +101,23 @@ class CliTests(unittest.TestCase):
             output = Path(tmp) / 'run'
             args = ['--input', str(INPUT), '--mode', 'fixture', '--output', str(output)]
             self.assertEqual(self.invoke(*args).returncode, 0)
-            (output / 'market_handoff.md').write_text('corrupt')
+            (output / 'market_handoff.json').write_text('corrupt')
             done = self.invoke(*args, '--reuse')
             self.assertNotEqual(done.returncode, 0)
             self.assertIn('snapshot_integrity', done.stderr)
+
+    def test_offline_revalidation_also_emits_only_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original, checked = Path(tmp)/'original', Path(tmp)/'checked'
+            done = self.invoke('--input',str(INPUT),'--mode','fixture','--output',str(original))
+            self.assertEqual(done.returncode,0,done.stderr)
+            done = subprocess.run([sys.executable,'-m','market_agent.revalidate','--snapshot',
+                str(cache_path(original)/'run.json'),'--output',str(checked)],cwd=ROOT,capture_output=True,text=True)
+            self.assertEqual(done.returncode,0,done.stderr)
+            self.assertEqual([p.name for p in checked.iterdir()],['market_handoff.json'])
+            before=json.loads((original/'market_handoff.json').read_text())
+            after=json.loads((checked/'market_handoff.json').read_text())
+            self.assertEqual(before['assessments'],after['assessments'])
 
     def test_changed_input_cannot_reuse_previous_result(self):
         with tempfile.TemporaryDirectory() as tmp:

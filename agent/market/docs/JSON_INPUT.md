@@ -1,3 +1,24 @@
+# 현재 팀 입력: 기술 조사 JSON 4개
+
+2026-09-22 추가한 기본 통합 입력입니다. 아래 기존 paper_analysis 1.1.0 안내는 호환 입력의 설명입니다.
+
+| 파일 | 역할 | 검사 |
+| --- | --- | --- |
+| dossier 2개 | 논문별 분석·주장·실험 관측·한계 | dossier_version=1.0.0, 서로 다른 paper_id, 참조 소유 관계 |
+| evidence_registry.json | 공통 근거 191개(현재 실제 첨부) | evidence_id 유일성, snippet SHA-256, document_sha256와 paper.source_hash 일치 |
+| comparison.json | 비교 가능성·상충·결합 가설 | comparison_version=1.0.0, paper/evidence/observation/claim 참조 유효성 |
+
+```bash
+python -m market_agent.cli --input evidence_registry.json comparison.json dossiers/sw.json dossiers/hw.json --mode parse
+python -m market_agent.cli --input evidence_registry.json comparison.json dossiers/sw.json dossiers/hw.json --mode live --as-of 2026-09-22
+```
+
+이름은 예시이며 구조로 식별합니다. parse는 API를 호출하지 않습니다. 파일이 누락되거나 연결이 틀리면 실제 조사 전에 오류로 종료합니다. 논문 PDF는 자동으로 읽지 않고 첨부 JSON을 배경으로 사용합니다. 외부에 내보내는 결과는 `market_handoff.json` 하나입니다.
+
+`comparison.metric_comparisons`의 not_comparable, 서로 다른 측정·에뮬레이션·시뮬레이션 조건, `integration_hypotheses`의 미검증 전제는 별도 배경으로 제공됩니다. 상위 confidence는 시장 검증 신뢰도로 복사하지 않습니다. 독립 조회한 웹 인용만 시장 사실의 인용 후보가 됩니다.
+
+---
+
 # 기술 조사 JSON 입력 안내
 
 기술 조사 에이전트가 만든 `paper_analysis` **schema_version 1.1.0 / status succeeded** 결과를 바로 받는다. JSON 한 파일에 논문 객체 한 개를 넣거나, 두 파일을 함께 지정하거나, 한 파일의 JSON 배열에 두 객체를 넣을 수 있다. 현재 조사 한도에 맞춰 한 번에 최대 두 논문을 처리한다.
@@ -62,7 +83,7 @@ python -m market_agent.cli --input technical_sw.json technical_hw.json --domain 
 
 논문 분석 결과와 발췌는 상위 에이전트가 제공한 배경 자료다. 기존 `provided_summary` 신뢰 경계를 적용하여 원문을 직접 조회한 `full_text` 시장 근거로 자동 승격하지 않는다. `quality`의 supported나 높은 confidence는 시장 규모·상용화·실제 고객 채택의 증거를 대신하지 않는다. 시장 조사에서 확보한 웹 원문은 기존 구절 ID·주장·의미 검토를 거친다.
 
-출력은 계속 `market_handoff.md` 한 개다. 입력 논문이 한 개면 6행, 두 개면 12행이며 없는 기술을 추가하지 않는다. 내부 캐시에는 `input.json`과 원래 상위 문서, 정규화한 상태, 검증 기록을 저장한다. 원래 공백·키 순서 대신 JSON의 필드와 값을 보존한다.
+출력은 계속 `market_handoff.json` 한 개다. 입력 논문이 한 개면 6행, 두 개면 12행이며 없는 기술을 추가하지 않는다. 내부 캐시에는 `input.json`과 원래 상위 문서, 정규화한 상태, 검증 기록을 저장한다. 원래 공백·키 순서 대신 JSON의 필드와 값을 보존한다.
 
 입력 내용·기준일·도메인·한도·기술 구분·모델·코드가 달라지면 이전 캐시를 재사용하지 않는다. 기존 MD v0.1 입력도 지원하며 그 경우 `input.md`를 저장한다.
 
@@ -72,3 +93,8 @@ python -m market_agent.cli --input technical_sw.json technical_hw.json --domain 
 - 실제 첨부 두 파일에서 기술 2개 및 원래 근거 25개를 읽었다(SW 13, HW 12).
 - 첨부 파일로 `--mode fixture`에서 입력 → Graph → 12행 MD → JSON 내부 저장을 확인했다. **실제 시장 결과를 생성하는 live 호출은 이번 입력 변경 검증에서 수행하지 않았다.**
 - 검증 출력 위치: `market_agent/outputs/20260922_json_input_fixture/market_handoff.md`. 가상 결과이므로 통합 보고서의 시장 근거로 사용하지 않는다.
+
+
+### 기술적 전제 사용 (v1.3)
+
+등록된 발췌 중 자원·운영 효과를 서술하는 후보를 기술당 최대 2개 선택해 business_value의 조건부 추론에 제공합니다. 입력 자료의 access_status는 provided_summary로 유지하며, 원문 구절·위치·논문 소유 관계와 한계를 함께 검증합니다. 제품화·채택·시장 규모를 입증하는 근거로 전용하지 않습니다. 전체 비교의 not_comparable 제한도 유지됩니다.

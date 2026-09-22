@@ -48,7 +48,7 @@ class ToolTests(unittest.TestCase):
         web = TavilyWeb("test-only", client=httpx.Client(transport=httpx.MockTransport(handle)))
         candidate = web.search("RDKV", date(2026, 9, 21))[0]
         self.assertEqual(web.extract(candidate["url"]), "full source")
-        self.assertEqual(requests[0]["max_results"], 3)
+        self.assertEqual(requests[0]["max_results"], 6)
         self.assertFalse(requests[0]["include_answer"])
         self.assertFalse(requests[0]["include_raw_content"])
 

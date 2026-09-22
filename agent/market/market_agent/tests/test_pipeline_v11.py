@@ -31,13 +31,14 @@ class PipelineTests(unittest.TestCase):
         from market_agent.report import render_report
         state=run_market(self.data,ProductWeb(),ProductAnalyst(),mode='fixture')
         row=next(r for r in state['result'].assessments if r.tech_id=='HW-01' and r.criterion_id=='ecosystem_support')
-        self.assertEqual(row.verdict,'unknown')
+        self.assertEqual(row.verdict,'provisional')
+        self.assertEqual(row.basis,'inference')
         self.assertEqual(len(row.context_findings),1)
         self.assertIn('PF-NIC',render_report(state))
         self.assertLessEqual(state['result'].usage['llm'],3)
         self.assertIn('included',state['claim_dispositions'].values())
 
-    def test_invalid_quote_is_repaired_from_existing_sources_without_research(self):
+    def test_invalid_quote_is_repaired_while_missing_research_purposes_are_covered(self):
         class Repair(ProductAnalyst):
             calls=0
             def extract(self,*args,**kwargs):
@@ -46,7 +47,7 @@ class PipelineTests(unittest.TestCase):
                 if self.calls==1:result.claims[0].citation.quote='This quote does not exist.'
                 return result
         state=run_market(self.data,ProductWeb(),Repair(),mode='fixture')
-        self.assertEqual(state['result'].usage['search'],2)
+        self.assertEqual(state['result'].usage['search'],6)
         self.assertEqual(state['result'].usage['llm'],3)
         self.assertFalse(any(e['stage']=='claims' for e in state['result'].errors))
         self.assertTrue(state['claim_pool'])
@@ -57,7 +58,8 @@ class PipelineTests(unittest.TestCase):
             def extract(self,url):return '# Title:RDKV\n\n| Cite as | arXiv:2605.08317v1 |\n\n# Access Paper'
         state=run_market(self.data,Metadata(),ProductAnalyst(),mode='fixture')
         self.assertEqual(state['result'].usage['llm'],0)
-        self.assertTrue(any('본문' in g for r in state['result'].assessments for g in r.gaps))
+        self.assertTrue(any(m.review_status=='excluded' and m.reason for r in state['result'].assessments for m in r.supporting_materials))
+        self.assertTrue(all(not r.citations for r in state['result'].assessments))
 
     def test_composition_repair_rechecks_candidates_after_missing_reviews(self):
         class Repair(ProductAnalyst):

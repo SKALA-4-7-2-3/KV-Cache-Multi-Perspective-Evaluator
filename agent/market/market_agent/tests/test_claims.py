@@ -6,6 +6,17 @@ from market_agent.schemas import Evidence, Citation
 
 
 class ClaimTests(unittest.TestCase):
+    def test_candidate_limit_preserves_multiple_criteria_and_relation_types(self):
+        from market_agent.claims import limit_claims
+        pool={f'A{i}':self.claim(criterion_id='business_value') for i in range(20)}
+        pool['B']=self.claim(criterion_id='commercialization')
+        pool['C']=self.claim(criterion_id='ecosystem_support')
+        result=limit_claims(pool,total=4,per_cell=2)
+        self.assertEqual(len(result),4)
+        self.assertEqual(sum(c.criterion_id=='business_value' for c in result.values()),2)
+        self.assertIn('B',result)
+        self.assertIn('C',result)
+
     def setUp(self):
         self.data = read_input(Path(__file__).parents[1]/'fixtures/input.md')
         self.web = Evidence(id='MKT-X', doc_id='X', title='PF-NIC support', url='https://example.org/support',
@@ -48,8 +59,9 @@ class ClaimTests(unittest.TestCase):
             verdict='conditional',basis='fact',claim_ids=list(pool),conditions=['조건'],gaps=[])
         result,errors=materialize(self.data,DraftAnalysis(assessments=[draft],followup_questions=[]),pool)
         row=next(r for r in result.assessments if r.tech_id=='HW-01' and r.criterion_id=='ecosystem_support')
-        self.assertEqual(row.basis,'unknown')
-        self.assertEqual(len(row.context_findings),1)
+        self.assertEqual(row.basis,'inference')
+        self.assertEqual(row.relation_to_technology,'method_family')
+        self.assertNotIn('선정 논문을 지원한다',row.judgment)
         self.assertFalse(errors)
 
     def test_duplicate_source_claim_is_not_counted_twice(self):

@@ -16,6 +16,15 @@ REASONS = {
 }
 
 
+def error_applies(error, row, evidence):
+    if error.get('scope') == 'global':
+        return True
+    if error.get('tech_id'):
+        return error['tech_id'] == row.tech_id and error.get('criterion_id') in {None,row.criterion_id}
+    source = evidence.get(error.get('evidence_id'))
+    return bool(source and row.tech_id in source.tech_ids)
+
+
 def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, reviewed=None):
     rows = []
     for original in analysis.assessments:
@@ -26,13 +35,13 @@ def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, re
         scoped = [e for e in evidence.values() if row.tech_id in e.tech_ids and e.access_status == 'full_text'
             and any(term in e.excerpt.casefold() for term in TERMS[row.criterion_id])]
         cited = row.evidence_ids + [c.evidence_id for f in row.context_findings for c in f.citations]
-        row.reviewed_evidence_ids = list(dict.fromkeys([*(reviewed.get((row.tech_id,row.criterion_id),[]) if reviewed is not None else (e.id for e in scoped)), *cited])) if model_ran else []
+        row.reviewed_evidence_ids = list(dict.fromkeys([*(reviewed.get((row.tech_id,row.criterion_id),[]) if reviewed is not None else (e.id for e in scoped)), *cited])) if model_ran or reviewed else []
         row.research_status = 'reviewed' if row.reviewed_evidence_ids else ('searched' if row.search_ids else 'not_started')
         row.unknown_reasons = [r for r in row.unknown_reasons if r in {'identity_unverified', 'conflicting_sources', 'date_unverified'}]
         if row.basis == 'unknown':
             if any(row.tech_id in e.tech_ids and e.content_status in {'metadata_only','identity_mismatch'} for e in evidence.values()):
                 row.unknown_reasons.append('content_insufficient')
-            if any(e['stage'] in {'claims','compose','validate','llm_extract','llm_compose'} and e.get('tech_id',row.tech_id)==row.tech_id and e.get('criterion_id',row.criterion_id)==row.criterion_id for e in errors):
+            if any(e['stage'] in {'claims','compose','validate','llm_extract','llm_compose','llm_audit','audit'} and error_applies(e,row,evidence) for e in errors):
                 row.unknown_reasons.append('processing_error')
             if row.research_status == 'not_started':
                 row.unknown_reasons.append('not_searched')
@@ -41,7 +50,8 @@ def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, re
             failures = [e for e in errors if e.get('tech_id') == row.tech_id and e.get('criterion_id') in {None, row.criterion_id}]
             if any(e['stage'] == 'extract' and not e['code'].startswith('budget_') for e in failures):
                 row.unknown_reasons.append('source_inaccessible')
-            if any(e['code'].startswith('budget_') for e in failures) or not budget.remaining('llm') or (not scoped and (not budget.remaining('search') or not budget.remaining('extract'))):
+            if any(e['code'].startswith('budget_') and error_applies(e,row,evidence) for e in errors) or (
+                    row.research_status!='reviewed' and not scoped and (not budget.remaining('llm') or not budget.remaining('search') or not budget.remaining('extract'))):
                 row.unknown_reasons.append('budget_exhausted')
             if row.reviewed_evidence_ids:
                 row.unknown_reasons.append('insufficient_evidence')

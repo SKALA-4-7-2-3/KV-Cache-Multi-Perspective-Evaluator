@@ -4,6 +4,8 @@ import math
 import re
 from collections import Counter
 
+from .quantities import metric_matches_quote
+from .policy import CONDITIONAL_CRITERIA
 from .schemas import Analysis, CRITERIA, unknown
 
 
@@ -20,8 +22,7 @@ def metric_supported(metric, citations, evidence):
         return False
     if any(c.evidence_id not in evidence or evidence[c.evidence_id].access_status != 'full_text' for c in citations):
         return False
-    numbers = [float(n.replace(',', '')) for c in citations for n in re.findall(r'\d[\d,]*(?:\.\d+)?', c.quote)]
-    return metric.value in numbers
+    return any(metric_matches_quote(metric,c.quote) for c in citations)
 
 
 def valid_citations(citations, evidence, as_of):
@@ -33,6 +34,11 @@ def valid_citations(citations, evidence, as_of):
         if not e or e.access_status in {'snippet', 'failed'} or e.content_status in {'metadata_only','identity_mismatch'} or (e.published_at and e.published_at > as_of):
             return False
         if not c.quote.strip() or not c.subject.strip() or not c.source_character.strip():
+            return False
+        if c.context and not any(normalized(c.context) in normalized(body)
+                for body in ([s.text for s in e.segments] or [e.excerpt])):
+            return False
+        if normalized(c.subject) not in normalized(c.quote+' '+c.context):
             return False
         # 떨어진 문단을 이어 붙인 가상의 인용을 허용하지 않는다.
         segments = e.segments or []
@@ -51,10 +57,12 @@ def identity_supported(tech, citations, evidence):
     tokens = [tech.name, *ids]
     for c in citations:
         e = evidence[c.evidence_id]
+        if e.access_status=='provided_summary' and e.id in tech.evidence_ids and tech.id in e.tech_ids:
+            continue  # 파서가 검증한 논문별 참조 소유권. 시장 사실을 입증하지는 않는다.
+        if not any(normalized(t) in normalized(c.subject) for t in tokens):
+            return False
         text = normalized(c.identity_quote or c.quote)
         if any(normalized(t) in text for t in tokens):
-            continue
-        if e.access_status == 'provided_summary' and tech.id in e.tech_ids:
             continue
         return False
     return bool(citations)
@@ -117,7 +125,7 @@ def validate_analysis(data, analysis, evidence):
                         code = "missing_technology_relation"
                 if row.metric:
                     metric = row.metric
-                    if row.basis != "fact" or not web or not math.isfinite(metric.value) or not all(
+                    if row.basis == "unknown" or not web or not math.isfinite(metric.value) or not all(
                         [metric.unit, metric.year, metric.market_definition, metric.geography]):
                         code = "unsupported_metric"
                 if not code and row.basis != 'unknown':
@@ -125,14 +133,18 @@ def validate_analysis(data, analysis, evidence):
                         code = 'missing_or_invalid_quote'
                     elif set(row.evidence_ids) != {c.evidence_id for c in row.citations}:
                         code = 'citation_ids_mismatch'
-                    elif row.relation_to_technology != 'exact' or not identity_supported(data.technologies[tech_id], row.citations, evidence):
+                    elif row.relation_to_technology == 'exact' and not identity_supported(data.technologies[tech_id], row.citations, evidence):
                         code = 'identity_unverified'
+                    elif row.relation_to_technology != 'exact' and not (criterion in CONDITIONAL_CRITERIA
+                            and row.basis=='inference' and row.verdict=='conditional' and row.conditions
+                            and all(tech_id in evidence[c.evidence_id].tech_ids for c in row.citations)):
+                        code = 'related_scope_requires_conditional_inference'
                     elif row.basis == 'inference' and not row.conditions:
                         code = 'inference_requires_conditions'
                     elif (row.metric or quantitative_claim(row.judgment)) and not metric_supported(row.metric, row.citations, evidence):
                         code = 'unsupported_metric'
                 if not code and any(e.access_status == "full_text" and e.published_at is None for e in refs):
-                    row = row.model_copy(update={"conditions": list(dict.fromkeys(row.conditions + ["발행일 미확인: 기준일 당시의 상태인지 추가 확인 필요"]))})
+                    row = row.model_copy(update={"conditions": list(dict.fromkeys(row.conditions + ["발행일 미확인: 기준일 당시 상태 추가 확인 필요"]))})
             contexts = []
             if row:
                 for finding in row.context_findings:

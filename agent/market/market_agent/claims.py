@@ -1,8 +1,11 @@
 """주장 단위로 검증하고, 검증된 ID만 평가의 인용으로 변환한다."""
 import hashlib
+import re
 from collections import Counter
 
 from .schemas import Analysis, Assessment, ContextFinding, CRITERIA, unknown, Claim, DraftAnalysis, DraftAssessment
+from .quantities import numeric_tokens
+from .policy import assessment_eligible, conditional_scope, quote_relevant
 from .validation import valid_citations, identity_supported, metric_supported, quantitative_claim, normalized
 
 
@@ -10,6 +13,8 @@ def recover_previous(previous):
     """부모의 기존 Analysis 계약을 지원한다. 복수 출처 주장을 임의로 쪼개지 않는다."""
     claims=[]
     for row in previous.assessments if previous else []:
+        if row.evaluation_mode != 'grounded':
+            continue
         items=[(row.judgment,row.basis,row.relation_to_technology,row.citations,row.conditions,row.metric)]
         items += [(c.statement,c.basis,c.relation_to_technology,c.citations,c.conditions,c.metric) for c in row.context_findings]
         for statement,basis,relation,citations,conditions,metric in items:
@@ -28,7 +33,7 @@ def previous_draft(previous,pool,fallback):
     for row in fallback.assessments:
         r=old.get((row.tech_id,row.criterion_id))
         if r and r.basis!='unknown':
-            ids=[k for k,c in pool.items() if (c.tech_id,c.criterion_id,c.relation_to_technology)==(r.tech_id,r.criterion_id,'exact')
+            ids=[k for k,c in pool.items() if (c.tech_id,c.criterion_id)==(r.tech_id,r.criterion_id) and assessment_eligible(c)
                 and any(c.citation.evidence_id==x.evidence_id and normalized(c.citation.quote)==normalized(x.quote) for x in r.citations)]
             covered={(pool[k].citation.evidence_id,normalized(pool[k].citation.quote)) for k in ids}
             expected={(c.evidence_id,normalized(c.quote)) for c in r.citations}
@@ -66,7 +71,8 @@ def validate_claims(data, claims, evidence):
         elif (claim.metric or quantitative_claim(claim.statement)) and not metric_supported(claim.metric,[c],evidence):
             code = 'unsupported_metric'
         if code:
-            errors.append(dict(stage='claims',code=code,tech_id=claim.tech_id,criterion_id=claim.criterion_id,evidence_id=c.evidence_id))
+            errors.append(dict(stage='claims',code=code,scope='cell',tech_id=claim.tech_id,criterion_id=claim.criterion_id,
+                evidence_id=c.evidence_id,candidate=claim.model_dump_json()))
             continue
         if e.published_at is None:
             claim.conditions = list(dict.fromkeys([*claim.conditions,'발행일 미확인: 기준일 당시 상태 추가 확인 필요']))
@@ -77,6 +83,20 @@ def validate_claims(data, claims, evidence):
         key = 'CLM-' + hashlib.sha256(identity.encode()).hexdigest()[:16]
         pool.setdefault(key,claim)
     return pool, errors
+
+
+def criterion_supported(claim):
+    """시장 역할에 명백히 맞지 않는 기술 설명을 의미 검토의 독립 최소 조건으로 거른다."""
+    quote=re.sub(r'no cost to efficiency','',claim.citation.quote,flags=re.I)
+    # 버전/거리 등 수치도 주변 문장만으로 덧붙이지 않는다. FP8 같은 이름의 숫자는 제외한다.
+    numbers=numeric_tokens
+    quote_numbers=numbers(quote)
+    months='January February March April May June July August September October November December'.split()
+    for number,month in enumerate(months,1):
+        if re.search(r'\b'+month+r'\s+\d{1,4}\b',quote):quote_numbers.update(numbers(str(number)))
+    if not numbers(claim.statement)<=quote_numbers:
+        return False
+    return quote_relevant(claim.criterion_id,quote)
 
 
 def review_claims(pool, reviews):
@@ -90,12 +110,46 @@ def review_claims(pool, reviews):
             log[key] = 'unreviewed'
             errors.append(dict(stage='compose',code='missing_claim_review',tech_id=claim.tech_id,
                 criterion_id=claim.criterion_id,claim_id=key))
-        elif review.supported:
-            accepted[key] = claim
+        elif review.supported and review.market_relevant and review.relation_supported and review.conditions_preserved and criterion_supported(claim):
+            checked=claim.model_copy(deep=True)
+            checked.evidence_level=claim.evidence_level if claim.evidence_level in {'research_experiment','simulation'} else review.evidence_level
+            if checked.criterion_id=='business_value' and ('arxiv.org' in checked.citation.source_character or checked.evidence_level in {'research_experiment','simulation'}):
+                checked.basis='inference'
+                checked.conditions=list(dict.fromkeys([*checked.conditions,'연구상 기술 효과는 고객 가치의 전제이며 실제 고객 비용·ROI 실측 결과가 아님']))
+            if review.evidence_level in {'projection','planned_release','inference'}:
+                checked.basis='inference'
+                checked.conditions=list(dict.fromkeys([*checked.conditions,'전망·계획에 근거한 추론이며 실제 고객 성과 미검증']))
+            if 'arxiv.org' in checked.citation.source_character and re.search(r'carbon|environment|sustainab',checked.citation.quote,re.I):
+                checked.evidence_level='projection'
+                checked.basis='inference'
+                checked.conditions=list(dict.fromkeys([*checked.conditions,'환경·에너지 효과는 연구 저자의 전망이며 실측 고객 성과 미검증']))
+            checked.citation.source_character = checked.citation.source_character.split('; 근거 수준:')[0] + f'; 근거 수준: {checked.evidence_level}'
+            accepted[key] = checked
             log[key] = 'accepted: ' + review.reason
         else:
-            log[key] = 'rejected: ' + review.reason
+            log[key] = 'rejected: ' + (review.reason if criterion_supported(claim) else 'criterion_evidence_mismatch: 해당 시장 항목의 명시적 근거 부족')
     return accepted, log, errors
+
+
+def limit_claims(pool, total=12, per_cell=2):
+    """입력 순서의 독점을 막고 기술·항목별로 균등하게 후보를 배정한다."""
+    groups={}
+    for key,claim in pool.items():
+        groups.setdefault((claim.tech_id,claim.criterion_id),[]).append((key,claim))
+    ordered={}
+    for cell,items in sorted(groups.items()):
+        items.sort(key=lambda x:(not criterion_supported(x[1]),x[1].relation_to_technology!='exact',x[1].basis!='fact',x[0]))
+        first=items[:1]
+        rest=items[1:]
+        rest.sort(key=lambda x:x[1].relation_to_technology==first[0][1].relation_to_technology)
+        ordered[cell]=first+rest
+    selected={}
+    for index in range(per_cell):
+        for items in ordered.values():
+            if len(items)>index and len(selected)<total:
+                key,claim=items[index]
+                selected[key]=claim
+    return selected
 
 
 def materialize(data, draft, pool):
@@ -108,33 +162,44 @@ def materialize(data, draft, pool):
             scoped = {k:c for k,c in pool.items() if c.tech_id==tech and c.criterion_id==criterion}
             row = unknown(tech,criterion,'이번 조사에서 선정 기술 자체를 판단할 직접 근거를 확인하지 못함')
             code = None
-            if not any(c.relation_to_technology=='exact' for c in scoped.values()):
+            if not any(assessment_eligible(c) for c in scoped.values()):
                 # 직접 근거가 없는 행의 판정은 모델에 맡기지 않는다.
                 # 관련 정보는 아래에서 연결하고 후보의 제외 사유는 별도로 기록한다.
                 row.gaps=['선정 기술 자체의 해당 시장 항목을 입증할 직접 근거 미확인']
             elif d is None or counts[tech,criterion] != 1:
                 code = 'missing_or_duplicate_assessment'
-            elif any(k not in scoped or scoped[k].relation_to_technology!='exact' for k in d.claim_ids):
+            elif any(k not in scoped or not assessment_eligible(scoped[k]) for k in d.claim_ids):
                 code = 'claim_scope_mismatch'
             elif d.basis != 'unknown' and not d.claim_ids:
                 code = 'missing_claim_reference'
-            elif d.basis == 'fact' and any(scoped[k].basis!='fact' for k in d.claim_ids):
-                code = 'inference_promoted_to_fact'
+            elif any(scoped[k].relation_to_technology!='exact' for k in d.claim_ids) and (d.basis=='unknown' or not d.conditions or d.verdict!='conditional'):
+                row.gaps=['관련 근거를 선정 기술의 사실로 확정할 수 없음: 적용 조건을 갖춘 추론 필요']
             elif d.basis == 'unknown':
                 row.judgment, row.gaps = d.judgment, d.gaps
                 row.conditions = d.conditions
             else:
                 selected = [scoped[k] for k in dict.fromkeys(d.claim_ids)]
                 citations = [c.citation.model_copy(deep=True) for c in selected]
-                row = Assessment(tech_id=tech,criterion_id=criterion,judgment=' '.join(dict.fromkeys(c.statement for c in selected)),verdict=d.verdict,
-                    basis=d.basis,relation_to_technology='exact',evidence_ids=list(dict.fromkeys(c.evidence_id for c in citations)),
-                    citations=citations,conditions=list(dict.fromkeys([*d.conditions,*(x for c in selected for x in c.conditions)])),
+                basis='inference' if any(c.basis=='inference' for c in selected) else d.basis
+                relation=next((r for r in ('adjacent','method_family') if any(c.relation_to_technology==r for c in selected)),'exact')
+                judgment=' '.join(dict.fromkeys(c.statement for c in selected))
+                conditions=list(dict.fromkeys([*d.conditions,*(x for c in selected for x in c.conditions)]))
+                if relation!='exact':
+                    prefix,condition=conditional_scope(criterion,relation)
+                    judgment=f'{prefix}: {judgment}'
+                    conditions=list(dict.fromkeys([*conditions,condition]))
+                    basis='inference'
+                row = Assessment(tech_id=tech,criterion_id=criterion,judgment=judgment,verdict=d.verdict,
+                    basis=basis,relation_to_technology=relation,evidence_ids=list(dict.fromkeys(c.evidence_id for c in citations)),
+                    citations=citations,conditions=conditions,
                     gaps=d.gaps,metric=next((c.metric for c in selected if c.metric),None))
             if code:
                 errors.append(dict(stage='compose',code=code,tech_id=tech,criterion_id=criterion))
                 row.gaps = ['평가 작성 결과의 근거 연결 오류로 선정 기술 결론을 보류함']
             # 평가 모델이 보조 정보 배열을 쓰는지에 의존하지 않는다.
-            related = [c for c in scoped.values() if c.relation_to_technology!='exact']
+            used={(c.evidence_id,normalized(c.quote)) for c in row.citations}
+            related = [c for c in scoped.values() if c.relation_to_technology!='exact'
+                and (c.citation.evidence_id,normalized(c.citation.quote)) not in used]
             related.sort(key=lambda c:(c.basis!='fact', c.relation_to_technology!='method_family'))
             row.context_findings = [ContextFinding(statement=c.statement,basis=c.basis,
                 relation_to_technology=c.relation_to_technology,citations=[c.citation.model_copy(deep=True)],

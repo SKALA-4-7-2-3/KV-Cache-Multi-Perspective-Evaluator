@@ -90,6 +90,27 @@ def technical_summary(doc, registered):
     return '\n'.join(lines)
 
 
+def model_background(data, technology):
+    """원본 참조는 내부에 남기고 모델에는 기술 내용·한계만 투영한다."""
+    document = next((d for d in data.source_documents
+        if d.get('paper', {}).get('paper_id') == technology.paper_id), None)
+    if not document:
+        return technology.summary[:6000]
+    lines = []
+    for obs in document.get('experiment_observations',[])[:8]:
+        lines.append('[experiment] ' + json.dumps({k:v for k,v in obs.items()
+            if k not in {'evidence_ids','context_evidence_ids','observation_id'}},ensure_ascii=False))
+    for group, fields in document['analysis'].items():
+        lines.append(f'[{group}]')
+        for field, items in fields.items():
+            if field == 'not_reported':
+                lines.append(f'not_reported: {", ".join(items)}')
+            else:
+                for item in items:
+                    lines.append(f'{field} [{item["claim_type"]}; confidence={item["confidence"]}]: {item["text"]}')
+    return '\n'.join(lines)[:6000]
+
+
 def parse_paper_analyses(documents, *, as_of=None, domain=None, limits=None, approaches=None):
     documents = documents if isinstance(documents,list) else [documents]
     if not 1 <= len(documents) <= 2:
@@ -141,7 +162,7 @@ def parse_paper_analyses(documents, *, as_of=None, domain=None, limits=None, app
     try:
         return MarketInput(schema_version='1.1.0',run_id='market-'+digest[:16],
             domain=domain or 'cloud_datacenter',as_of=as_of or date.today(),language='ko',
-            limits=limits or Limits(search=6,extract=10,llm=5),technologies=technologies,evidence=evidence,
+            limits=limits or Limits(search=18,extract=24,llm=10),technologies=technologies,evidence=evidence,
             raw_markdown='',input_hash=digest,input_format='paper_analysis_json',
             source_documents=copy.deepcopy(documents),provenance='상위 기술 조사 paper_analysis JSON 1.1.0',
             notes='상위 quality/confidence는 기술 분석의 기록이며 시장성 검증을 대신하지 않음',warnings=warnings)

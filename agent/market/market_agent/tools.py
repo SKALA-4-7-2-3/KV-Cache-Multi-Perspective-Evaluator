@@ -28,6 +28,7 @@ class Budget:
         self.limits = limits.model_dump()
         self.used = dict.fromkeys(self.limits, 0)
         self.events = []
+        self.progress = {}
         self._lock = threading.Lock()
 
     def remaining(self, kind):
@@ -135,10 +136,10 @@ class TavilyWeb:
 
     def search(self, query: str, as_of: date):
         data = self._post("search", {"query": query, "topic": "general", "search_depth": "basic",
-            "max_results": 3, "include_answer": False, "include_raw_content": False,
+            "max_results": 6, "include_answer": False, "include_raw_content": False,
             "end_date": as_of.isoformat(), "include_published_date": True})
         result = []
-        for row in data["results"][:3]:
+        for row in data["results"][:6]:
             if not isinstance(row, dict) or not all(isinstance(row.get(k), str) for k in ["url", "title", "content"]):
                 raise ProviderError("tavily_invalid_search_item")
             if public_url(row["url"]):

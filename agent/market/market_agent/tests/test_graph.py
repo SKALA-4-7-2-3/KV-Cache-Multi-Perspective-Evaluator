@@ -12,6 +12,16 @@ INPUT = Path(__file__).parents[1] / "fixtures/input.md"
 
 
 class GraphTests(unittest.TestCase):
+    def test_execution_status_is_separate_from_provisional_delivery(self):
+        result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),mode='fixture')['result']
+        self.assertEqual(result.status,'provisional')
+        self.assertEqual(result.execution_status,'completed')
+        self.assertEqual(result.output_schema_version,'0.6')
+
+    def test_unsearched_criteria_make_execution_partial(self):
+        result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),auto_repair=False,mode='fixture')['result']
+        self.assertEqual(result.execution_status,'partial')
+
     def test_same_acronym_in_video_platform_or_profile_is_not_kv_cache_evidence(self):
         from market_agent.node import relevant_candidate
         tech = read_input(INPUT).technologies['SW-01']
@@ -19,6 +29,12 @@ class GraphTests(unittest.TestCase):
                     dict(title='RDK Video documentation', content='RDKV build and license')]:
             self.assertFalse(relevant_candidate(row, tech))
         self.assertTrue(relevant_candidate(dict(title='RDKV', content='Rate-distortion KV cache quantization'), tech))
+
+    def test_unrelated_research_benchmarks_do_not_take_market_source_slots(self):
+        from market_agent.node import relevant_candidate
+        tech=read_input(INPUT).technologies['HW-01']
+        self.assertFalse(relevant_candidate(dict(url='https://arxiv.org/abs/2404.19381',title='CXL memory NDP',content='Memory processing benchmark'),tech))
+        self.assertTrue(relevant_candidate(dict(url='https://www.marvell.com/product',title='CXL memory product',content='KV cache product release'),tech))
 
     def test_every_unknown_records_research_state_and_zero_budget_reason(self):
         data = read_input(INPUT).model_copy(update={'limits': Limits(search=0, extract=0, llm=0)})
@@ -79,20 +95,20 @@ class GraphTests(unittest.TestCase):
         report = result["result"]
         self.assertEqual(len(report.assessments), 12)
         self.assertEqual(report.round, 1)
-        self.assertEqual(report.usage["llm"], 1)
+        self.assertEqual(report.usage["llm"], 2)
         self.assertLessEqual(report.usage["search"], 6)
         self.assertLessEqual(report.usage["extract"], 10)
-        self.assertEqual(report.status, "unknown")
+        self.assertEqual(report.status, "provisional")
         self.assertTrue(result["sources"])
         self.assertEqual(sum(step.startswith('repair_') for step in result['history']), 1)
         self.assertEqual(result['history'][-1], 'finish')
 
-    def test_zero_budget_returns_unknown_without_provider_calls(self):
+    def test_zero_budget_returns_scenarios_without_provider_calls(self):
         data = read_input(INPUT).model_copy(update={"limits": Limits(search=0, extract=0, llm=0)})
         result = run_market(data, FixtureWeb(), FixtureAnalyst(), mode="fixture")
         self.assertEqual(result["result"].usage, {"search": 0, "extract": 0, "llm": 0})
-        self.assertEqual(result["result"].status, "unknown")
-        self.assertTrue(all(a.basis == "unknown" for a in result["result"].assessments))
+        self.assertEqual(result["result"].status, "provisional")
+        self.assertTrue(all(a.basis == "inference" for a in result["result"].assessments))
 
     def test_auth_failure_stops_followup_calls(self):
         class Unauthorized(FixtureWeb):
@@ -105,7 +121,8 @@ class GraphTests(unittest.TestCase):
     def test_parent_adapter_returns_only_market_delta(self):
         result = run_market(read_input(INPUT), FixtureWeb(), FixtureAnalyst(), mode="fixture", auto_repair=False)
         update = parent_update(result)
-        self.assertEqual(set(update), {"assessments", "documents", "evidence", "errors"})
+        self.assertEqual(set(update), {"assessments", "documents", "evidence", "errors",
+                                       "retained_draft_findings", "review_notes"})
         self.assertEqual(set(update["assessments"]), {"market"})
         self.assertEqual(result["result"].round, 0)
         self.assertEqual(result["result"].usage["llm"], 1)
@@ -137,7 +154,8 @@ class GraphTests(unittest.TestCase):
         data = read_input(INPUT).model_copy(update={"limits": Limits(search=6, extract=0, llm=5)})
         result = run_market(data, FixtureWeb(), FixtureAnalyst())
         self.assertEqual(result["result"].usage["llm"], 0)
-        self.assertEqual(result["result"].status, "unknown")
+        self.assertEqual(result["result"].status, "provisional")
+        self.assertTrue(all(a.basis != "fact" and not a.citations for a in result["result"].assessments))
         self.assertTrue(any(e.access_status == "snippet" for e in result["evidence"].values()))
 
     def test_unrelated_product_pages_are_not_extracted_or_sent_to_model(self):

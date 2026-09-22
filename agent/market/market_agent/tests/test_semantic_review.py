@@ -6,6 +6,31 @@ from market_agent.schemas import Claim, Citation
 
 
 class SemanticReviewTests(unittest.TestCase):
+    def test_market_irrelevant_claim_is_rejected_even_when_quote_matches(self):
+        from market_agent.claims import review_claims
+        from market_agent.schemas import ClaimReview
+        review=ClaimReview(claim_id='A',supported=True,reason='실험 수식만 설명함',market_relevant=False)
+        pool,log,errors=review_claims({'A':self.claim},[review])
+        self.assertFalse(pool)
+        self.assertIn('rejected',log['A'])
+
+    def test_planned_benefit_is_preserved_as_inference_with_conditions(self):
+        from market_agent.claims import review_claims
+        from market_agent.schemas import ClaimReview
+        review=ClaimReview(claim_id='A',supported=True,reason='실측 고객 자료 없는 전망',evidence_level='projection')
+        pool,_,_=review_claims({'A':self.claim},[review])
+        self.assertEqual(pool['A'].basis,'inference')
+        self.assertTrue(pool['A'].conditions)
+
+    def test_other_product_does_not_become_exact_because_paper_is_mentioned(self):
+        from market_agent.validation import identity_supported
+        from market_agent.schemas import Evidence
+        e=Evidence(id='E',doc_id='D',title='Related product',url='https://example.org',access_status='full_text',
+            excerpt='RDKV is another approach. Product-X is commercially available.')
+        cite=Citation(evidence_id='E',quote='Product-X is commercially available.',subject='Product-X',
+            identity_quote='RDKV',source_character='합성 자료')
+        self.assertFalse(identity_supported(self.data.technologies['SW-01'],[cite],{'E':e}))
+
     def setUp(self):
         self.data = read_input(Path(__file__).parents[1] / 'fixtures/input.md')
         self.claim = Claim(tech_id='SW-01', criterion_id='business_value',

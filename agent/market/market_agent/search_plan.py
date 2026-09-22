@@ -15,8 +15,10 @@ SUFFIXES = {
 def initial_questions(data):
     questions = []
     for tech in data.technologies.values():
-        name = 'Marvell Photonic Fabric' if 'Marvell Photonic Fabric' in tech.summary else tech.name
-        query = f'"{tech.name}" "KV cache" implementation license' if tech.approach == 'SW' else f'{name} memory appliance product'
+        query = f'"{tech.name}" KV cache implementation product repository'
+        if 'photonic' in tech.name.casefold():
+            query='photonic fabric CXL memory appliance KV cache product site:marvell.com'
+        # 상위 PDF 제목이 중간에서 잘릴 수 있어 이름을 검색하고 논문 URL은 별도 조회한다.
         questions.append(Question(tech_id=tech.id, criterion_id='commercialization',
             criteria=['commercialization', 'adoption', 'ecosystem_support'], query=query,
             reason='선정 기술의 직접 구현·제품화 단서와 관련 제품의 연결 확인', source_type='논문·공식 저장소·공식 제품 문서'))
@@ -24,31 +26,59 @@ def initial_questions(data):
 
 
 def repair_questions(data, rows, proposed, queries):
+    """미조사 목적을 기술별로 번갈아 배분한다. 모델의 검색 문장은 실행하지 않는다."""
     seen = {' '.join(q['query'].lower().split()) for q in queries}
-    pending = {(r.tech_id, r.criterion_id): r for r in rows if r.verdict == 'unknown' or r.gaps}
+    pending = {(r.tech_id,r.criterion_id) for r in rows if r.verdict=='unknown' or r.gaps}
     result = []
-    for tech in data.technologies.values():
-        priorities = list(dict.fromkeys([q.criterion_id for q in proposed if q.tech_id == tech.id
-            and (tech.id, q.criterion_id) in pending] + list(CRITERIA)))
-        candidates = []
-        for criterion in priorities:
-            row = pending.get((tech.id, criterion))
-            if not row:
+    groups = [
+        ('market_size_growth',['market_size_growth','business_value']),
+        ('standardization',['standardization','ecosystem_support']),
+    ]
+    for primary,criteria in groups:
+        for tech in data.technologies.values():
+            if not any((tech.id,c) in pending for c in criteria):
                 continue
-            name = f'"{tech.name}" "KV cache"' if tech.approach == 'SW' else f'"{tech.name}" memory'
-            if criterion == 'market_size_growth':
-                name = 'KV cache inference optimization' if tech.approach == 'SW' else 'CXL memory pooling'
-            candidates.append(Question(tech_id=tech.id, criterion_id=criterion, criteria=[criterion],
-                query=f'{name} {SUFFIXES[criterion]}', reason='해당 항목의 남은 근거 공백 보완'))
-        # 동일성 공백이 있으면 직접 연결 자료를 먼저 확인한다.
-        candidates.sort(key=lambda q: 'identity_unverified' not in pending[(tech.id, q.criterion_id)].unknown_reasons)
-        for q in candidates:
-            key = ' '.join(q.query.lower().split())
-            if key in seen or not q.query.strip() or len(q.query) > 400:
+            family = 'KV cache inference optimization' if tech.approach=='SW' else 'CXL memory pooling'
+            suffix = SUFFIXES[primary]
+            if primary=='standardization':
+                suffix += ' vLLM compatibility' if tech.approach=='SW' else ' official CXL consortium'
+            query = f'{family} {suffix}'
+            if primary=='standardization':
+                query=('site:docs.vllm.ai quantized KV cache support' if tech.approach=='SW' else
+                    'site:computeexpresslink.org CXL specification memory pooling')
+            if query.casefold() in seen:
                 continue
-            if not q.criteria:
-                q = q.model_copy(update={'criteria': [q.criterion_id]})
-            result.append(q)
-            seen.add(key)
-            break
-    return result[:2]
+            result.append(Question(tech_id=tech.id,criterion_id=primary,criteria=criteria,query=query,
+                reason='미조사 목적의 관련 기술군 자료 확인; 선정 논문의 시장 실적과 구분',
+                source_type='공식 표준·제품 문서·시장 정의와 방법론을 공개한 자료'))
+            seen.add(query.casefold())
+    return result[:4]
+
+
+def progressive_questions(data, rows, queries, level):
+    """수준 1=같은 기술군, 수준 2=인접 시장. 모든 목적에 기술별 검색 기회를 준다."""
+    seen = {' '.join(q['query'].casefold().split()) for q in queries}
+    pending = {(r.tech_id, r.criterion_id) for r in rows if r.verdict == 'unknown' or r.gaps}
+    groups = [
+        ('market_size_growth', ['market_size_growth', 'business_value']),
+        ('standardization', ['standardization', 'ecosystem_support']),
+        ('commercialization', ['commercialization', 'adoption']),
+    ]
+    result = []
+    for primary, criteria in groups:
+        for tech in data.technologies.values():
+            if not any((tech.id, c) in pending for c in criteria):
+                continue
+            family = ('KV cache quantization inference software' if tech.approach == 'SW' else 'CXL memory pooling appliance')
+            adjacent = ('AI inference serving software GPU infrastructure' if tech.approach == 'SW' else 'AI server disaggregated memory infrastructure')
+            query = f'{family if level == 1 else adjacent} {SUFFIXES[primary]}'
+            if level == 1 and primary == 'standardization':
+                query = ('site:docs.vllm.ai quantized KV cache support' if tech.approach == 'SW' else
+                         'site:computeexpresslink.org CXL specification memory pooling')
+            if query.casefold() in seen:
+                continue
+            result.append(Question(tech_id=tech.id, criterion_id=primary, criteria=criteria, query=query,
+                reason=('같은 기술군' if level == 1 else '인접 시장') + ' 자료까지 확대; 선정 기술의 실제 실적과 분리',
+                source_type='공식 문서 우선; 관련 업체·산업 분석·사례 자료도 참고자료로 수용'))
+            seen.add(query.casefold())
+    return result

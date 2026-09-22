@@ -59,6 +59,7 @@ class _Bridge:
         self.documents, self.evidence, self.attribution = {}, {}, {}
         self.collected_sources = []
         self.source_reports = []
+        self.market_findings, self.market_notes = [], []
         self.aliases, self.notes = {}, []
         self.source_run = bundle["run"].get("run", {})
         self.collected_at = self.source_run.get("finished_at") or self.source_run.get("started_at") or self.as_of
@@ -142,7 +143,7 @@ class _Bridge:
                 if original in self.evidence:
                     self.aliases[eid] = original
 
-    def web_sources(self, role, raw_sources, supports):
+    def web_sources(self, role, raw_sources, supports, full_texts=None):
         for key, value in raw_sources.items():
             raw = _plain(value)
             eid = raw.get("id") or key
@@ -151,7 +152,8 @@ class _Bridge:
             if original in self.evidence:
                 self.aliases[eid] = original
                 continue
-            excerpt = raw.get("excerpt") or ""
+            full_text = (full_texts or {}).get(raw.get("doc_id"))
+            excerpt = full_text if isinstance(full_text, str) and raw.get("access_status") == "full_text" else raw.get("excerpt") or ""
             url = raw.get("url") or ""
             techs = [t for t in raw.get("technology_ids", raw.get("tech_ids", [])) if t in TECHS]
             quotes = _unique(supports.get(eid, []))
@@ -167,6 +169,7 @@ class _Bridge:
                 "technology_ids": techs,
                 "usage_status": "cited" if matching else "collected_not_cited",
                 "collection_status": raw.get("access_status") or ("excerpt_available" if excerpt else "content_unavailable"),
+                **{field: raw[field] for field in ("access_scope", "content_status") if raw.get(field) is not None},
             }
             self.collected_sources.append(source_metadata)
             if not excerpt or not url.startswith(("https://", "http://")) or not techs:
@@ -294,33 +297,77 @@ class _Bridge:
         container = self.results["market"]
         output = _plain(container.get("result", container))
         rows = [_plain(r) for r in output.get("assessments", [])]
+        execution = output.get("execution_status") or container.get("execution_status")
+        self.market_notes.append({"status": output.get("status"), "execution_status": execution,
+            "note": "시장 평가의 provisional은 잠정 해석이며 partial은 일부 처리 미완료입니다. 정형 비상 문구는 모델 평가 결론으로 전달하지 않습니다."})
         supports = {}
         for row in rows:
             citations = list(row.get("citations", []))
             citations += [c for finding in row.get("context_findings", []) for c in finding.get("citations", [])]
+            citations += [m for m in row.get("supporting_materials", []) if m.get("review_status") != "excluded"]
             for cite in citations:
                 supports.setdefault(cite["evidence_id"], []).append(cite.get("quote", ""))
-        self.web_sources("market", container.get("evidence", {}), supports)
+        for finding in container.get("retained_draft_findings", []):
+            for support in finding.get("supports", []):
+                supports.setdefault(support["evidence_id"], []).append(support.get("quote", ""))
+        self.web_sources("market", container.get("evidence", {}), supports, container.get("sources", {}))
+        for row in rows:
+            if row.get("generation_method") == "deterministic_fallback":
+                self.market_notes.append({"technology_id": row.get("tech_id"), "criterion_id": row.get("criterion_id"),
+                    "generation_method": "deterministic_fallback", "evaluation_mode": row.get("evaluation_mode"),
+                    "research_status": row.get("research_status"), "gaps": row.get("gaps", []),
+                    "note": "이 항목의 모델 평가가 완성되지 않아 원래의 정형 판단 문구는 보고서 결론에서 제외했습니다."})
+                continue
+            materials = [deepcopy(m) for m in row.get("supporting_materials", [])]
+            references = list(row.get("citations", [])) + [m for m in materials if m.get("review_status") != "excluded"]
+            for ref in materials:
+                ref["evidence_id"] = self.resolve(ref["evidence_id"])
+            self.market_findings.append({
+                "id": f"market-assessment:{row['tech_id']}:{row['criterion_id']}",
+                "technology_ids": [row["tech_id"]], "criterion_id": row["criterion_id"],
+                "text": row.get("judgment", ""), "observation": row.get("observation", ""),
+                "basis": row.get("basis"), "conditions": row.get("conditions", []),
+                "generation_method": row.get("generation_method", "verified_claim"),
+                "evaluation_mode": row.get("evaluation_mode"), "evaluation_level": row.get("evaluation_level"),
+                "verdict": row.get("verdict"), "execution_status": execution,
+                "evidence_ids": _unique(self.resolve(ref["evidence_id"]) for ref in references),
+                "supports": [{**ref, "evidence_id": self.resolve(ref["evidence_id"])} for ref in references],
+                "supporting_materials": materials, "review_status": "market_agent_assessment",
+                "review_notes": list(row.get("gaps", [])) + ["자료 관찰과 시장 해석을 구분하고 참고자료를 검증된 시장 실적으로 승격하지 않습니다."],
+            })
         source_keys = {"ecosystem": {"ecosystem_support", "standardization"}, "cost": {"business_value"}, "customer_value": {"business_value"}}
         cells = {}
         for tech in TECHS:
             cells[tech] = []
             for cid in CRITERIA["market"]:
                 selected = [r for r in rows if r.get("tech_id") == tech and r.get("criterion_id") in source_keys.get(cid, {cid})]
-                findings = [r["judgment"] for r in selected if r.get("judgment")]
+                analyzed = [r for r in selected if r.get("generation_method") != "deterministic_fallback"]
+                findings = [f"자료 관찰: {r['observation']}" for r in analyzed if r.get("observation")]
+                findings += [r["judgment"] for r in analyzed if r.get("judgment")]
                 findings += [f["statement"] for r in selected for f in r.get("context_findings", [])]
-                ids = [eid for r in selected for eid in r.get("evidence_ids", [])]
+                ids = [eid for r in analyzed for eid in r.get("evidence_ids", [])]
+                ids += [c["evidence_id"] for r in analyzed for c in r.get("citations", [])]
+                ids += [m["evidence_id"] for r in analyzed for m in r.get("supporting_materials", []) if m.get("review_status") != "excluded"]
                 ids += [c["evidence_id"] for r in selected for f in r.get("context_findings", []) for c in f.get("citations", [])]
                 gaps = [g for r in selected for g in r.get("gaps", []) + r.get("unknown_reasons", [])]
-                known = [r for r in selected if r.get("verdict") not in {None, "unknown"}]
+                if len(analyzed) != len(selected):
+                    gaps.append("모델 평가 미완료 항목의 정형 비상 문구는 결론에서 제외했습니다. 수집 자료와 관련 정보는 별도로 보존합니다.")
+                if execution in {"partial", "failed"}:
+                    gaps.append(f"시장 조사 처리 상태: {execution}. 제공된 관찰은 활용하되 조사 전체가 완료된 것으로 해석하지 않습니다.")
+                if any(r.get("evaluation_mode") in {"provisional", "scenario", "research_plan"} for r in analyzed):
+                    gaps.append("관련 자료 또는 기술적 전제에 따른 잠정 평가이며 선정 기술의 실제 시장 성과를 확정하지 않습니다.")
+                known = [r for r in analyzed if r.get("verdict") not in {None, "unknown"}]
                 verdict = "conditional" if known else "unknown"
                 if cid in {"cost", "customer_value"}:
                     gaps.append("상위 business_value 항목을 비용/고객 가치로 연결한 것으로 두 개의 독립 조사 결과가 아닙니다.")
                 cells[tech].append(self.item(tech, cid, " / ".join(findings) or "판단 보류", ids, judgment=verdict,
                     basis="mixed" if known else "unknown", findings=findings,
-                    conditions=[c for r in selected for c in r.get("conditions", [])], gaps=gaps,
+                    conditions=[c for r in analyzed for c in r.get("conditions", [])]
+                        + [c for r in selected for f in r.get("context_findings", []) for c in f.get("conditions", [])], gaps=gaps,
                     relevance="direct" if selected and all(r.get("relation_to_technology") == "exact" for r in selected) else "indirect"))
         status = output.get("status")
+        if status == "provisional" or execution == "partial":
+            status = "unknown"
         if status == "failed" and container.get("retained_draft_findings"):
             status = "unknown"
         return self.role(cells, status, demo=output.get("mode") not in {None, "live"})
@@ -390,12 +437,16 @@ def build_review_state(bundle, request, results, *, run_id, as_of) -> dict[str, 
             "usable_source_reports": bridge.source_reports,
             "upstream_draft_findings": [dict(finding, role=role)
                 for role in ("market", "stakeholders")
-                for finding in results[role].get("retained_draft_findings", [])],
+                for finding in results[role].get("retained_draft_findings", [])
+                if finding.get("generation_method") != "deterministic_fallback"]
+                + [dict(finding, role="market") for finding in bridge.market_findings],
             "upstream_review_notes": [{"role": role, "note": note}
                 for role in ("market", "stakeholders")
-                for note in results[role].get("review_notes", [])],
+                for note in results[role].get("review_notes", [])]
+                + [{"role": "market", "note": note} for note in bridge.market_notes],
             "upstream_statuses": {"stakeholders": results["stakeholders"].get("execution_status"),
-                "market": results["market"].get("result", {}).get("status")},
+                "market": results["market"].get("result", {}).get("status"),
+                "market_execution": results["market"].get("result", {}).get("execution_status")},
             "raw_domain_input": request_text, "normalized_domain": {"id": bridge.domain["id"], "name": bridge.domain["name"]},
             "evaluation_as_of": bridge.as_of, "requirements": {str(k): str(v) for k, v in requirements.items()},
             "domain_requirements": deepcopy(requirements), "source_attribution": bridge.attribution,

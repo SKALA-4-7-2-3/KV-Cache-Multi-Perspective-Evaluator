@@ -14,8 +14,8 @@ from dotenv import dotenv_values
 from .node import parent_update, run_market
 from .parser import InputError, read_input
 from .prompts import PROMPT_VERSION
-from .providers import FixtureAnalyst, FixtureWeb, OpenAIAnalyst
-from .report import render_report
+from .providers import AdaptiveFixtureAnalyst, FixtureWeb, OpenAIAnalyst
+from .handoff import HANDOFF_FILENAME, HANDOFF_SCHEMA_VERSION, render_handoff
 from .tools import ProviderError, TavilyWeb
 from .schemas import Limits
 
@@ -43,11 +43,13 @@ def save_run(state, output, key):
     cache = cache_path(output)
     if output.exists():
         raise InputError('output_exists')
+    handoff = render_handoff(state)
     cache.mkdir(parents=True, exist_ok=False)
     (cache / 'sources').mkdir()
     data = state["data"]
-    if data.input_format == 'paper_analysis_json':
-        document=data.source_documents[0] if len(data.source_documents)==1 else data.source_documents
+    if data.input_format != 'markdown':
+        document=([data.source_registry,data.comparison,*data.source_documents] if data.input_format=='technical_bundle_json'
+            else (data.source_documents[0] if len(data.source_documents)==1 else data.source_documents))
         (cache/'input.json').write_text(json.dumps(document,ensure_ascii=False,indent=2),encoding='utf-8')
     else:
         (cache / "input.md").write_text(data.raw_markdown, encoding="utf-8")
@@ -55,7 +57,8 @@ def save_run(state, output, key):
         if not re.fullmatch(r'[\w-]+', doc_id):
             raise InputError('invalid_document_id')
         (cache / "sources" / f"{doc_id}.md").write_text(body, encoding="utf-8")
-    snapshot = {"output_schema_version": '0.3', "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
+    snapshot = {"output_schema_version": '0.6', "handoff_schema_version": HANDOFF_SCHEMA_VERSION,
+        "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
         "model": state["model"], "input": data.model_dump(mode="json"),
         "result": state["result"].model_dump(mode="json"),
         "evidence": {k: v.model_dump(mode="json") for k, v in state["evidence"].items()},
@@ -66,15 +69,18 @@ def save_run(state, output, key):
         "candidate_pool": {k:v.model_dump(mode='json') for k,v in state.get('candidate_pool',{}).items()},
         "claim_review_log": state.get('claim_review_log',{}),
         "source_reviews": state.get('reviews',{}),
+        "extraction_history": state.get('extraction_history',[]),
+        "graph_history": state.get('history',[]),
         "claim_dispositions": state.get('claim_dispositions',{}),
         "parent_update": parent_update(state)}
     (cache / "run.json").write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
     if state.get('debug_analyses'):
         (cache / 'debug.json').write_text(json.dumps({'analyses': state['debug_analyses'], 'history': state['history']}, ensure_ascii=False, indent=2), encoding='utf-8')
     output.mkdir(parents=True, exist_ok=False)
-    (output / 'market_handoff.md').write_text(render_report(state), encoding='utf-8')
+    (output / HANDOFF_FILENAME).write_text(handoff, encoding='utf-8')
     files = {str(p.relative_to(cache)): file_hash(p) for p in cache.rglob('*') if p.is_file()}
-    manifest = {'files': files, 'handoff_hash': file_hash(output / 'market_handoff.md')}
+    manifest = {'files': files, 'handoff_filename': HANDOFF_FILENAME,
+        'handoff_hash': file_hash(output / HANDOFF_FILENAME)}
     (cache / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
 
 
@@ -83,11 +89,12 @@ def check_reuse(output, key):
     if not cache.is_dir():
         raise InputError('legacy_or_missing_snapshot: 구형 출력은 보존되며 새 검증 결과로 재사용하지 않습니다')
     saved = json.loads((cache / 'run.json').read_text())
-    if saved.get('output_schema_version') != '0.3' or saved.get('fingerprint') != key:
+    if (saved.get('output_schema_version') != '0.6' or saved.get('fingerprint') != key
+            or saved.get('handoff_schema_version') != HANDOFF_SCHEMA_VERSION):
         raise InputError('snapshot_mismatch: 입력·모델·코드·프롬프트·출력 버전이 다릅니다')
     manifest = json.loads((cache / 'manifest.json').read_text())
     files = manifest.get('files', {})
-    input_name='input.json' if saved.get('input',{}).get('input_format')=='paper_analysis_json' else 'input.md'
+    input_name='input.json' if saved.get('input',{}).get('input_format','markdown')!='markdown' else 'input.md'
     if not {'run.json', input_name} <= files.keys():
         raise InputError('snapshot_integrity: 필수 내부 자료 누락')
     for name, digest in files.items():
@@ -96,11 +103,13 @@ def check_reuse(output, key):
         p = cache / name
         if not p.is_file() or p.is_symlink() or file_hash(p) != digest:
             raise InputError('snapshot_integrity: 내부 저장 자료가 변경됐습니다')
-    handoff = output / 'market_handoff.md'
+    if manifest.get('handoff_filename') != HANDOFF_FILENAME:
+        raise InputError('snapshot_integrity: 전달 파일 형식이 다릅니다')
+    handoff = output / HANDOFF_FILENAME
     if not handoff.is_file() or file_hash(handoff) != manifest.get('handoff_hash'):
-        raise InputError('snapshot_integrity: 전달 MD가 없거나 변경됐습니다')
+        raise InputError('snapshot_integrity: 전달 JSON이 없거나 변경됐습니다')
     result = saved.get('result', {})
-    if result.get('status') not in {'completed', 'unknown'} or result.get('errors', True):
+    if result.get('execution_status')!='completed' or result.get('errors', True):
         raise InputError('failed_snapshot: 오류가 남은 실행을 성공 캐시로 재사용하지 않습니다')
     return handoff
 
@@ -108,7 +117,7 @@ def check_reuse(output, key):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="기술 조사 JSON 입력 기반 시장조사 에이전트")
     parser.add_argument("--input", required=True, type=Path, nargs='+', action='extend',
-        help='paper_analysis JSON 1~2개 또는 기존 MD 한 개')
+        help='dossier·registry·comparison JSON 4개, paper_analysis JSON 1~2개 또는 MD 한 개')
     parser.add_argument('--as-of', type=date.fromisoformat, help='조사 기준일 YYYY-MM-DD (JSON 기본: 실행일)')
     parser.add_argument('--domain', help='조사 도메인 (JSON 기본: cloud_datacenter)')
     parser.add_argument('--approach', nargs='+', choices=['SW','HW'], help='새 논문은 JSON 문서 순서대로 SW/HW 지정')
@@ -118,7 +127,7 @@ def main(argv=None):
     parser.add_argument("--output", type=Path)
     parser.add_argument("--reuse", action="store_true", help="같은 입력·코드·모델의 저장 결과만 재사용")
     parser.add_argument("--model", default="gpt-4.1-mini")
-    parser.add_argument('--debug', action='store_true', help='내부 캐시에 회차별 모델 결과 보존; 전달 MD는 동일')
+    parser.add_argument('--debug', action='store_true', help='내부 캐시에 회차별 모델 결과 보존; 전달 JSON은 동일')
     parser.add_argument("--env-file", type=Path, default=Path(__file__).parents[1] / ".env")
     args = parser.parse_args(argv)
     web = analyst = None
@@ -155,13 +164,13 @@ def main(argv=None):
                 raise InputError("missing_credentials: " + ", ".join(missing))
             web, analyst = TavilyWeb(values["TAVILY_API_KEY"]), OpenAIAnalyst(values["OPENAI_API_KEY"], args.model, debug=args.debug)
         else:
-            web, analyst = FixtureWeb(), FixtureAnalyst()
+            web, analyst = FixtureWeb(), AdaptiveFixtureAnalyst()
         state = run_market(data, web, analyst, mode=args.mode)
         save_run(state, output, key)
         result = state["result"]
-        print(f"status={result.status}; mode={args.mode}; attempts={result.usage}")
-        print(f"handoff: {output.resolve() / 'market_handoff.md'}")
-        return 2 if result.status == "failed" else 0
+        print(f"status={result.status}; execution={result.execution_status}; mode={args.mode}; attempts={result.usage}")
+        print(f"handoff: {output.resolve() / HANDOFF_FILENAME}")
+        return {'completed':0,'partial':3,'failed':2}[result.execution_status]
     except (InputError, OSError, ValueError, ProviderError) as exc:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
