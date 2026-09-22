@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kv-cache-report-agent"
+version = "0.1.0"
+description = "Generate an Overleaf-compatible Korean LaTeX report and compiled PDF"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "openai>=1.66.0,<3",
+]
+
+[project.scripts]
+kv-report-agent = "report_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
