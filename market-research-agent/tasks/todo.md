@@ -276,3 +276,95 @@
 - [x] JSON 내부 저장·캐시 옵션 일치·기존 MD 호환.
 - [x] 92개 검사와 실제 첨부 25개 근거 파싱, 가상 제공자 전체 경로 검증.
 - [x] 입력 안내·설계 갱신. 실제 시장 live 재실행은 수행하지 않음.
+
+## JSON 라이브 실패 개선 v1.2 — 설계 완료·구현 대기
+
+설계: [원인 분석 및 수정안](../docs/MARKET_JSON_RELIABILITY_DESIGN.md). 기준 실행 `20260922_json_live`의 저장 응답을 API 호출 없이 재생해 원인을 확인했다. 아래 항목은 아직 구현하지 않았다.
+
+### J1. 관찰된 실패를 최소 재현 사례로 고정 — P0 / M
+
+- [ ] 상위 근거 ID 사용·접두사 치환, 유효 제품 인용의 잘못된 exact 분류, 국소 오류의 전역 전파를 합성 자료로 재현한다.
+- [ ] 실제 원문·첨부 대신 짧은 테스트 자료를 사용하고 기존 테스트가 놓친 실패임을 확인한다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_quality_regression -v`; 수정 전 실패/수정 후 통과를 기록.
+- 파일: `fixtures/review_cases.json`, `tests/test_quality_regression.py`, `tests/test_providers.py`.
+- 의존: 없음.
+
+### J2. 배경 정보와 인용 선택을 분리 — P0 / M
+
+- [ ] 원본 JSON ID는 보존하고 모델 배경에는 text·한계·claim_type/confidence만 투영한다. 동적 허용 인용 목록과 로컬 참조 검사를 적용한다.
+- [ ] 미등록 ID는 유사 매칭 없이 격리하고, 인용 후보가 없을 때 호출을 생략한다. 이전 유효 후보를 보존한다.
+- [ ] SDK 계약 검증, 전체 12개/항목당 2개 배분, 단일/두 논문·기존 MD 경로를 검사한다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_json_input market_agent.tests.test_providers market_agent.tests.test_quotes -v`.
+- 파일: `json_input.py`, `providers.py`, `quotes.py`, `tests/test_providers.py`, `tests/test_quotes.py`.
+- 의존: J1.
+
+### J3. 대상 관계와 관련 자료 복구 — P0 / M
+
+- [ ] 원문의 실제 대상 표현을 보존하고 exact 동일성 검사와 기술군 관련성 검사를 분리한다.
+- [ ] 동일성 실패 후보를 이력에 남기고 대상·관계 교정을 거쳐 관련 정보로 연결한다. 모든 실패를 자동으로 method_family로 바꾸지 않는다.
+- [ ] 논문 고객 채택으로 잘못 승격한 결과 0건, 유효한 관련 제품 정보가 후속 응답에서 누락돼도 추적 가능해야 한다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_claims market_agent.tests.test_pipeline_v11 market_agent.tests.test_quality_regression -v`.
+- 파일: `schemas.py`, `claims.py`, `validation.py`, `node.py`, `tests/test_quality_regression.py`.
+- 의존: J2.
+
+### 체크포인트 J-A
+
+- [ ] 잘못된 ID와 잘못된 exact는 차단되고, 실제 관련 제품 근거는 조건과 원문을 유지한다.
+- [ ] 기존 입력·보고서 계약의 회귀가 없다. API 재실행은 아직 하지 않는다.
+
+### J4. 오류 영향 범위·자료 검토 이력 — P0 / M
+
+- [ ] 오류를 scope·영향 행·active/resolved로 추적하며 출처 한 건 오류가 무관한 행으로 전파되지 않는다.
+- [ ] 검토 후 기각·유효 근거 채택·미조사를 구분하고 출처 검토 요약은 코드가 후보 이력에서 계산한다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_graph market_agent.tests.test_quality_regression -v`.
+- 파일: `schemas.py`, `node.py`, `research.py`, `tests/test_graph.py`, `tests/test_quality_regression.py`.
+- 의존: J3.
+
+### J5. 목적별 조사와 독립된 보완 분기 — P0 / M
+
+- [ ] 추가 조사·추출 교정·평가 교정을 각각 최대 1회로 분리하되 총 6/10/5와 부모의 더 작은 예산을 지킨다.
+- [ ] 전체 제목에 의한 논문 식별을 기존 검색에 포함하고, 초기 최대 2질의·보완 최대 4질의를 미조사 목적 중심으로 배분한다.
+- [ ] 최종 평가 1시도를 예약하고, 반복 교정·접근 실패·재시도·부모 후속 실행에도 종료와 부분 결과 보존을 확인한다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_search_plan market_agent.tests.test_graph market_agent.tests.test_tools -v`.
+- 파일: `search_plan.py`, `collection.py`, `node.py`, `tests/test_search_plan.py`, `tests/test_graph.py`.
+- 의존: J4.
+
+### J6. 주장 성격과 의미 검토 강화 — P1 / M
+
+- [ ] 인용 주변 조건·절 제목을 보존하고 연구 실험·시뮬레이션·계획·발행자 주장·고객 실적을 분류한다.
+- [ ] 인용 지지 여부·시장 관련성·관계·조건 검토를 명시하며 전망을 실측으로, 벤치마크를 고객 채택으로 쓰지 않는다.
+- [ ] 고객 가치의 사실/추론 혼합과 날짜 미확인을 조건에 반영하고 교정 문장을 동일 검증기에 통과시킨다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_semantic_review market_agent.tests.test_quotes market_agent.tests.test_quality_regression -v`.
+- 파일: `schemas.py`, `quotes.py`, `prompts.py`, `claims.py`, `tests/test_semantic_review.py`.
+- 의존: J4; J5와 함께 다음 관문에서 검증.
+
+### 체크포인트 J-B
+
+- [ ] 처리 오류와 미조사·근거 부족을 구분하고 모든 예정 조사에 완료 또는 생략 이유가 있다.
+- [ ] 오류 복구가 조사 기회를 독점하지 않으며, 기존 6/10/5 내에서 모든 경로가 종료한다.
+- [ ] 의미 검토의 반례와 국소 오류 회귀를 통과한다.
+
+### J7a. 실행 상태·부모 어댑터·캐시 계약 — P1 / M
+
+- [ ] 내부 0.4 계약에 execution_status와 영향 범위를 반영하고 기존 status 호환 매핑을 명시한다.
+- [ ] CLI 종료 코드 0/2/3, 이전 캐시 비재사용, 부모 후속 호출의 예산·진행 상태 보존을 검사한다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_cli market_agent.tests.test_graph -v`.
+- 파일: `schemas.py`, `node.py`, `cli.py`, `tests/test_cli.py`, `tests/test_graph.py`.
+- 의존: J5, J6.
+
+### J7b. 통합용 MD와 사용 안내 — P1 / M
+
+- [ ] 기존 6개 항목·단일 MD·인용 표를 유지하고 상세 진단 대신 항목 해석에 필요한 한계를 간결하게 출력한다.
+- [ ] 새 의미 검토·실행 상태·종료 코드·보완 정책을 사용 안내와 설계에 맞춘다.
+- 검증: `.venv/bin/python -m unittest market_agent.tests.test_report -v`; 생성 MD와 문서 diff 검토.
+- 파일: `report.py`, `tests/test_report.py`, `README.md`, `market_agent/README.md`, `docs/MARKET_AGENT_DESIGN.md`.
+- 의존: J7a.
+
+### J8. 동일 입력 비교 및 원문 대조 — P1 / M
+
+- [ ] 전체 unittest·compileall·fixture 경로를 통과한 뒤 같은 JSON·기준일·모델·상한으로 라이브 실행 1회를 비교한다.
+- [ ] 모든 조건부 주장·보조 정보의 원문, 대상, 시점, 조건을 대조한다. 미확인 수 감소를 합격 기준으로 삼지 않는다.
+- [ ] 자동 결과와 수동 검토 의견을 구분하고 남은 품질 문제를 기록한다. 검증된 변경만 자동 커밋·푸시한다.
+- 검증: 설계 5절 명령, 실제 보고서 대조, `git diff --check` 및 키·원문 제외 검사.
+- 파일: `market_agent/LIVE_VALIDATION.md`, `docs/MARKET_JSON_RELIABILITY_DESIGN.md`, `tasks/plan.md`, `tasks/todo.md`.
+- 의존: J7b.
