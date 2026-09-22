@@ -95,7 +95,7 @@ def format_reference(record: dict[str, Any]) -> str:
     kind = record["kind"]
     author = _latex_text(record.get("authors_or_organization")) or "작성자 미상"
     date = _date(record, {"paper": 1, "patent": 2, "web": 3}[kind])
-    lead = author + "(" + (date or ("연도 미상" if kind == "paper" else "발행일 미상")) + ")"
+    lead = author + "(" + (date or "n.d.") + ")"
     title = _latex_text(record.get("title")) or "제목 미확인"
     venue = _latex_text(record.get("venue_or_site"))
     url = _value(record.get("url"))

@@ -102,6 +102,37 @@ def _source_url(url: str) -> str:
     return label
 
 
+def review_note_sources(note: dict, parsed: ParsedReportInput) -> tuple[str, list[str], list[str]]:
+    """Resolve documents mentioned by the reviewer, not support for its verdict."""
+    reason = str(note.get("reason") or "")
+    identifiers = list(note.get("evidence_ids") or [])
+
+    def collect(match):
+        identifiers.extend(value.strip() for value in match.group(1).split(",") if value.strip())
+        return ""
+
+    reason = re.sub(r"\((?:evidence_ids|출처)\s*:\s*([^)]*)\)", collect, reason)
+    keys, unresolved = set(), []
+    for identifier in dict.fromkeys(identifiers):
+        key = parsed.reference_to_citation.get(identifier)
+        if key is None and identifier.startswith("paper:"):
+            # Resolve the exact document identity through registered passages;
+            # this does not make a shortened ID a valid passage-level claim.
+            registered = re.findall(
+                r"(?m)^### \[(paper:[^\]\n]+)\]\s*\n- 연결 Reference ID:\s*(\S+)", parsed.body)
+            matches = {parsed.reference_to_citation.get(reference)
+                       for evidence_id, reference in registered
+                       if evidence_id.partition("@")[0] == identifier.partition("@")[0]}
+            if len(matches) == 1:
+                key = matches.pop()
+        if key in parsed.reference_records:
+            keys.add(key)
+        else:
+            unresolved.append(identifier)
+    reason = " ".join(re.sub(r"https?://\S+", "해당 출처", reason).split())
+    return reason, [key for key in parsed.reference_records if key in keys], unresolved
+
+
 def retain_attribution_appendix(latex: str, parsed: ParsedReportInput) -> str:
     """Show review notes; keep original draft opinions in the saved input."""
     latex = re.sub(r"% BEGIN_ATTRIBUTION_NOTICE[\s\S]*?% END_ATTRIBUTION_NOTICE\n?", "", latex)
@@ -122,19 +153,24 @@ def retain_attribution_appendix(latex: str, parsed: ParsedReportInput) -> str:
     for note in parsed.retained_synthesis.get("review_notes") or []:
         if note.get("verdict") == "supported":
             continue
-        # A diagnostic note is not a source citation; URLs belong in REFERENCE.
-        reason = re.sub(r"https?://\S+", "해당 출처", str(note.get("reason") or ""))
-        reason = " ".join(reason.split())
-        if reason and reason not in seen:
-            notes.append(reason)
-            seen.add(reason)
+        reason, citations, unresolved = review_note_sources(note, parsed)
+        identity = (reason, tuple(citations), tuple(unresolved))
+        if reason and identity not in seen:
+            notes.append((reason, citations, unresolved))
+            seen.add(identity)
     if not notes:
         return latex
     lines = ["% BEGIN_ATTRIBUTION_APPENDIX", r"\subsubsection*{종합 초안 검토 사항}",
              "생성된 원래 의견과 검토 기록은 보고서 입력 자료에 보존했다. "
-             "아래는 자동 검토에서 제시한 사항이며, 본문은 활용한 자료의 출처와 해석 범위를 함께 설명한다."]
-    for reason in notes:
-        lines.append(_latex_text("검토 사항: " + reason) + r"\par")
+             "아래는 자동 검토에서 제시한 사항이다. 인용 번호는 검사 기록에 등장한 검토 대상 자료를 가리키며, "
+             "해당 자료가 검토 내용 전체를 뒷받침한다는 판정은 아니다." + r"\par"]
+    for reason, citations, unresolved in notes:
+        line = _latex_text("검토 사항: " + reason)
+        if citations:
+            line += r" 검토 대상 자료: \cite{" + ",".join(citations) + "}."
+        if unresolved:
+            line += " 일부 자료의 연결은 확인이 필요하다."
+        lines.append(line + r"\par")
     lines += ["% END_ATTRIBUTION_APPENDIX", ""]
     return latex.replace(r"\section{REFERENCE}", "\n".join(lines) + r"\section{REFERENCE}", 1)
 
