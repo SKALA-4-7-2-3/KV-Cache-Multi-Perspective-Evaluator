@@ -1,6 +1,6 @@
 # 시장조사 에이전트
 
-기술 조사 결과를 Markdown으로 받아 RDKV와 Photonic-CXL의 시장성을 조사하고, 통합 에이전트에 전달할 **`market_handoff.md` 한 개**를 생성합니다. LangGraph로 검색·평가·검증·최대 1회 보완을 제어합니다.
+기술 조사 결과를 Markdown으로 받아 RDKV와 Photonic-CXL의 시장성을 조사하고, 통합 에이전트에 전달할 **`market_handoff.md` 한 개**를 생성합니다. LangGraph로 검색·본문 검사·근거 추출·평가 작성·최대 1회 보완을 제어합니다.
 
 ## 폴더 구성
 
@@ -9,7 +9,8 @@
 | `market_agent/` | Python 코드, 입력 샘플, 회귀 테스트, 상세 사용 안내 |
 | `docs/` | 설계, 시장성 출력 양식, 이전 실습 가이드 검토 기록 |
 | `tasks/` | 구현·수정 계획과 완료 기록 |
-| [`deliverables/market_handoff.md`](deliverables/market_handoff.md) | 실제 조사 후 출처 대조·재검증한 최종 전달본 |
+| [`deliverables/market_handoff_20260922_v11_reviewed.md`](deliverables/market_handoff_20260922_v11_reviewed.md) | v1.1 실행 후 원문과 대조하여 표현을 교정한 공유용 검토본 |
+| `deliverables/market_handoff.md` | 이전 실행 전달본(비교·추적용 보존) |
 | `requirements.txt`, `requirements.lock.txt`, `.env.example` | 직접·간접 의존성 고정 버전과 빈 API 키 양식 |
 
 ## 설치와 실행
@@ -47,11 +48,13 @@ python -m market_agent.cli --input market_agent/fixtures/input.md --mode live
 - Python에서 연결할 때: `market_agent.node.run_market`과 `parent_update`. 다른 역할의 State를 덮어쓰지 않도록 역할별 변경분을 병합합니다.
 - 부모 Graph가 보완을 관리하면 `auto_repair=False`로 실행하고 회차 간 같은 시장 예산 객체를 유지합니다. 팀 부모 Graph 연결은 아직 별도 작업입니다.
 
-상세 계약과 예제는 [상세 사용 안내](market_agent/README.md#6-팀의-상위-graph에-연결하기)와 [설계 문서](docs/MARKET_AGENT_DESIGN.md)를 참고합니다.
+상세 계약과 예제는 [상세 사용 안내](market_agent/README.md#6-부모-graph에-연결)와 [설계 문서](docs/MARKET_AGENT_DESIGN.md)를 참고합니다.
 
 ## 최종 전달본의 의미
 
-포함된 전달본은 기준일 **2026-09-21**, 검토일 **2026-09-22**의 결과입니다. 선정 기술에 대한 판정 12개는 모두 `unknown`이며, HW 관련 제품군 정보 1건을 별도 조건과 출처로 보존했습니다. `unknown`은 이번 조사에서 직접 판단할 근거가 부족하다는 뜻입니다. 초기 모델 결과를 확정된 시장 사실로 사용하지 않습니다.
+최신 검토본은 기준일 **2026-09-21**, 검토일 **2026-09-22**의 결과입니다. 선정 기술 평가는 **조건부 1개·미확인 11개**, HW 관련 제품 정보 **1건**입니다. 조건부 항목은 RDKV의 기술 효과를 전제로 한 고객 가치 추론이며 실제 고객 비용 절감의 확정이 아닙니다. 관련 제품의 발표도 선정 Photonic-CXL 논문의 상용화를 입증하지 않습니다.
+
+이 파일은 자동 실행 후 원문과 대조하여 SW의 환경 효과 전망과 HW의 컴퓨트 확장 조건을 교정한 **검토본**입니다. 자동 출력은 별도 outputs 경로에 보존했습니다. 모델의 의미 검토도 오류가 있을 수 있어 보고서에 쓰기 전 주요 주장을 원문과 대조해야 합니다. 미확인은 시장이 없다는 뜻이 아니며, 남은 원문 접근 실패와 제외된 잘못된 연결은 검증 기록에서 확인합니다.
 
 `fixture` 모드는 실제 시장 조사가 아닙니다. 최신 조사에는 기준일·예산을 검토한 새 입력과 새 출력 폴더를 사용해야 합니다. 포함된 최종 MD는 내부 캐시가 없는 전달용 파일이므로 `--reuse` 대상이 아닙니다.
 
@@ -62,4 +65,4 @@ python -m unittest discover -s market_agent/tests -v
 python -m compileall -q market_agent
 ```
 
-기존 구현은 58개 테스트와 실제 API 연결·출처 검토를 완료했습니다. 이관 검증과 원본 추적 정보는 [이관 기록](MIGRATION.md), 실제 조사 한계는 [라이브 검증 기록](market_agent/LIVE_VALIDATION.md)에 있습니다.
+현재 근거 분리 구현은 80개 테스트와 compileall을 통과했습니다. 라이브 결과의 내용 검토는 아래 검증 기록에서 별도로 확인합니다. 이관 검증과 원본 추적 정보는 [이관 기록](MIGRATION.md), 실제 조사 한계는 [라이브 검증 기록](market_agent/LIVE_VALIDATION.md)에 있습니다.
