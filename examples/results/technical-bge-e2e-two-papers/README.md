@@ -11,6 +11,10 @@
 - `evidence_registry.json`: 주장과 페이지·문장·표 셀·visual을 연결하는 근거
 - `retrieval_traces.jsonl`: dense·sparse·ColBERT·MMR 검색 진단 기록
 - `visuals/*.png`: 선택적으로 분석한 표·그림 crop
+- `markdown/README.md`: JSON 결과를 사람이 검토하기 쉽게 변환한 참고용 진입점
+
+`markdown/` 파일은 검토 편의를 위한 파생본이다. 에이전트 간 전달, 스키마 검증 및
+무결성 확인에는 원본 JSON을 기준으로 한다.
 
 원본 PDF, API key와 로컬 모델은 포함하지 않았다. `source_path`와 artifact 경로는 공개 저장소용
 상대경로로 정규화했으며, `run.json`의 artifact SHA-256과 ID를 정규화된 파일에 맞게 다시
