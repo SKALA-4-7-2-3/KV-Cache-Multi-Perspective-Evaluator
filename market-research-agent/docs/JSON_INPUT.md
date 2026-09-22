@@ -1,3 +1,24 @@
+# 현재 팀 입력: 기술 조사 JSON 4개
+
+2026-09-22 추가한 기본 통합 입력입니다. 아래 기존 paper_analysis 1.1.0 안내는 호환 입력의 설명입니다.
+
+| 파일 | 역할 | 검사 |
+| --- | --- | --- |
+| dossier 2개 | 논문별 분석·주장·실험 관측·한계 | dossier_version=1.0.0, 서로 다른 paper_id, 참조 소유 관계 |
+| evidence_registry.json | 공통 근거 191개(현재 실제 첨부) | evidence_id 유일성, snippet SHA-256, document_sha256와 paper.source_hash 일치 |
+| comparison.json | 비교 가능성·상충·결합 가설 | comparison_version=1.0.0, paper/evidence/observation/claim 참조 유효성 |
+
+```bash
+python -m market_agent.cli --input evidence_registry.json comparison.json dossiers/sw.json dossiers/hw.json --mode parse
+python -m market_agent.cli --input evidence_registry.json comparison.json dossiers/sw.json dossiers/hw.json --mode live --as-of 2026-09-22
+```
+
+이름은 예시이며 구조로 식별합니다. parse는 API를 호출하지 않습니다. 파일이 누락되거나 연결이 틀리면 실제 조사 전에 오류로 종료합니다. 논문 PDF는 자동으로 읽지 않고 첨부 JSON을 배경으로 사용합니다. 외부에 내보내는 결과는 `market_handoff.md` 하나입니다.
+
+`comparison.metric_comparisons`의 not_comparable, 서로 다른 측정·에뮬레이션·시뮬레이션 조건, `integration_hypotheses`의 미검증 전제는 별도 배경으로 제공됩니다. 상위 confidence는 시장 검증 신뢰도로 복사하지 않습니다. 독립 조회한 웹 인용만 시장 사실의 인용 후보가 됩니다.
+
+---
+
 # 기술 조사 JSON 입력 안내
 
 기술 조사 에이전트가 만든 `paper_analysis` **schema_version 1.1.0 / status succeeded** 결과를 바로 받는다. JSON 한 파일에 논문 객체 한 개를 넣거나, 두 파일을 함께 지정하거나, 한 파일의 JSON 배열에 두 객체를 넣을 수 있다. 현재 조사 한도에 맞춰 한 번에 최대 두 논문을 처리한다.

@@ -1,7 +1,7 @@
-# 시장조사 에이전트 설계 v0.3
+# 시장조사 에이전트 설계 v0.4
 
 - 갱신일: 2026-09-22. 기술 조사 JSON 입력을 받아 시장 담당 항목과 인용이 들어간 MD 한 개를 반환한다.
-- 대상: RDKV(SW-01), Photonic-CXL(HW-01), cloud_datacenter. 제공된 입력의 기준일은 2026-09-21.
+- 대상: RDKV(SW-01), Photonic-CXL(HW-01), cloud_datacenter. 현재 실제 검증 기준일은 2026-09-22.
 - 관련 문서: [실행 안내](../market_agent/README.md), [구현·검증 계획](../tasks/plan.md), [작업 기록](../tasks/todo.md).
 
 ## 1. 목적과 역할 경계
@@ -19,7 +19,9 @@
 
 ## 2. 입력 계약
 
-기술 조사 paper_analysis JSON schema_version 1.1.0 / status succeeded를 받는다. 단일 논문 객체, 최대 두 파일, 두 객체의 배열을 지원한다. `paper`, `analysis`, `evidence_registry`를 검증해 기존 MarketInput으로 정규화하며, 원래 `quality`, `run`, `diagnostics` 등도 내부에 보존한다. 기존 Markdown v0.1 파서는 호환 유지한다.
+현재 기본 입력은 dossier 1.0.0 두 개 + 공통 evidence_registry 배열 + comparison 1.0.0으로 구성된 JSON 네 개다. 참조 ID·문서 소유 관계·본문/문서 해시와 비교 배열 형식을 API 호출 전에 검사한다. 비교 불가능 조건과 미검증 결합 가설은 모델의 배경으로 보존한다.
+
+호환 입력으로 기술 조사 paper_analysis JSON schema_version 1.1.0 / status succeeded를 받는다. 단일 논문 객체, 최대 두 파일, 두 객체의 배열을 지원한다. `paper`, `analysis`, `evidence_registry`를 검증해 기존 MarketInput으로 정규화하며, 원래 `quality`, `run`, `diagnostics` 등도 내부에 보존한다. 기존 Markdown v0.1 파서는 호환 유지한다.
 
 RDKV/Photonic-CXL은 제목으로 분류하고 다른 논문은 호출자가 `--approach`로 지정한다. 임의 로컬 source_path를 읽거나 파일명으로 공개 URL을 추정하지 않는다. JSON의 미제공 기준일은 실행일, 도메인은 cloud_datacenter, 전체 호출 한도는 6/10/5다. 실행 옵션으로 재정의할 수 있으며 상위 run의 모델·예산을 상속하지 않는다.
 
@@ -39,7 +41,7 @@ RDKV/Photonic-CXL은 제목으로 분류하고 다른 논문은 호출자가 `--
 
 1. 품질을 통과한 자료의 관련 문단을 위치와 함께 선택한다(자료당 최대 12,000자).
 2. quotes.py가 시장 관련 완전한 문장을 원문에서 선택해 고유 ID를 발급한다. 문장당 최대 100단어, 자료당 최대 10개다. 25단어씩 자르는 방식은 주장 범위가 어긋나 폐기했다. 링크 조각·일부 수식 깨짐을 제외하며 최종 외부 발췌만 URL당 25단어로 제한한다. 이 선택 범위 밖의 정보를 전부 검토한 것으로 표현하지 않는다.
-3. LLM은 quote_id, 대상, 평가 항목, 한국어 주장, 사실/추론, 관계, 조건, 선택적 metric을 작성한다. 자유로운 URL·인용문·근거 ID를 작성하는 필드는 없다.
+3. LLM은 실제 원문의 기술별 quote_id enum과 대상 명칭 후보에서 선택한다. 해당 기술 이름이 후보 원문에 없으면 exact 선택을 제한한다. 평가 항목, 한국어 주장, 사실/추론, 관계, 조건, 선택적 metric을 작성한다. 자유로운 URL·인용문·근거 ID를 작성하는 필드는 없다.
 4. 코드는 quote_id를 원문의 문자열·출처·위치로 변환한다. 없는 ID는 다른 문서로 임의 연결하지 않고 오류로 처리한다.
 5. claims.py가 인용·시점·대상·범위·조건·수치를 검사하고 Claim ID를 부여한다. 같은 자료의 같은 인용·항목은 중복 등록하지 않는다.
 
@@ -49,7 +51,7 @@ RDKV/Photonic-CXL은 제목으로 분류하고 다른 논문은 호출자가 `--
 
 ## 5. 평가와 관련 정보 보존
 
-평가 모델은 원문 전체 대신 문자열·대상 검사를 통과한 Claim 목록을 받는다. 모든 Claim에 supported와 reason을 반환해 의미를 재검토한다. 검토 누락은 처리 오류, 명시적 거부는 제외 사유로 기록한다. 검토를 통과한 Claim만 평가·관련 정보에 연결한다. DraftAssessment는 claim_ids로 참조하고 코드는 이를 Citation으로 변환한다. 직접 근거가 없는 행은 코드가 unknown으로 고정한다. 확인된 문장은 선택한 Claim의 문장을 그대로 연결하여 모델의 추가 성과 주장을 방지한다. 선정 결론에는 동일 기술·동일 평가 항목의 exact 근거만 사용할 수 있다.
+평가 모델은 원문 전체 대신 문자열·대상 검사를 통과한 Claim 목록을 받는다. 모든 Claim에 supported, market_relevant, relation_supported, conditions_preserved, evidence_level과 reason을 반환한다. 코드도 제품화·채택·지원·고객 가치 항목의 최소 근거 요건을 검사한다. 최종 전달 후보는 별도 모델 호출에서 다시 검토하며 기각된 주장을 제거한다. 검토 누락은 처리 오류, 명시적 거부는 제외 사유로 기록한다. 검토를 통과한 Claim만 평가·관련 정보에 연결한다. DraftAssessment는 claim_ids로 참조하고 코드는 이를 Citation으로 변환한다. 직접 근거가 없는 행은 코드가 unknown으로 고정한다. 확인된 문장은 선택한 Claim의 문장을 그대로 연결하여 모델의 추가 성과 주장을 방지한다. 선정 결론에는 동일 기술·동일 평가 항목의 exact 근거만 사용할 수 있다.
 
 | 구분 | 의미 |
 | --- | --- |
@@ -64,9 +66,9 @@ RDKV/Photonic-CXL은 제목으로 분류하고 다른 논문은 호출자가 `--
 
 ## 6. LangGraph와 보완
 
-`collect → extract(근거 선택·검증) → compose(평가·인용 검사) → finish`
+`collect → extract(근거 선택·검증) → compose(평가·인용 검사) → audit(최종 후보 재검토) → finish`
 
-전체 보완은 최대 1회다. 다음 단계만 선택적으로 실행한다.
+수집·추출·평가 보완은 각각 최대 1회다. 같은 전체 예산 안에서 필요한 단계만 선택한다.
 
 | 상태 | 보완 경로 |
 | --- | --- |
@@ -75,27 +77,27 @@ RDKV/Photonic-CXL은 제목으로 분류하고 다른 논문은 호출자가 `--
 | 평가의 Claim 참조 오류 | compose만 재실행 |
 | 인증 실패·사용량 부족·보완 소진 | 확인한 정보와 구체적 미완료 사유로 종료 |
 
-관련 근거가 존재하면 평가 작성 1회를 먼저 확보하고 추가 추출을 결정한다. 이미 검토한 원문이고 새 자료도 없으면 중복 추출을 생략한다. 충분한 원문이 없으면 LLM 호출을 생략하며, 근거 풀이 비어 있으면 평가 작성도 생략한다.
+관련 근거가 존재하면 실제 제공자에서는 평가 작성·최종 검토 각 1시도를 먼저 확보하고 추가 추출을 결정한다. 이미 검토한 원문이고 새 자료도 없으면 중복 추출을 생략한다. 충분한 원문이 없으면 LLM 호출을 생략하며, 근거 풀이 비어 있으면 평가 작성도 생략한다.
 
 | 자원 | 상한·제어 |
 | --- | --- |
-| 검색 | 입력 상한 6, 회차당 최대 2질의, 전송 재시도 포함 |
+| 검색 | 입력 상한 6, 초기 최대 2질의 / 보완 최대 4질의, 전송 재시도 포함 |
 | 원문 | 입력 상한 10, 최초 최대 6시도, 대체 URL·실패도 차감 |
-| LLM | 입력 상한 5, 기본 2단계 + 필요한 논리적 보완 최대 1단계, 전송 재시도 포함 |
+| LLM | 입력 상한 5, 추출·작성·최종 검토 및 한도 안에서 단계별 보완, 전송 재시도 포함 |
 | 시간 | Tavily 시도당 20초, OpenAI 시도당 60초 |
 
 두 단계가 각각 SDK에서 자동 재시도하지 않도록 설정하고 Budget에서 관리한다. 더 작은 부모 할당량을 받으면 축소하며 회차가 바뀌어도 사용량은 초기화하지 않는다.
 
 ## 7. 저장과 부모 연결
 
-외부 입력은 JSON을 기본으로 확장했으며 시장성 표 계약은 기술당 6개 항목이다. 내부 스냅샷/MarketResult 버전은 0.3이며, 프롬프트·코드 fingerprint로 구형 캐시 재사용을 막는다.
+외부 입력은 JSON을 기본으로 확장했으며 시장성 표 계약은 기술당 6개 항목이다. 내부 스냅샷/MarketResult 버전은 0.4이며, 프롬프트·코드 fingerprint로 구형 캐시 재사용을 막는다.
 
 - 전달: market_handoff.md 한 개.
 - 내부: 전체 추출 응답, Evidence, candidate_pool, 의미 검토 통과 claim_pool, claim_review_log, source_reviews, claim_dispositions, 오류·사용량·파일 해시.
 - 선택 진단: --debug의 추출/평가 모델 응답과 Graph 경로.
 - 제외: 키·내부 캐시·원문은 Git과 통합용 전달에서 제외한다.
 
-부모는 run_market(auto_repair=False), 같은 역할별 Budget, round_number 0/1, previous, existing_evidence, existing_claims를 전달한다. parent_update는 assessments.market와 새 documents/evidence/errors만 반환한다. 다른 역할 결과를 덮어쓰지 않도록 ID 기반으로 병합한다. 부모 checkpoint와 총 페이지 집계는 별도 통합 범위다.
+부모는 run_market(auto_repair=False), 같은 역할별 Budget, round_number 0/1, previous, existing_evidence, existing_claims와 previous_progress를 전달한다. progress에 조사·오류·검토 이력을 보존하여 새 호출 없이 partial이 completed로 바뀌지 않는다. parent_update는 assessments.market와 새 documents/evidence/errors만 반환한다. 다른 역할 결과를 덮어쓰지 않도록 ID 기반으로 병합한다. 부모 checkpoint와 총 페이지 집계는 별도 통합 범위다.
 
 ## 8. 검증 기준
 
@@ -114,3 +116,10 @@ RDKV/Photonic-CXL은 제목으로 분류하고 다른 논문은 호출자가 `--
 - 평가 작성 기회가 없으면 새 후보를 최종 근거로 자동 승격하지 않는다. 재작성 시에는 탈락 전 후보를 보존하여 검토 누락이 조용히 사라지지 않게 한다.
 - 직접 근거 없는 항목은 모델의 잘못된 fact/conditional 출력 대신 코드가 unknown으로 고정한다. 관련 제품 발표는 별도 관련 정보에 남긴다.
 - 모델이 선택한 주장 수나 unknown 감소가 품질의 합격 조건은 아니다. 실측 비용·실제 고객·시장 규모를 확보했는지 별도로 읽어야 한다.
+
+
+## 10. v1.2 실행 상태와 검증 한계
+
+`execution_status`는 completed/partial/failed이고 시장 판정 status·verdict와 별개다. 정상 조사 후에도 직접 근거가 없으면 unknown이다. CLI 종료 코드는 0/3/2다. 부분 결과와 구버전 캐시는 성공 재사용하지 않는다. 전달용 MD의 항목별 조건·공백에는 결론 해석에 필요한 한계만 남긴다.
+
+기술 성능이나 공급사 전망은 고객 비용·매출의 실측과 다르다. 관련 제품 정보는 선정 논문에 대한 제품화 근거로 승격하지 않는다. 문자열 필터와 모델 검토는 완벽한 의미 검증이 아니므로 실제 실행마다 최종 인용을 원문과 대조한다. 최신 실행 기록은 LIVE_VALIDATION.md에 있으며 위 v1.1 기록은 당시 결과다.
