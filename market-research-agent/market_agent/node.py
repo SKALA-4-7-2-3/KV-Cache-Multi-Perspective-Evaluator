@@ -53,11 +53,12 @@ def relevant_candidate(row, tech):
 
 
 def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True,
-               round_number=0, previous=None, existing_evidence=None, existing_claims=None):
+               round_number=0, previous=None, existing_evidence=None, existing_claims=None, previous_progress=None):
     if round_number not in {0,1}:
         raise ValueError('round_number must be 0 or 1')
     budget = budget or Budget(data.limits)
     budget.constrain(data.limits)
+    progress=previous_progress if previous_progress is not None else budget.progress
     initial_evidence = {k:e.model_copy(deep=True) for k,e in {**data.evidence,**(existing_evidence or {})}.items()}
     for e in initial_evidence.values():
         if e.access_status=='full_text' and e.content_status=='unchecked':
@@ -188,9 +189,16 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         api_failure=any(e['stage'].startswith('llm') or e['stage'] in {'search','extract'} for e in state['errors']
             if not e['code'].startswith('budget_'))
         failed=state['fatal'] or (state['model_successes']==0 and api_failure)
+        incomplete=bool(state['errors']) or any(r.research_status=='not_started' for r in state['analysis'].assessments)
+        execution='failed' if failed else ('partial' if incomplete else 'completed')
+        progress={'queries':state['queries'],'repairs':state['repairs'],'reviews':state['reviews'],
+            'examined':[{'tech_id':t,'criterion_id':c,'evidence_ids':list(dict.fromkeys(ids))}
+                for (t,c),ids in state['examined'].items()]}
+        budget.progress=progress
         result=MarketResult(status='failed' if failed else ('completed' if all(v=='completed' for v in statuses.values()) else 'unknown'),
             round=state['round'],assessments=state['analysis'].assessments,followup_questions=state['analysis'].followup_questions,
-            technology_status=statuses,errors=state['errors'],usage=dict(budget.used),mode=mode)
+            technology_status=statuses,errors=state['errors'],usage=dict(budget.used),mode=mode,
+            execution_status=execution,progress=progress)
         return {'result':result,'history':state['history']+['finish']}
 
     graph=StateGraph(RunState)
@@ -207,8 +215,10 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     draft=previous_draft(previous,initial_pool,blank_draft())
     analysis,_=materialize(data,draft,initial_pool)
     state=graph.compile().invoke(dict(data=data,round=round_number,evidence=initial_evidence,sources={},analysis=analysis,
-        errors=[],history=[],queries=[],fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},reviews={},extraction_errors=[],composition_errors=[],
-        repair_kind='',repairs={k:round_number==1 for k in ['collect','extract','compose']},examined={},extraction_history=[],
+        errors=[],history=[],queries=progress.get('queries',[]),fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},
+        reviews=progress.get('reviews',{}),extraction_errors=[],composition_errors=[],
+        repair_kind='',repairs=progress.get('repairs',{k:round_number==1 for k in ['collect','extract','compose']}),
+        examined={(r['tech_id'],r['criterion_id']):r['evidence_ids'] for r in progress.get('examined',[])},extraction_history=[],
         model_successes=0,compose_successes=0,draft=draft),config={'recursion_limit':24})
     state.update(events=list(budget.events),initial_evidence_ids=list(initial_evidence),model=getattr(analyst,'model','injected'),
         token_usage=list(getattr(analyst,'usage',[])),output_checks=list(getattr(analyst,'output_checks',[])),

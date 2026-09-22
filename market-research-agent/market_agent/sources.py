@@ -1,5 +1,6 @@
 """후보 우선순위와 원문 문단 선택. 검색 순위는 사실성 판정이 아니다."""
 import re
+from datetime import date, datetime
 from urllib.parse import urlsplit
 
 from .schemas import Segment
@@ -12,6 +13,21 @@ TERMS = {
     'standardization': ['standard', 'cxl', 'pcie', 'specification', '표준'],
     'business_value': ['cost', 'memory', 'efficiency', 'price', '비용', 'latency'],
 }
+
+
+def publication_date(raw):
+    """명시된 발행 표기·보도자료 dateline만 읽는다. 행사·저작권 날짜는 제외한다."""
+    months=r'January|February|March|April|May|June|July|August|September|October|November|December'
+    for line in raw[:16000].splitlines():
+        explicit=re.search(r'\b(?:published|posted|submitted)(?:\s+(?:on|date))?\s*[:：]?\s*(\d{4}-\d{2}-\d{2})',line,re.I)
+        if explicit:
+            try:return date.fromisoformat(explicit[1])
+            except ValueError:continue
+        dateline=re.search(r'[–—]\s*('+months+r')\s+(\d{1,2}),\s*(\d{4})\s*[–—]',line)
+        if dateline and re.search(r'today announced',line,re.I):
+            try:return datetime.strptime(' '.join(dateline.groups()),'%B %d %Y').date()
+            except ValueError:continue
+    return None
 
 
 def content_quality(raw, url, tech):

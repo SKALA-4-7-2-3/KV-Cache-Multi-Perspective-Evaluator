@@ -12,6 +12,16 @@ INPUT = Path(__file__).parents[1] / "fixtures/input.md"
 
 
 class GraphTests(unittest.TestCase):
+    def test_execution_status_is_separate_from_unknown_market_verdicts(self):
+        result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),mode='fixture')['result']
+        self.assertEqual(result.status,'unknown')
+        self.assertEqual(result.execution_status,'completed')
+        self.assertEqual(result.output_schema_version,'0.4')
+
+    def test_unsearched_criteria_make_execution_partial(self):
+        result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),auto_repair=False,mode='fixture')['result']
+        self.assertEqual(result.execution_status,'partial')
+
     def test_same_acronym_in_video_platform_or_profile_is_not_kv_cache_evidence(self):
         from market_agent.node import relevant_candidate
         tech = read_input(INPUT).technologies['SW-01']

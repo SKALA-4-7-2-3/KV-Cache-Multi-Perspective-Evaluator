@@ -25,7 +25,7 @@ def quote_bank(evidence):
                     # 완전한 문장만 사용한다. 외부 보고서의 발췌는 별도로 25단어 제한.
                     if not 6 <= len(text.split()) <= 100 or not re.search(r'[.!?][*\"\u201d]*$',text):
                         continue
-                    if '](' in text or re.search(r'\d+\.\d+\.\d+|\b(\d{2,})\1(?:K|\s*GB)|costs?.{0,30}\bpoints\b',text,re.I):
+                    if re.search(r'\d+\.\d+\.\d+|\b(\d{2,})\1(?:K|\s*GB)|costs?.{0,30}\bpoints\b',text,re.I):
                         continue
                     score=len(re.findall(keywords,text,re.I))
                     score+=4*len(re.findall(r'product|license|customer|serving cost|deploy|available|standard',text,re.I))
@@ -52,7 +52,7 @@ def resolve_quotes(data, selected, bank, evidence):
         tech=data.technologies.get(item.tech_id)
         identity=''
         if e and tech:
-            found=re.search(re.escape(tech.name),e.excerpt,re.I)
+            found=re.search(re.escape(tech.name),q['text']+' '+q.get('context',''),re.I)
             identity=found[0] if found else ''
         citation=Citation(evidence_id=e.id if e else 'unknown_quote:'+item.quote_id,
             quote=q['text'] if q else '',subject=item.subject,

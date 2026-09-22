@@ -28,6 +28,7 @@ class Budget:
         self.limits = limits.model_dump()
         self.used = dict.fromkeys(self.limits, 0)
         self.events = []
+        self.progress = {}
         self._lock = threading.Lock()
 
     def remaining(self, kind):

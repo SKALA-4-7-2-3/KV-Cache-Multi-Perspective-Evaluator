@@ -5,7 +5,7 @@ from itertools import zip_longest
 from urllib.parse import urlsplit
 
 from .schemas import Evidence
-from .sources import rank_candidates, select_segments, content_fallback, content_quality
+from .sources import rank_candidates, select_segments, content_fallback, content_quality, publication_date
 from .tools import ProviderError, canonical_url, public_url
 
 
@@ -95,6 +95,8 @@ def collect_sources(state, data, web, budget, questions, relevant_candidate):
         else:
             errors.append(dict(stage='extract', code='budget_exhausted_or_reserved', tech_id=tech_id, criterion_id=criterion, url=url, round=str(round_number)))
         content_hash = hashlib.sha256(raw.encode()).hexdigest()
+        if access=='full_text' and published is None:
+            published=publication_date(raw)
         if access == 'full_text' and content_hash in by_content:
             old = evidence[by_content[content_hash]]
             old.tech_ids = list(dict.fromkeys([*old.tech_ids, tech_id]))

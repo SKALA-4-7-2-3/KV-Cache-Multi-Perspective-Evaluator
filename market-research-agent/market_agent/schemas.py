@@ -237,7 +237,7 @@ class ReviewedDraftAnalysis(DraftAnalysis):
 
 
 class MarketResult(Record):
-    output_schema_version: str = "0.3"
+    output_schema_version: str = "0.4"
     role: Literal["market"] = "market"
     status: Literal["completed", "unknown", "failed"]
     round: int
@@ -247,6 +247,8 @@ class MarketResult(Record):
     errors: list[dict[str, str]]
     usage: dict[str, int]
     mode: str
+    execution_status: Literal['completed','partial','failed'] = 'partial'
+    progress: dict = Field(default_factory=dict)
 
 
 def unknown(tech_id: str, criterion_id: str, reason: str) -> Assessment:

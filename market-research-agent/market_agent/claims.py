@@ -146,16 +146,15 @@ def materialize(data, draft, pool):
                 code = 'claim_scope_mismatch'
             elif d.basis != 'unknown' and not d.claim_ids:
                 code = 'missing_claim_reference'
-            elif d.basis == 'fact' and any(scoped[k].basis!='fact' for k in d.claim_ids):
-                code = 'inference_promoted_to_fact'
             elif d.basis == 'unknown':
                 row.judgment, row.gaps = d.judgment, d.gaps
                 row.conditions = d.conditions
             else:
                 selected = [scoped[k] for k in dict.fromkeys(d.claim_ids)]
                 citations = [c.citation.model_copy(deep=True) for c in selected]
+                basis='inference' if any(c.basis=='inference' for c in selected) else d.basis
                 row = Assessment(tech_id=tech,criterion_id=criterion,judgment=' '.join(dict.fromkeys(c.statement for c in selected)),verdict=d.verdict,
-                    basis=d.basis,relation_to_technology='exact',evidence_ids=list(dict.fromkeys(c.evidence_id for c in citations)),
+                    basis=basis,relation_to_technology='exact',evidence_ids=list(dict.fromkeys(c.evidence_id for c in citations)),
                     citations=citations,conditions=list(dict.fromkeys([*d.conditions,*(x for c in selected for x in c.conditions)])),
                     gaps=d.gaps,metric=next((c.metric for c in selected if c.metric),None))
             if code:

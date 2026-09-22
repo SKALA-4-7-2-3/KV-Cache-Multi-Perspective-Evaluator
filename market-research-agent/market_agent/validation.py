@@ -20,8 +20,22 @@ def metric_supported(metric, citations, evidence):
         return False
     if any(c.evidence_id not in evidence or evidence[c.evidence_id].access_status != 'full_text' for c in citations):
         return False
-    numbers = [float(n.replace(',', '')) for c in citations for n in re.findall(r'\d[\d,]*(?:\.\d+)?', c.quote)]
-    return metric.value in numbers
+    for c in citations:
+        text=normalized(c.quote)
+        numbers=[float(n.replace(',','')) for n in re.findall(r'\d[\d,]*(?:\.\d+)?',text)]
+        if metric.value not in numbers:
+            continue
+        if not all(normalized(v) in text for v in [metric.unit,metric.year,metric.market_definition,metric.geography]):
+            continue
+        if metric.currency and normalized(metric.currency) not in text:
+            aliases={'USD':r'\$|us dollars?','EUR':r'€|euros?','KRW':r'₩|원'}
+            if not re.search(aliases.get(metric.currency.upper(),r'(?!)'),text):
+                continue
+        forecast=bool(re.search(r'forecast|projected|expected|predict|전망|예상',text))
+        if forecast != (metric.actual_or_forecast=='forecast'):
+            continue
+        return True
+    return False
 
 
 def valid_citations(citations, evidence, as_of):
@@ -33,6 +47,11 @@ def valid_citations(citations, evidence, as_of):
         if not e or e.access_status in {'snippet', 'failed'} or e.content_status in {'metadata_only','identity_mismatch'} or (e.published_at and e.published_at > as_of):
             return False
         if not c.quote.strip() or not c.subject.strip() or not c.source_character.strip():
+            return False
+        if c.context and not any(normalized(c.context) in normalized(body)
+                for body in ([s.text for s in e.segments] or [e.excerpt])):
+            return False
+        if normalized(c.subject) not in normalized(c.quote+' '+c.context):
             return False
         # 떨어진 문단을 이어 붙인 가상의 인용을 허용하지 않는다.
         segments = e.segments or []
@@ -134,7 +153,7 @@ def validate_analysis(data, analysis, evidence):
                     elif (row.metric or quantitative_claim(row.judgment)) and not metric_supported(row.metric, row.citations, evidence):
                         code = 'unsupported_metric'
                 if not code and any(e.access_status == "full_text" and e.published_at is None for e in refs):
-                    row = row.model_copy(update={"conditions": list(dict.fromkeys(row.conditions + ["발행일 미확인: 기준일 당시의 상태인지 추가 확인 필요"]))})
+                    row = row.model_copy(update={"conditions": list(dict.fromkeys(row.conditions + ["발행일 미확인: 기준일 당시 상태 추가 확인 필요"]))})
             contexts = []
             if row:
                 for finding in row.context_findings:

@@ -1,4 +1,5 @@
 import unittest
+from datetime import date
 from pathlib import Path
 from market_agent.parser import read_input
 from market_agent.sources import select_segments, rank_candidates, fallback_url
@@ -43,3 +44,9 @@ class SourceTests(unittest.TestCase):
     def test_fallback_only_transforms_known_arxiv_document(self):
         self.assertEqual(fallback_url('https://arxiv.org/pdf/2605.08317v1'), 'https://arxiv.org/abs/2605.08317v1')
         self.assertIsNone(fallback_url('https://example.org/report.pdf'))
+class PublicationDateTests(unittest.TestCase):
+    def test_explicit_dateline_is_used_but_event_and_copyright_dates_are_not(self):
+        from market_agent.sources import publication_date
+        self.assertEqual(publication_date('Published: 2026-03-17\nA product announcement.'),date(2026,3,17))
+        self.assertEqual(publication_date('**CITY – March 17, 2026 – NEWS** The company today announced a product.'),date(2026,3,17))
+        self.assertIsNone(publication_date('Meet us on March 17, 2026. Copyright 2026.'))

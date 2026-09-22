@@ -55,7 +55,7 @@ def save_run(state, output, key):
         if not re.fullmatch(r'[\w-]+', doc_id):
             raise InputError('invalid_document_id')
         (cache / "sources" / f"{doc_id}.md").write_text(body, encoding="utf-8")
-    snapshot = {"output_schema_version": '0.3', "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
+    snapshot = {"output_schema_version": '0.4', "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
         "model": state["model"], "input": data.model_dump(mode="json"),
         "result": state["result"].model_dump(mode="json"),
         "evidence": {k: v.model_dump(mode="json") for k, v in state["evidence"].items()},
@@ -66,6 +66,8 @@ def save_run(state, output, key):
         "candidate_pool": {k:v.model_dump(mode='json') for k,v in state.get('candidate_pool',{}).items()},
         "claim_review_log": state.get('claim_review_log',{}),
         "source_reviews": state.get('reviews',{}),
+        "extraction_history": state.get('extraction_history',[]),
+        "graph_history": state.get('history',[]),
         "claim_dispositions": state.get('claim_dispositions',{}),
         "parent_update": parent_update(state)}
     (cache / "run.json").write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -83,7 +85,7 @@ def check_reuse(output, key):
     if not cache.is_dir():
         raise InputError('legacy_or_missing_snapshot: 구형 출력은 보존되며 새 검증 결과로 재사용하지 않습니다')
     saved = json.loads((cache / 'run.json').read_text())
-    if saved.get('output_schema_version') != '0.3' or saved.get('fingerprint') != key:
+    if saved.get('output_schema_version') != '0.4' or saved.get('fingerprint') != key:
         raise InputError('snapshot_mismatch: 입력·모델·코드·프롬프트·출력 버전이 다릅니다')
     manifest = json.loads((cache / 'manifest.json').read_text())
     files = manifest.get('files', {})
@@ -100,7 +102,7 @@ def check_reuse(output, key):
     if not handoff.is_file() or file_hash(handoff) != manifest.get('handoff_hash'):
         raise InputError('snapshot_integrity: 전달 MD가 없거나 변경됐습니다')
     result = saved.get('result', {})
-    if result.get('status') not in {'completed', 'unknown'} or result.get('errors', True):
+    if result.get('execution_status')!='completed' or result.get('errors', True):
         raise InputError('failed_snapshot: 오류가 남은 실행을 성공 캐시로 재사용하지 않습니다')
     return handoff
 
@@ -159,9 +161,9 @@ def main(argv=None):
         state = run_market(data, web, analyst, mode=args.mode)
         save_run(state, output, key)
         result = state["result"]
-        print(f"status={result.status}; mode={args.mode}; attempts={result.usage}")
+        print(f"status={result.status}; execution={result.execution_status}; mode={args.mode}; attempts={result.usage}")
         print(f"handoff: {output.resolve() / 'market_handoff.md'}")
-        return 2 if result.status == "failed" else 0
+        return {'completed':0,'partial':3,'failed':2}[result.execution_status]
     except (InputError, OSError, ValueError, ProviderError) as exc:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 2

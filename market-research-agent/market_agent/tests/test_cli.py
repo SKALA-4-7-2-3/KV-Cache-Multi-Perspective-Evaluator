@@ -49,12 +49,12 @@ class CliTests(unittest.TestCase):
             self.assertEqual(config['limits'],{'search':2,'extract':6,'llm':3})
             run_args=[*args,'--mode','fixture','--output',str(output)]
             done=self.invoke(*run_args)
-            self.assertEqual(done.returncode,0,done.stderr)
+            self.assertEqual(done.returncode,3,done.stderr)
             cache=cache_path(output)
             self.assertTrue((cache/'input.json').exists())
             self.assertFalse((cache/'input.md').exists())
             self.assertEqual(len(json.loads((cache/'input.json').read_text())),2)
-            self.assertEqual(self.invoke(*run_args,'--reuse').returncode,0)
+            self.assertIn('failed_snapshot',self.invoke(*run_args,'--reuse').stderr)
             changed=[*run_args,'--as-of','2026-09-23','--reuse']
             self.assertIn('snapshot_mismatch',self.invoke(*changed).stderr)
 
@@ -83,7 +83,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("fixture", text)
             self.assertIn("시장 규모·성장", text)
             snapshot = json.loads((cache_path(output) / "run.json").read_text())
-            self.assertEqual(snapshot["output_schema_version"],"0.3")
+            self.assertEqual(snapshot["output_schema_version"],"0.4")
             self.assertIn("claim_pool",snapshot)
             self.assertIn("source_reviews",snapshot)
             self.assertEqual(snapshot["result"]["usage"]["llm"], 2)
