@@ -23,7 +23,8 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 _PAGE_TOKEN = re.compile(r"(?:^|:)p(?P<page>\d{4})(?=:)")
 _NUMBER_TOKEN = re.compile(
-    r"(?<![A-Za-z0-9.\-])[-+]?\d[\d,]*(?:\.\d+)?(?:\s*[×xX%])?"
+    r"(?<![A-Za-z0-9.\-])[-+]?(?:\d{1,3}(?:[, \u00a0\u202f]\d{3})+|\d+)"
+    r"(?:\.\d+)?(?:\s*[×xX%])?"
 )
 _NUMBER_WORDS = {
     "zero": "0",
@@ -89,6 +90,17 @@ class EvidenceIdNormalizer:
             key.evidence_id
             for key in candidates
             if reference.endswith(key.page_element_suffix)
+        )
+        if resolved is not None:
+            return resolved
+
+        # Coalesced text blocks may differ only by ``text`` / ``text-group``.
+        # Require the entire canonical ID to agree apart from that token:
+        # page/span coincidence alone does not identify an element or document.
+        resolved = _only(
+            key.evidence_id
+            for key in candidates
+            if reference == _text_element_alias(key)
         )
         if resolved is not None:
             return resolved
@@ -477,6 +489,24 @@ def _locator_key(evidence: TechnicalEvidence) -> _EvidenceLocatorKey:
         element_id=evidence.locator.element_id,
         suffix=suffix,
     )
+
+
+def _text_element_alias(key: _EvidenceLocatorKey) -> str | None:
+    if re.fullmatch(r"span-\d+-\d+", key.suffix) is None:
+        return None
+    element = re.fullmatch(
+        r"(?P<prefix>(?:.*-)?text)(?P<group>-group)?"
+        r"(?P<tail>-\d+(?:-[A-Za-z0-9]+)?)",
+        key.element_id,
+    )
+    if element is None:
+        return None
+    original_tail = f":{key.element_id}:{key.suffix}"
+    if not key.evidence_id.endswith(original_tail):
+        return None
+    group = "" if element.group("group") else "-group"
+    alias_element = f"{element.group('prefix')}{group}{element.group('tail')}"
+    return key.evidence_id[: -len(original_tail)] + f":{alias_element}:{key.suffix}"
 
 
 def _source_kind_hint(reference: str) -> str | None:

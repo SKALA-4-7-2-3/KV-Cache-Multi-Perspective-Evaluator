@@ -1,0 +1,213 @@
+{
+  "common_assumptions": [
+    {
+      "assumption_id": "shared-kv-memory-bandwidth-bottleneck",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0001:elem-2607.27187-d6a67efd-p0001-text-group-000-af33cc9e8fbe:span-00000-01462"
+      ],
+      "paper_ids": [
+        "2605.08317-25836a41",
+        "2607.27187-d6a67efd"
+      ],
+      "summary": "양 논문은 장문맥 LLM serving에서 KV cache의 메모리 용량 및 데이터 이동 대역폭이 핵심 병목이라는 전제를 둔다."
+    }
+  ],
+  "comparison_version": "1.0.0",
+  "contradictions": [],
+  "differing_assumptions": [
+    {
+      "assumption_id": "primary-intervention-boundary",
+      "dimension": "개입하는 시스템 경계",
+      "implication": "RDKV의 압축률·decode kernel 효율과 PF의 풀 용량·원격 접근 특성은 서로 다른 경계의 속성이므로, 한 논문의 수치를 다른 논문의 효과로 치환할 수 없다.",
+      "paper_assumptions": [
+        {
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241",
+            "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+          ],
+          "paper_id": "2605.08317-25836a41",
+          "statement": "고정 bit budget 아래 V cache token과 K cache channel에 {0,2,4,8,16} bit-width를 배정하고, zero-bit eviction과 finite-bit quantization을 하나의 rate–distortion allocation으로 공동 최적화한다."
+        },
+        {
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-026-37aaf9c29c0e:span-00000-02701"
+          ],
+          "paper_id": "2607.27187-d6a67efd",
+          "statement": "32 TB shared DDR5를 최대 16 host에 제공하는 switch-free photonic-CXL memory-disaggregation appliance를 제안하며, host당 128 GB/s를 명시한다."
+        }
+      ]
+    },
+    {
+      "assumption_id": "allocation-or-retention-time",
+      "dimension": "KV 관리가 적용되는 시간 및 재평가 조건",
+      "implication": "전자는 단일 요청 내부의 prefill-to-decode cache 축소를, 후자는 요청 간 재사용·저장 계층 retrieval을 포함하므로 cache hit 및 generation 중 allocation 변화에 대한 가정이 동일하지 않다.",
+      "paper_assumptions": [
+        {
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0028:elem-2605.08317-25836a41-p0028-text-group-098-16f3c2fdb454:span-00000-02393"
+          ],
+          "paper_id": "2605.08317-25836a41",
+          "statement": "RDKV는 prefill 후 한 번 allocation하며 decoding 중에는 attention-pattern shift에 대해 재평가하지 않는다."
+        },
+        {
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257"
+          ],
+          "paper_id": "2607.27187-d6a67efd",
+          "statement": "PF 논문의 repeated-request workflow는 초기 prefill에서 complete KV cache를 생성·저장한 뒤, 후속 동일 요청에서 host memory 또는 SSD로부터 KV cache를 load하여 retrieval 시간을 측정한다."
+        }
+      ]
+    },
+    {
+      "assumption_id": "evaluation-stage-and-serving-boundary",
+      "dimension": "보고된 end-to-end 성능의 평가 단계",
+      "implication": "두 논문의 latency·TTFT 숫자는 측정 단계와 evaluation mode가 달라 직접적인 수치 우열 또는 합산 효과를 도출할 수 없다.",
+      "paper_assumptions": [
+        {
+          "evidence_ids": [
+            "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181",
+            "paper:2605.08317-25836a41@25836a419005:p0023:table-12:span-00000-00164"
+          ],
+          "paper_id": "2605.08317-25836a41",
+          "statement": "RDKV의 128K latency·peak-memory 평가는 LLaMA-3.1-8B-Instruct와 단일 A100 64 GB에서 8K–256K context를 대상으로 한 decode 측정이며, 128K prefill TTFT도 별도로 보고된다."
+        },
+        {
+          "evidence_ids": [
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole",
+            "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+          ],
+          "paper_id": "2607.27187-d6a67efd",
+          "statement": "PF Memory Appliance의 end-to-end serving 수치는 multi-turn conversation workload를 LLMServingSim으로 simulation한 projection이며, 물리 appliance에서의 end-to-end inference 검증은 pending으로 명시된다."
+        }
+      ]
+    }
+  ],
+  "integration_hypotheses": [
+    {
+      "assumptions": [
+        "PFMA runtime 또는 connector가 RDKV의 TriZone mixed-bit packed layout을 KV block 단위로 저장·인덱싱·load할 수 있다.",
+        "원격 CXL memory에서 읽은 packed KV를 decode attention kernel로 공급하는 경로가 RDKV의 dequantization-fused kernel과 호환된다.",
+        "문서 QA 요청에서 prefix 또는 KV reuse가 충분히 발생하며, RDKV의 prefill 시점 정적 allocation이 후속 generation과 재사용 요청에서도 허용 가능한 품질을 유지한다."
+      ],
+      "claim_type": "analyst_inference",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241",
+        "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0004:elem-2607.27187-d6a67efd-p0004-text-group-009-2667c614567e:span-00000-01140",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0008:figure-07:whole"
+      ],
+      "hypothesis_id": "compressed-kv-on-shared-photonic-cxl",
+      "text": "장문맥 문서 QA serving에서 RDKV로 prefill KV를 압축·TriZone packing한 뒤 PF Memory Appliance의 공유 CXL memory tier에 저장·재사용하면, 동일 KV 표현의 저장 용량과 decode 측 HBM read 부담을 줄이면서 여러 host에 걸친 KV 재사용 범위를 넓힐 가능성이 있다. 이는 두 논문이 함께 실증한 결과가 아닌 분석가 추론이다.",
+      "validation_needed": [
+        "동일 모델·문서 QA 데이터·prompt/generation 길이·cache budget에서 RDKV 단독, PF 단독, 결합 구성을 비교하는 end-to-end 실측.",
+        "단일 및 다중 host, 동시 요청 수, cache-hit/miss 비율별 TTFT, decode ms/token, p99 latency, HBM·pooled-memory 용량 및 QA 정확도 측정.",
+        "원격 load, block indexing/coherency, TriZone dequantization-fused attention을 포함한 실제 connector 경로의 정확성 및 처리량 검증."
+      ]
+    }
+  ],
+  "matrix": [
+    {
+      "dimension": "핵심 메커니즘",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0005:figure-02:whole",
+        "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474"
+      ],
+      "paper_id": "2605.08317-25836a41",
+      "summary": "attention-derived token/channel weight를 사용해 per-head MCKP/reverse water-filling으로 혼합 bit-width를 배정하고 TriZone packed cache를 생성한다."
+    },
+    {
+      "dimension": "핵심 메커니즘",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:elem-2607.27187-d6a67efd-p0005-text-group-010-f0b0912faa3e:span-00000-00848"
+      ],
+      "paper_id": "2607.27187-d6a67efd",
+      "summary": "passive fiber shuffle가 electrical switch를 대체하고, CXL host interface 호환성을 유지한 all-to-all shared-memory connectivity를 제안한다."
+    },
+    {
+      "dimension": "장문맥 문서 QA 관련 직접 평가 범위",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0007:elem-2605.08317-25836a41-p0007-text-group-026-3eb0ccfc8644:span-00000-02344",
+        "paper:2605.08317-25836a41@25836a419005:p0008:elem-2605.08317-25836a41-p0008-text-group-029-cd466779016b:span-00000-02127"
+      ],
+      "paper_id": "2605.08317-25836a41",
+      "summary": "LongBench에서 single-document QA와 multi-document QA를 포함한 16개 장문맥 이해 태스크를 평가했고, RULER에서는 4K–128K retrieval·reasoning 11개 subtask를 평가했다."
+    },
+    {
+      "dimension": "장문맥 문서 QA 관련 직접 평가 범위",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-002-9023707fda56:span-00000-03257",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0009:figure-08:whole",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0001:elem-2607.27187-d6a67efd-p0001-text-group-001-9bb3b434ba81:span-00000-02992"
+      ],
+      "paper_id": "2607.27187-d6a67efd",
+      "summary": "동일 반복 요청의 100% cache-hit KV retrieval과 multi-turn conversation의 TTFT·prefix-cache hit rate를 평가했으며, legal document analysis는 적용 사례로 언급된다."
+    },
+    {
+      "dimension": "평가 성숙도",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0001:elem-2605.08317-25836a41-p0001-text-group-001-0aed8c4b9eb2:span-00000-01494",
+        "paper:2605.08317-25836a41@25836a419005:p0009:figure-05:span-00000-00181"
+      ],
+      "paper_id": "2605.08317-25836a41",
+      "summary": "LongBench·RULER·InfiniteBench의 모델 정확도와 단일 A100 64 GB에서의 decode latency·peak memory를 실측으로 보고한다."
+    },
+    {
+      "dimension": "평가 성숙도",
+      "evidence_ids": [
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0007:elem-2607.27187-d6a67efd-p0007-text-group-020-cabf47709270:span-00000-01088",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0010:elem-2607.27187-d6a67efd-p0010-text-group-025-e3f4941f8530:span-00000-02834"
+      ],
+      "paper_id": "2607.27187-d6a67efd",
+      "summary": "CXL pod access latency는 emulation characterization으로, serving 결과는 그 bandwidth·latency 파라미터를 사용한 simulation projection으로 보고하며 물리 appliance의 end-to-end inference 검증은 남아 있다."
+    }
+  ],
+  "metric_comparisons": [
+    {
+      "comparability": "not_comparable",
+      "comparison_id": "ttft-cross-paper-noncomparable",
+      "metric": "TTFT",
+      "observation_ids": [
+        "2605.08317-25836a41::technical_overview::eo06",
+        "2607.27187-d6a67efd::technical_overview::eo_ttft_pf"
+      ],
+      "reason": "RDKV는 LLaMA-3.1-8B-Instruct·A100 64 GB·128K context에서 FullKV prefill 대비 TTFT를 실측한 반면, PF는 모델·context·hardware가 명시되지 않은 32 TB appliance의 50–300 multi-turn conversation workload TTFT를 simulation으로 제시한다. baseline, workload, hardware, context length, concurrency 및 evaluation stage/mode가 다르다."
+    }
+  ],
+  "relationships": [
+    {
+      "claim_type": "analyst_inference",
+      "evidence_ids": [
+        "paper:2605.08317-25836a41@25836a419005:p0002:elem-2605.08317-25836a41-p0002-text-group-004-eec11153f56c:span-00000-02241",
+        "paper:2605.08317-25836a41@25836a419005:p0017:elem-2605.08317-25836a41-p0017-text-group-048-a30ce8c83abc:span-00000-01474",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0002:elem-2607.27187-d6a67efd-p0002-text-group-003-cf1cb47304a1:span-00000-02814",
+        "paper:2607.27187-d6a67efd@d6a67efde2a1:p0005:elem-2607.27187-d6a67efd-p0005-text-group-010-f0b0912faa3e:span-00000-00848"
+      ],
+      "left_paper_id": "2605.08317-25836a41",
+      "rationale": "두 논문은 모두 장문맥 LLM의 KV cache가 메모리·대역폭 병목이라는 문제를 다루지만, RDKV는 prefill 뒤 토큰/채널별 bit-width를 배정해 cache 자체의 표현량을 줄이는 알고리즘·커널 계층 방법이고, PF Memory Appliance는 CXL 호환 공유 DDR5 풀의 용량·전송 경로를 확장하는 시스템 계층 방법이다. 따라서 동일 병목의 서로 다른 계층을 다루며, 두 방법을 함께 평가한 결과는 없다.",
+      "relationship": "complementary",
+      "right_paper_id": "2607.27187-d6a67efd",
+      "tested_together": false
+    }
+  ],
+  "unverified_items": [
+    {
+      "attempts": 1,
+      "filters": {
+        "document_ids": "2605.08317-25836a41,2607.27187-d6a67efd",
+        "source_kind": "paper"
+      },
+      "item_id": "cross-paper-combined-end-to-end-validation",
+      "reason": "제공된 자료에서 RDKV는 단일 A100 기반 압축·decode 평가를, PF 논문은 conceptual framework integration과 simulation 기반 serving projection을 각각 제시하지만, 두 기술의 결합 실험은 보고하지 않는다.",
+      "searched_queries": [
+        "RDKV PF Memory Appliance combined evaluation",
+        "TriZone CXL KV connector",
+        "end-to-end physical PF appliance inference"
+      ],
+      "topic": "RDKV TriZone mixed-bit KV를 PF Memory Appliance에 저장·재사용하는 결합 경로의 end-to-end 성능과 정확도"
+    }
+  ]
+}

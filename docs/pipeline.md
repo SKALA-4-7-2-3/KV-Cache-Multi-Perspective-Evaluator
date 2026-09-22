@@ -69,16 +69,16 @@ uv run --frozen python -m pipeline --run-rag \
 
 ## 연결 구조
 
-`agent/`의 에이전트는 **4개**이며 RAG와 보고서 생성은 별도 모듈입니다.
+전체 시스템은 기술 조사, 시장 평가, 이해관계자 평가, 도메인 평가, 평가 종합, 보고서 생성의 **6개 에이전트**로 구성됩니다. 이 중 평가·종합 에이전트 4개는 `agent/`에, 기술 조사 에이전트는 `rag/`에, 보고서 생성 에이전트는 `report/`에 배치되어 있습니다.
 
-| 위치 | 역할 |
-| --- | --- |
-| `rag/` | 논문 분석·실험 조건·원문 근거 또는 저장 결과 제공 |
-| `agent/domain/` | 데이터센터·클라우드 서빙 적용성 |
-| `agent/market/` | 시장·제품·생태계 |
-| `agent/stakeholder/` | 운영 조직의 이익·부담·도입 조건 |
-| `agent/review/` | 세 관점의 연결과 조건부 종합 |
-| `report/` | 보고서 작성·LaTeX·PDF 생성 |
+| 에이전트 | 위치 | 역할 |
+| --- | --- | --- |
+| 기술 조사 | `rag/` | 논문 분석·실험 조건·원문 근거 또는 저장 결과 제공 |
+| 시장 평가 | `agent/market/` | 시장·제품·생태계 |
+| 이해관계자 평가 | `agent/stakeholder/` | 운영 조직의 이익·부담·도입 조건 |
+| 도메인 평가 | `agent/domain/` | 데이터센터·클라우드 서빙 적용성 |
+| 평가 종합 | `agent/review/` | 세 관점의 연결과 조건부 종합 |
+| 보고서 생성 | `report/` | 보고서 작성·LaTeX·PDF 생성 |
 
 1. `pipeline/research_input.py`: 원본 실행·논문 dossier·비교·근거 파일을 읽고 역할별 입력으로 변환합니다.
 2. `pipeline/runtime.py`: Domain → Stakeholder → Market을 실제 호출합니다.
@@ -88,6 +88,11 @@ uv run --frozen python -m pipeline --run-rag \
 원본 자료는 `research.bundle.json`, 모델에 전달한 파생 입력은 `papers.compat.json`,
 전달한 문맥과 원본 연결 기록은 `research.context_manifest.json`에 저장합니다.
 각 단계 출력과 `run.json`은 중간 실패 후 재사용할 수 있습니다.
+
+후속 평가에 전달하는 논문별 호환 입력은 36,000자, 도메인 평가 입력은 85,000자 이내로 구성합니다.
+논문 분석은 기술 개요·적용 범위·한계를 번갈아 선택하고, 각 영역 안에서도 필드를 번갈아 선택합니다.
+각 주장은 참조하는 근거 발췌 전체와 함께 포함하며, 한도 때문에 제외한 내용은 문맥 기록에 남깁니다.
+전체 원본 분석과 근거는 `research.bundle.json`에 보존합니다.
 
 최종 산출물은 `review.output.md`, `report.input.md`, `report.tex`, `report.pdf`입니다.
 기본 실행은 출처를 명시하는 분석 초안(`annotated_draft`)입니다. 앞 단계에서 인용되지 않은

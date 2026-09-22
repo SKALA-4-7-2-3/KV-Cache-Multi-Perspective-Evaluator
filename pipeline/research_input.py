@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import hashlib
+from itertools import zip_longest
 import json
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from typing import Any
 
 PAPER_CONTEXT_CHARS = 36_000
 DOMAIN_CONTEXT_CHARS = 85_000
+ADAPTER_VERSION = "saved-research-1.1.0"
 CRITERIA = (
     "capacity", "quality", "latency_predictability", "throughput",
     "gpu_compatibility", "dedicated_hardware_dependency",
@@ -60,20 +62,24 @@ def _refs(claim: dict) -> set[str]:
     return set(claim.get("evidence_ids", [])) | set(claim.get("context_evidence_ids", []))
 
 
+def _interleave(queues):
+    for batch in zip_longest(*queues):
+        yield from (item for item in batch if item is not None)
+
+
 def _analysis_rows(dossier: dict):
-    """Interleave facets and fields so a size limit cannot erase one facet."""
-    queues = []
+    """Alternate facets, then fields within each facet, preserving row order."""
+    facets = []
     analysis = dossier["analysis"]
     for section, order in _FIELD_ORDER.items():
+        queues = []
         fields = analysis.get(section, {})
         for field in (*order, *(key for key in fields if key not in order and key != "not_reported")):
             rows = fields.get(field, [])
             if rows:
                 queues.append([(section, field, index, claim) for index, claim in enumerate(rows)])
-    for index in range(max((len(queue) for queue in queues), default=0)):
-        for queue in queues:
-            if index < len(queue):
-                yield queue[index]
+        facets.append(_interleave(queues))
+    yield from _interleave(facets)
 
 
 def _paper_evidence(item: dict) -> dict:
@@ -111,7 +117,7 @@ def _project_paper(dossier: dict, run: dict, evidence: dict[str, dict]) -> tuple
             "source_schema_version": run["schema_version"],
             "source_dossier_version": dossier.get("dossier_version"),
             "source_job_id": run["run"].get("job_id"),
-            "adapter_version": "saved-research-1.0.0", "is_complete": False,
+            "adapter_version": ADAPTER_VERSION, "is_complete": False,
         },
     }
     projection["run"]["run_id"] = run["run"].get("job_id")
@@ -235,11 +241,11 @@ def load_saved_research(result_dir: str | Path) -> dict:
         "run": run, "dossiers": dossiers, "comparison": comparison,
         "evidence": evidence, "technology_map": technology_map, "papers": papers,
         "context_manifest": {
-            "adapter_version": "saved-research-1.0.0", "source_directory": str(root),
+            "adapter_version": ADAPTER_VERSION, "source_directory": str(root),
             "source_run_id": run["run"].get("job_id"), "source_artifact_hashes": hashes,
             "artifact_integrity": "verified", "source_pdf_revalidation": "not_performed",
             "semantic_audit": "upstream_record_preserved_not_rerun",
-            "selection_policy": "whole_claims_interleaved_by_facet_and_field_with_complete_referenced_snippets",
+            "selection_policy": "whole_claims_round_robin_by_facet_then_field_with_complete_referenced_snippets",
             "originals_preserved": True, "papers": manifests,
             "legacy_papers_chars": _size(papers),
         },

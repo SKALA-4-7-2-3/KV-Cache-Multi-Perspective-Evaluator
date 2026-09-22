@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from paper_review_agent.evidence_normalization import (
     EvidenceIdNormalizer,
     augment_observation_evaluation_modes,
@@ -170,6 +172,92 @@ def test_normalizer_preserves_ambiguous_unknown_and_conflicting_page_references(
     assert normalizer.resolve(left.evidence_id) == left.evidence_id
 
 
+def test_normalizer_repairs_unique_parser_element_alias_by_page_and_span():
+    evidence = _evidence(
+        page=5,
+        element_id="elem-paper-a-p0005-text-007-deadbeef",
+        suffix="span-00000-00532",
+    )
+    alias = (
+        "paper:paper-a@aaaaaaaaaaaa:p0005:"
+        "elem-paper-a-p0005-text-group-007-deadbeef:span-00000-00532"
+    )
+
+    assert EvidenceIdNormalizer([evidence]).resolve(alias) == evidence.evidence_id
+
+
+def test_normalizer_repairs_reverse_parser_element_alias():
+    evidence = _evidence(
+        page=5,
+        element_id="elem-paper-a-p0005-text-group-007-deadbeef",
+        suffix="span-00000-00532",
+    )
+    alias = evidence.evidence_id.replace("text-group-007", "text-007")
+
+    assert EvidenceIdNormalizer([evidence]).resolve(alias) == evidence.evidence_id
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        ("paper:paper-a@", "paper:other@"),
+        ("@aaaaaaaaaaaa", "@bbbbbbbbbbbb"),
+        (":p0005:", ":p0006:"),
+        ("text-group-007", "text-group-008"),
+        ("deadbeef", "cafebabe"),
+        ("span-00000-00532", "span-00000-00533"),
+        ("text-group-007", "table-007"),
+    ],
+)
+def test_normalizer_rejects_parser_alias_with_conflicting_identity(old, new):
+    evidence = _evidence(
+        page=5,
+        element_id="elem-paper-a-p0005-text-007-deadbeef",
+        suffix="span-00000-00532",
+    )
+    alias = evidence.evidence_id.replace("text-007", "text-group-007")
+    reference = alias.replace(old, new)
+
+    assert EvidenceIdNormalizer([evidence]).resolve(reference) == reference
+
+
+@pytest.mark.parametrize("suffix", ["whole", "cell-r01-c01", "rows-r01-r02"])
+def test_normalizer_does_not_alias_non_span_evidence(suffix):
+    evidence = _evidence(
+        page=5,
+        element_id="elem-paper-a-p0005-text-007-deadbeef",
+        suffix=suffix,
+    )
+    alias = evidence.evidence_id.replace("text-007", "text-group-007")
+
+    assert EvidenceIdNormalizer([evidence]).resolve(alias) == alias
+
+
+def test_normalizer_does_not_rebind_unknown_whole_to_unique_page_evidence():
+    evidence = _evidence(page=5, element_id="table-01", suffix="whole")
+    reference = "paper:other@bbbbbbbbbbbb:p0005:table-02:whole"
+
+    assert EvidenceIdNormalizer([evidence]).resolve(reference) == reference
+
+
+def test_normalizer_does_not_repair_ambiguous_page_and_span_alias():
+    first = _evidence(
+        document_id="first",
+        page=5,
+        element_id="elem-first-text-007",
+        suffix="span-00000-00532",
+    )
+    second = _evidence(
+        document_id="second",
+        page=5,
+        element_id="elem-second-text-007",
+        suffix="span-00000-00532",
+    )
+    alias = "paper:unknown:p0005:elem-alias:span-00000-00532"
+
+    assert EvidenceIdNormalizer([first, second]).resolve(alias) == alias
+
+
 def test_extraction_normalization_covers_analysis_claims_inventory_and_observations():
     evidence = _evidence()
     bad = "p0009:elem-paper-a:span-00000-00042"
@@ -256,6 +344,49 @@ def test_unique_exact_table_cell_is_added_for_numeric_parent_reference():
     claim = TechnicalClaim(
         claim_id="claim-1",
         text="128K에서 4.5× speedup을 측정했다.",
+        claim_type="observed_result",
+        evidence_ids=[aggregate.evidence_id],
+        confidence=0.9,
+    )
+
+    normalized = augment_precise_numeric_references(claim, [aggregate, cell])
+
+    assert normalized.evidence_ids == [aggregate.evidence_id, cell.evidence_id]
+
+
+def test_numeric_augmentation_treats_space_and_comma_thousands_as_equal():
+    aggregate = _evidence(element_id="table-12", suffix="whole").model_copy(
+        update={
+            "content_kind": "table",
+            "snippet": "FullKV prefill (FA2) | 28 843 | baseline",
+        }
+    )
+    cell = aggregate.model_copy(
+        update={
+            "evidence_id": aggregate.evidence_id.removesuffix("whole")
+            + "cell-r01-c01",
+            "snippet": (
+                "row_header=FullKV prefill (FA2); column_header=Time (ms); "
+                "value=28 843"
+            ),
+            "locator": aggregate.locator.model_copy(
+                update={
+                    "table_cells": [
+                        TableCellLocator(
+                            row_index=1,
+                            column_index=1,
+                            raw_text="28 843",
+                            row_header="FullKV prefill (FA2)",
+                            column_header="Time (ms)",
+                        )
+                    ]
+                }
+            ),
+        }
+    )
+    claim = TechnicalClaim(
+        claim_id="claim-thousands-separator",
+        text="FullKV prefill (FA2)는 28,843 ms이다.",
         claim_type="observed_result",
         evidence_ids=[aggregate.evidence_id],
         confidence=0.9,

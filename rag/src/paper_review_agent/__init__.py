@@ -15,6 +15,7 @@ from paper_review_agent.technical_schemas import (
     TechnicalResearchEnvelope,
     TechnicalResearchRequest,
 )
+from paper_review_agent.technical_markdown import export_technical_markdown
 from paper_review_agent.technical_validation import validate_technical_research
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "build_bge_retrieval_service",
     "build_technical_research_graph",
     "create_retrieval_e2e_validation_artifact",
+    "export_technical_markdown",
     "pull_embedding_model",
     "run_technical_research",
     "validate_technical_research",

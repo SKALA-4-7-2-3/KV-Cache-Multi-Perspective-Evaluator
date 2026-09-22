@@ -7,6 +7,10 @@
 `TechnicalResearchEnvelope` JSON 결과를 받아 평가·종합·보고서를 생성한다.
 전체 흐름은 [루트 안내](../README.md)를 따른다. 기본 통합 실행은 RAG 재실행 없이 저장 결과를 사용한다.
 
+기술조사 코드·테스트·의존성·예제 결과는 `feat/research-agent`의
+`9e427c50961ab5541c603a410ea116d0a41a5c72`에 동기화되어 있다.
+`runner.py`, `papers/`와 이 안내 문서는 통합 프로젝트의 실행 구조를 유지한다.
+
 ## 주요 구성
 
 - PyMuPDF 페이지·블록·caption 추출과 pdfplumber native table 복원
@@ -49,6 +53,7 @@ outputs/<job-id>/technical/
 
 ```bash
 uv run paper-review validate-technical outputs/<job-id>/technical/run.json
+uv run paper-review export-technical-md outputs/<job-id>/technical/run.json
 uv run pytest
 ```
 
@@ -56,6 +61,10 @@ uv run pytest
 [`examples/results/technical-bge-e2e-two-papers`](examples/results/technical-bge-e2e-two-papers)에
 포함되어 있다. PDF 원본과 비밀 정보는 포함하지 않았고 공개 저장소용 상대경로와 해시를
 사용한다.
+
+동일한 장문맥 문서 QA 요청의 성공 결과는
+[`examples/results/technical-long-context-qa-datacenter`](examples/results/technical-long-context-qa-datacenter)에
+포함되어 있다. 두 예제의 `markdown/README.md`에서 사람이 읽기 쉬운 분석을 확인할 수 있다.
 
 ## 보안·운영 원칙
 
