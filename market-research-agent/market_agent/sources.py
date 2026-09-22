@@ -60,7 +60,7 @@ def rank_candidates(rows, tech, criteria):
         direct = tech.name.casefold() in f"{row.get('title', '')} {row.get('content', '')}".casefold()
         body = f"{row.get('title', '')} {row.get('content', '')}".casefold()
         purpose = any(term in body for c in criteria for term in TERMS[c])
-        return (direct, purpose, first_party, relevance(body, tech, criteria))
+        return (direct, first_party, purpose, relevance(body, tech, criteria))
     return sorted(rows, key=score, reverse=True)
 
 

@@ -172,6 +172,23 @@ class Extraction(Record):
     reviews: list[SourceReview]
 
 
+class SelectedClaim(Record):
+    tech_id: str
+    criterion_id: Criterion
+    statement: str
+    basis: Literal['fact', 'inference']
+    relation_to_technology: Literal['exact', 'method_family', 'adjacent']
+    quote_id: str
+    subject: str
+    conditions: list[str]
+    metric: Metric | None
+
+
+class SelectedExtraction(Record):
+    claims: list[SelectedClaim]
+    reviews: list[SourceReview]
+
+
 class DraftAssessment(Record):
     tech_id: str
     criterion_id: Criterion

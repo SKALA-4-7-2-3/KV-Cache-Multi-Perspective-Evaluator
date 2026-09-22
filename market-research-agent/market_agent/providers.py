@@ -7,7 +7,8 @@ from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
 from .prompts import EXTRACTION_PROMPT, COMPOSITION_PROMPT
-from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment
+from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment, SelectedExtraction
+from .quotes import quote_bank, resolve_quotes
 from .tools import ProviderError
 
 
@@ -23,7 +24,7 @@ class OpenAIAnalyst:
         self.debug = debug
         self.debug_analyses = []
         self._llm = ChatOpenAI(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
-        self._extractor = self._llm.with_structured_output(Extraction, method="json_schema", strict=True, include_raw=True)
+        self._extractor = self._llm.with_structured_output(SelectedExtraction, method="json_schema", strict=True, include_raw=True)
         self._composer = self._llm.with_structured_output(DraftAnalysis, method="json_schema", strict=True, include_raw=True)
 
     def _invoke(self, stage, runnable, schema, prompt, payload):
@@ -47,19 +48,20 @@ class OpenAIAnalyst:
         return parsed
 
     def extract(self, data, evidence, previous=None, issues=None):
+        bank=quote_bank(evidence)
         material = []
         for e in evidence.values():
-            if e.access_status != 'provided_summary' and not (e.access_status=='full_text' and e.content_status=='substantive'):
+            if not (e.access_status=='full_text' and e.content_status=='substantive'):
                 continue
-            item=e.model_dump(mode='json')
-            if e.segments:
-                item.pop('excerpt')
+            item={'evidence_id':e.id,'title':e.title,'url':e.url,'published_at':str(e.published_at) if e.published_at else None,
+                'scope':e.access_scope,'quotes':{k:v for k,v in bank.items() if v['evidence_id']==e.id}}
             material.append(item)
         payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
-            'technologies': {k:v.model_dump(mode='json') for k,v in data.technologies.items()},
+            'technologies': {k:{'name':v.name,'paper_url':v.url} for k,v in data.technologies.items()},
             'evidence': material, 'previous_claims': {k:v.model_dump(mode='json') for k,v in (previous or {}).items()},
             'validation_issues':issues or []}
-        return self._invoke('extract',self._extractor,Extraction,EXTRACTION_PROMPT,payload)
+        selected=self._invoke('extract',self._extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
+        return resolve_quotes(data,selected,bank,evidence)
 
     def compose(self, data, claims, previous=None, issues=None):
         payload = {'scope':{'domain':data.domain,'as_of':str(data.as_of)},
@@ -101,4 +103,3 @@ class FixtureAnalyst:
         rows=[DraftAssessment(tech_id=t,criterion_id=c,judgment='미확인: fixture 모드에는 실제 시장 근거가 없습니다',
             verdict='unknown',basis='unknown',claim_ids=[],conditions=[],gaps=['fixture 자료']) for t in data.technologies for c in CRITERIA]
         return DraftAnalysis(assessments=rows,followup_questions=[])
-
