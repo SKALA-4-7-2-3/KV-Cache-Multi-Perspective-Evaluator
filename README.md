@@ -49,6 +49,11 @@ uv run paper-review validate-technical outputs/<job-id>/technical/run.json
 uv run pytest
 ```
 
+두 논문 실제 성공 결과는
+[`examples/results/technical-bge-e2e-two-papers`](examples/results/technical-bge-e2e-two-papers)에
+포함되어 있다. PDF 원본과 비밀 정보는 포함하지 않았고 공개 저장소용 상대경로와 해시를
+사용한다.
+
 ## 보안·운영 원칙
 
 - `.env`, API key, PDF, 출력 결과와 모델 weight는 Git에 포함하지 않는다.
