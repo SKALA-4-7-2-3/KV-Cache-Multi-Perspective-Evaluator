@@ -56,8 +56,13 @@ ATTRIBUTION_INSTRUCTIONS = """
 시장·이해관계자의 상위 분석과 분석 초안 중 실제 내용과 출처 연결이 있는 자료를 관련 본문에 활용한다.
 usable_source_reports에 실제 발췌와 출처가 제공됐다면 그 내용을 검토하고, 관련성이 있는 정보를 관점별 분석에 반영한다.
 report_source_analysis가 제공되면 자료별 관찰 내용, 실제 인용 구절, 적용 범위와 활용 이유를 본문 작성의 재료로 사용한다.
-그중 관련성이 있고 활용 가능한 각 출처는 시장성 또는 이해관계자 본문에서 구체적으로 무엇을 보고하는지 설명한다.
-'출처가 보고한 구체적 내용 + 해당 출처의 인용 → 데이터센터 운영 관점의 해석 → 적용 범위·미확인 사항' 순서로 쓴다.
+시장성과 이해관계자 본문은 메모리 확장, 비용, 도입 부담 등 평가 주제를 중심으로 연결된 한국어 줄글로 작성한다.
+관련성이 있고 활용 가능한 출처의 내용을 평가 논리에 통합하고, 뒷받침하는 문장 바로 뒤에 \\cite{citation_key}를 붙인다.
+출처 제목별 소제목이나 '자료 보고:', '평가자의 해석:', '해석 범위와 한계:' 같은 반복 양식으로 본문을 구성하지 않는다.
+서로 관련된 여러 출처를 한 문단에서 종합하되 각 인용이 어느 사실이나 판단의 근거인지 드러나게 작성한다.
+웹 자료를 인용할 때에는 그 자료만의 구체적 관찰·기술·사례를 해당 문장에 설명한다. 인용 키가 등장하는 것만으로 자료를 활용한 것이 아니다.
+서로 다른 기술의 자료를 대상 논문의 설명 끝에 한꺼번에 묶지 않는다. 동일한 진술을 뒷받침하는 출처만 함께 인용한다.
+출처가 보고한 사실과 운영 관점의 해석은 문장 표현으로 구분하고, 필요한 조건과 한계도 같은 논의 안에 자연스럽게 연결한다.
 출처 여러 개를 '도입 효과는 미확인이다' 같은 일반 문장 끝에 묶어 인용하는 것으로 실제 자료 분석을 대체하지 않는다.
 최종 적합성 판단이 unknown이어도 자료에서 확인된 제품 기능, 운영 부담, 기대 편익, 생태계 동향을 출처에 귀속해 설명한다.
 여러 출처가 같은 내용을 보고하면 문단을 합칠 수 있지만 각 출처가 제공하는 정보와 인용 연결을 보존한다.
@@ -67,13 +72,14 @@ report_source_analysis가 제공되면 자료별 관찰 내용, 실제 인용 �
 앞 단계에서 검토를 통과하지 못했다는 이유만으로 쓸 수 있는 출처 기반 분석까지 모두 버리지 않는다.
 다만 개별 검토 사항을 반영하여 표현 범위를 조절하고 미확인 사항을 함께 설명한다.
 웹 출처 목록은 인용 후보의 URL과 서지 정보다. 제목·URL만으로 내용을 추측하거나 주장을 만들지 않는다.
-'해당 출처에서는 ...라고 설명한다'는 출처 내용과 '운영 관점에서는 ...로 해석한다'는 분석을 구분한다.
+업체 설명, 연구 결과, 평가자의 조건부 해석을 구분하되 동일한 도입 문구를 출처마다 반복하지 않는다.
 자료의 실제 내용·인용 구절과 관련성이 확인되는 경우에만 해당 citation_key로 본문에 인용한다.
 관련 기술 자료를 평가 대상 기술의 직접 실적이나 상용화 증거로 바꾸지 않는다.
 자료에서 확인하지 못했다는 것을 실제로 존재하지 않거나 검증되지 않았다는 결론으로 확대하지 않는다.
 미통과 상태를 통과로 표현하지 않는다. 근거 연결을 확인할 수 없는 주장을 확정 사실로 쓰지 않는다.
 독자가 읽을 본문은 간결하게 작성하고, 실제 본문에서 인용한 자료만 하나의 번호 있는 REFERENCE에 넣는다.
 출처 개수를 맞추기 위해 인용을 추가하거나, 사용하지 않은 자료를 참고문헌에 넣지 않는다.
+본문과 본문 인용은 보고서 에이전트가 직접 작성한다. 코드가 출처별 설명 문단이나 누락 인용을 붙이지 않는다.
 REFERENCE 서지 항목과 검토 사항 부록은 코드에서 추가한다. 별도 출처 목록이나 원래 초안 전체를 반복하지 않는다.
 """.strip()
 
@@ -169,10 +175,12 @@ def retain_cited_references(latex: str, parsed: ParsedReportInput) -> str:
                   lambda _: bibliography, latex, count=1)
 
 
-def retain_source_analysis(latex: str, parsed: ParsedReportInput) -> str:
-    """Place completed source readings in their analytical sections before citing them."""
-    latex = re.sub(r"% BEGIN_SOURCE_ANALYSIS_[^\n]*\n[\s\S]*?% END_SOURCE_ANALYSIS_[^\n]*\n?", "", latex)
-    groups = {"market": [], "stakeholders": []}
+def missing_source_readings(latex: str, parsed: ParsedReportInput) -> list[dict]:
+    """Return useful uncited readings as agent feedback, never report paragraphs."""
+    body = latex.split(r"\section{REFERENCE}", 1)[0]
+    cited = {key.strip() for group in re.findall(r"\\cite\{([^{}]+)\}", body)
+             for key in group.split(",")}
+    missing = []
     paper_keys = {parsed.reference_to_citation.get(tech) for tech in ("SW-01", "HW-01")}
     def arxiv_id(url):
         match = re.search(r"arxiv\.org/(?:abs|html|pdf)/(\d{4}\.\d{4,5})", str(url or ""))
@@ -189,38 +197,15 @@ def retain_source_analysis(latex: str, parsed: ParsedReportInput) -> str:
         if key not in parsed.reference_records or arxiv_id(reading.get("url")) in paper_ids:
             continue
         seen.add(key)
-        role = "market" if reading.get("role") == "market" else "stakeholders"
-        record = parsed.reference_records[key]
-        title = record.get("title") or reading.get("title") or "출처 자료"
-        organization = record.get("authors_or_organization")
-        attribution = f"{organization}의 {title}" if organization and organization != "unknown" else str(title)
-        lines = [r"\paragraph{" + _latex_text(str(title)) + "}",
-                 _latex_text(f"자료 보고: {attribution}에서는 다음과 같이 설명한다. " + " ".join(observations))
-                 + r" \cite{" + key + r"}.\par"]
-        interpretation = reading.get("market_interpretation" if role == "market" else "operating_organization_interpretation")
-        if interpretation:
-            lines.append(_latex_text("평가자의 해석: " + str(interpretation)) + r"\par")
-        limitations = reading.get("limitations") or []
-        if limitations:
-            lines.append(_latex_text("해석 범위와 한계: " + " ".join(map(str, limitations))) + r"\par")
-        groups[role].extend(lines)
-    for role, heading in (("market", "시장성"), ("stakeholders", "이해관계자")):
-        if not groups[role]:
-            continue
-        block = "\n".join([f"% BEGIN_SOURCE_ANALYSIS_{role}",
-            "다음은 관련 연구·산업 자료의 구체적 설명과 평가자의 해석이다. 업체의 설명이나 관련 기술의 효과를 "
-            "RDKV·Photonic-CXL 자체의 도입 실적으로 확대하지 않는다.", *groups[role],
-            f"% END_SOURCE_ANALYSIS_{role}", ""])
-        pattern = r"(\\subsection\{" + heading + r"\}[\s\S]*?)(?=\\(?:subsection|section)\{|\\end\{document\})"
-        latex = re.sub(pattern, lambda match: match.group(1) + "\n" + block, latex, count=1)
-    return latex
+        if key not in cited:
+            missing.append({**reading, "citation_key": key})
+    return missing
 
 
 def prepare_candidate(candidate: str, parsed: ParsedReportInput) -> str:
     candidate = _strip_code_fence(candidate)
     if parsed.metadata.get("render_mode") == "annotated_draft":
         candidate = canonicalize_citations(candidate, parsed)
-        candidate = retain_source_analysis(candidate, parsed)
         return retain_cited_references(retain_attribution_appendix(candidate, parsed), parsed)
     return drop_unused_references(candidate)
 
