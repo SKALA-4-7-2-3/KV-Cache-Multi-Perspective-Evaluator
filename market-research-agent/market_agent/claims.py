@@ -66,7 +66,8 @@ def validate_claims(data, claims, evidence):
         elif (claim.metric or quantitative_claim(claim.statement)) and not metric_supported(claim.metric,[c],evidence):
             code = 'unsupported_metric'
         if code:
-            errors.append(dict(stage='claims',code=code,tech_id=claim.tech_id,criterion_id=claim.criterion_id,evidence_id=c.evidence_id))
+            errors.append(dict(stage='claims',code=code,scope='cell',tech_id=claim.tech_id,criterion_id=claim.criterion_id,
+                evidence_id=c.evidence_id,candidate=claim.model_dump_json()))
             continue
         if e.published_at is None:
             claim.conditions = list(dict.fromkeys([*claim.conditions,'발행일 미확인: 기준일 당시 상태 추가 확인 필요']))
@@ -90,12 +91,39 @@ def review_claims(pool, reviews):
             log[key] = 'unreviewed'
             errors.append(dict(stage='compose',code='missing_claim_review',tech_id=claim.tech_id,
                 criterion_id=claim.criterion_id,claim_id=key))
-        elif review.supported:
-            accepted[key] = claim
+        elif review.supported and review.market_relevant and review.relation_supported and review.conditions_preserved:
+            checked=claim.model_copy(deep=True)
+            checked.evidence_level=review.evidence_level
+            if review.evidence_level in {'projection','planned_release','inference'}:
+                checked.basis='inference'
+                checked.conditions=list(dict.fromkeys([*checked.conditions,'전망·계획에 근거한 추론이며 실제 고객 성과 미검증']))
+            checked.citation.source_character += f'; 근거 수준: {review.evidence_level}'
+            accepted[key] = checked
             log[key] = 'accepted: ' + review.reason
         else:
             log[key] = 'rejected: ' + review.reason
     return accepted, log, errors
+
+
+def limit_claims(pool, total=12, per_cell=2):
+    """입력 순서의 독점을 막고 기술·항목별로 균등하게 후보를 배정한다."""
+    groups={}
+    for key,claim in pool.items():
+        groups.setdefault((claim.tech_id,claim.criterion_id),[]).append((key,claim))
+    ordered={}
+    for cell,items in sorted(groups.items()):
+        items.sort(key=lambda x:(x[1].relation_to_technology!='exact',x[1].basis!='fact',x[0]))
+        first=items[:1]
+        rest=items[1:]
+        rest.sort(key=lambda x:x[1].relation_to_technology==first[0][1].relation_to_technology)
+        ordered[cell]=first+rest
+    selected={}
+    for index in range(per_cell):
+        for items in ordered.values():
+            if len(items)>index and len(selected)<total:
+                key,claim=items[index]
+                selected[key]=claim
+    return selected
 
 
 def materialize(data, draft, pool):

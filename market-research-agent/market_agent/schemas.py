@@ -100,6 +100,7 @@ class Metric(Record):
 Basis = Literal["fact", "inference", "unknown"]
 Relation = Literal["exact", "method_family", "adjacent", "unknown"]
 Verdict = Literal["favorable", "conditional", "unfavorable", "unknown", "not_applicable"]
+EvidenceLevel = Literal['research_experiment','simulation','publisher_statement','planned_release','customer_case','projection','inference']
 
 
 class Citation(Record):
@@ -109,6 +110,7 @@ class Citation(Record):
     source_character: str
     identity_quote: str = ""
     locator: str = ""
+    context: str = ''
 
 
 class ContextFinding(Record):
@@ -163,6 +165,7 @@ class Claim(Record):
     citation: Citation
     conditions: list[str]
     metric: Metric | None
+    evidence_level: EvidenceLevel = 'publisher_statement'
 
 
 class SourceReview(Record):
@@ -187,6 +190,7 @@ class SelectedClaim(Record):
     subject: str
     conditions: list[str]
     metric: Metric | None
+    evidence_level: EvidenceLevel = 'publisher_statement'
 
 
 class SelectedExtraction(Record):
@@ -209,6 +213,17 @@ class ClaimReview(Record):
     claim_id: str
     supported: bool
     reason: str
+    market_relevant: bool = True
+    relation_supported: bool = True
+    conditions_preserved: bool = True
+    evidence_level: EvidenceLevel = 'publisher_statement'
+
+
+class SemanticClaimReview(ClaimReview):
+    market_relevant: bool
+    relation_supported: bool
+    conditions_preserved: bool
+    evidence_level: EvidenceLevel
 
 
 class DraftAnalysis(Record):
@@ -218,7 +233,7 @@ class DraftAnalysis(Record):
 
 
 class ReviewedDraftAnalysis(DraftAnalysis):
-    claim_reviews: list[ClaimReview]
+    claim_reviews: list[SemanticClaimReview]
 
 
 class MarketResult(Record):

@@ -6,6 +6,17 @@ from market_agent.schemas import Evidence, Citation
 
 
 class ClaimTests(unittest.TestCase):
+    def test_candidate_limit_preserves_multiple_criteria_and_relation_types(self):
+        from market_agent.claims import limit_claims
+        pool={f'A{i}':self.claim(criterion_id='business_value') for i in range(20)}
+        pool['B']=self.claim(criterion_id='commercialization')
+        pool['C']=self.claim(criterion_id='ecosystem_support')
+        result=limit_claims(pool,total=4,per_cell=2)
+        self.assertEqual(len(result),4)
+        self.assertEqual(sum(c.criterion_id=='business_value' for c in result.values()),2)
+        self.assertIn('B',result)
+        self.assertIn('C',result)
+
     def setUp(self):
         self.data = read_input(Path(__file__).parents[1]/'fixtures/input.md')
         self.web = Evidence(id='MKT-X', doc_id='X', title='PF-NIC support', url='https://example.org/support',

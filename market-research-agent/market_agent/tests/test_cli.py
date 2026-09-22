@@ -86,7 +86,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(snapshot["output_schema_version"],"0.3")
             self.assertIn("claim_pool",snapshot)
             self.assertIn("source_reviews",snapshot)
-            self.assertEqual(snapshot["result"]["usage"]["llm"], 1)
+            self.assertEqual(snapshot["result"]["usage"]["llm"], 2)
             second = self.invoke(*args, "--reuse")
             self.assertEqual(second.returncode, 0, second.stderr)
             self.assertIn("snapshot reused", second.stdout)

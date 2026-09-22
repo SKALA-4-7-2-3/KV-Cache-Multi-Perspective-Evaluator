@@ -13,6 +13,21 @@ from .tools import ProviderError
 from .json_input import model_background
 
 
+def strict_schema(model):
+    schema=model.model_json_schema()
+    def visit(item):
+        if isinstance(item,dict):
+            item.pop('default',None)
+            if item.get('type')=='object':
+                item['additionalProperties']=False
+                item['required']=list(item.get('properties',{}))
+            for value in item.values():visit(value)
+        elif isinstance(item,list):
+            for value in item:visit(value)
+    visit(schema)
+    return schema
+
+
 class OpenAIAnalyst:
     def __init__(self, api_key: str, model="gpt-4.1-mini", *, debug=False):
         if not api_key:
@@ -25,7 +40,7 @@ class OpenAIAnalyst:
         self.debug = debug
         self.debug_analyses = []
         self._llm = ChatOpenAI(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
-        self._composer = self._llm.with_structured_output(ReviewedDraftAnalysis, method="json_schema", strict=True, include_raw=True)
+        self._composer = self._llm.with_structured_output(strict_schema(ReviewedDraftAnalysis), method="json_schema", strict=True, include_raw=True)
 
     def _invoke(self, stage, runnable, schema, prompt, payload):
         try:
@@ -61,7 +76,8 @@ class OpenAIAnalyst:
             if not (e.access_status=='full_text' and e.content_status=='substantive'):
                 continue
             item={'evidence_id':e.id,'title':e.title,'url':e.url,'published_at':str(e.published_at) if e.published_at else None,
-                'scope':e.access_scope,'quotes':{k:v for k,v in bank.items() if v['evidence_id']==e.id}}
+                'scope':e.access_scope,'technology_candidates':e.tech_ids,'requested_criteria':e.criteria,
+                'quotes':{k:v for k,v in bank.items() if v['evidence_id']==e.id}}
             material.append(item)
         payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
             'criteria':CRITERIA,
@@ -71,7 +87,7 @@ class OpenAIAnalyst:
                 for k,v in data.technologies.items()},
             'evidence': material, 'previous_claims': {k:v.model_dump(mode='json') for k,v in (previous or {}).items()},
             'validation_issues':issues or []}
-        schema=SelectedExtraction.model_json_schema()
+        schema=strict_schema(SelectedExtraction)
         schema['$defs']['SelectedClaim']['properties']['quote_id']={'type':'string','enum':list(bank)}
         extractor=self._llm.with_structured_output(schema,method='json_schema',strict=True,include_raw=True)
         selected=self._invoke('extract',extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
@@ -114,7 +130,7 @@ class FixtureAnalyst:
 
     def extract(self, data, evidence, previous=None, issues=None):
         return Extraction(claims=[],reviews=[SourceReview(evidence_id=e.id,outcome='no_market_claim',
-            reason='가상 테스트 자료에는 실제 시장 근거가 없음') for e in evidence.values()
+            reason='가상 테스트 자료에는 실제 시장 근거가 없음',criteria=e.criteria) for e in evidence.values()
             if e.access_status=='full_text' and e.content_status=='substantive'])
 
     def compose(self, data, claims, previous=None, issues=None):

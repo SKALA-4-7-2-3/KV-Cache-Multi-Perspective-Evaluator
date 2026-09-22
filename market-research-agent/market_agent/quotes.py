@@ -29,7 +29,9 @@ def quote_bank(evidence):
                         continue
                     score=len(re.findall(keywords,text,re.I))
                     score+=4*len(re.findall(r'product|license|customer|serving cost|deploy|available|standard',text,re.I))
-                    candidates.append((score,text,text,locator))
+                    position=body.find(text,paragraph.start())
+                    context=body[max(0,position-300):position+len(text)+300]
+                    candidates.append((score,text,context,locator))
         seen=set()
         for _,text,context,locator in sorted(candidates,key=lambda x:-x[0]):
             if text in seen:
@@ -55,12 +57,13 @@ def resolve_quotes(data, selected, bank, evidence):
         citation=Citation(evidence_id=e.id if e else 'unknown_quote:'+item.quote_id,
             quote=q['text'] if q else '',subject=item.subject,
             source_character=f'웹 발행자 설명 ({e.publisher or e.url}); 독립 검증 미확인' if e else '잘못된 구절 ID',
-            identity_quote=identity,locator=q['locator'] if q else '')
+            identity_quote=identity,locator=q['locator'] if q else '',context=q.get('context','') if q else '')
         values=item.model_dump(exclude={'quote_id','subject'})
         if e:
             # 사실의 주체를 발행자로 고정한다. 독립 재현 또는 고객 실적을 뜻하지 않는다.
             values['statement']=f"자료 발행자의 설명: {values['statement']}"
-        if q and re.search(r'\b(could|may|might|potential(?:ly)?)\b|가능성',q['text'],re.I):
+        if q and (values['evidence_level'] in {'projection','inference','planned_release'} or
+            re.search(r'\b(could|may|might|potential(?:ly)?|expected|plans? to)\b|가능성',q['text'],re.I)):
             values['basis']='inference'
             values['conditions']=list(dict.fromkeys([*values['conditions'],
                 '원문이 제시한 가능성·조건부 전망이며 실제 시장 성과로 검증된 결과가 아님']))

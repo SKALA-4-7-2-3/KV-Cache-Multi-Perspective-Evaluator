@@ -51,6 +51,8 @@ def identity_supported(tech, citations, evidence):
     tokens = [tech.name, *ids]
     for c in citations:
         e = evidence[c.evidence_id]
+        if not any(normalized(t) in normalized(c.subject) for t in tokens):
+            return False
         text = normalized(c.identity_quote or c.quote)
         if any(normalized(t) in text for t in tokens):
             continue

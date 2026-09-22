@@ -10,7 +10,7 @@ from .collection import collect_sources
 from .search_plan import initial_questions, repair_questions
 from .research import annotate
 from .validation import validate_analysis
-from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft, review_claims
+from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft, review_claims, limit_claims
 from .sources import content_quality
 
 
@@ -137,9 +137,10 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         draft=state.get('draft',blank_draft())
         current=[e for e in state['errors'] if e['stage'] not in {'compose','validate','llm_compose'}]
         errors=[]
-        input_pool=state['candidate_pool'] if state['repair_kind']=='compose' else state['claim_pool']
+        all_candidates=state['candidate_pool'] if state['repair_kind']=='compose' else state['claim_pool']
+        input_pool=limit_claims(all_candidates)
         pool={k:c for k,c in input_pool.items() if k in initial_pool}
-        candidates={**state.get('candidate_pool',{}),**input_pool}
+        candidates={**state.get('candidate_pool',{}),**all_candidates}
         review_log=dict(state.get('claim_review_log',{}))
         if input_pool and not state['fatal']:
             if budget.remaining('llm'):
@@ -158,7 +159,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
                 errors.append(dict(stage='llm_compose',code='budget_exhausted:llm'))
         for key in candidates:
             if key not in pool and key not in review_log:
-                review_log[key]='unreviewed: 평가 단계가 완료되지 않음'
+                review_log[key]='candidate_limit' if key not in input_pool else 'unreviewed: 평가 단계가 완료되지 않음'
         analysis,link_errors=materialize(data,draft,pool)
         analysis,validation_errors=validate_analysis(data,analysis,state['evidence'])
         errors+=link_errors+validation_errors
