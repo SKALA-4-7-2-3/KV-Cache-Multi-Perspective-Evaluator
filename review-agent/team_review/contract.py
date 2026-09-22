@@ -98,8 +98,11 @@ def report_decision(state, result, *, require_synthesis=True):
     if semantic_status == "passed" and not semantic_passed:
         semantic_status = "rejected"
     if require_synthesis and not semantic_passed:
-        blocked.append("종합 의견의 자동 의미 검사가 미실행·실패·반려되었거나 검사 후 내용이 변경되었다.")
-    if integrated.get("status") != "completed":
+        message = "종합 의견의 자동 의미 검사가 미실행·실패·반려되었거나 검사 후 내용이 변경되었다."
+        (warnings if config.get("attribution_first") else blocked).append(message)
+    if integrated.get("status") == "draft":
+        warnings.append("종합 의견은 검토 사항을 포함한 초안이며 자동 의미 검사 통과 결과가 아니다.")
+    elif integrated.get("status") != "completed":
         warnings.append("새 종합 의견이 미완료다. 미실행/실패를 완료로 표시하지 않는다.")
     if integrated.get("unresolved_relations"):
         warnings.append("일치·상충·조건 비교·병행 중 일부 분석이 미완료다. 명시된 사유에서 자료 부족과 모델 누락을 구분한다.")
@@ -116,6 +119,8 @@ def report_decision(state, result, *, require_synthesis=True):
         "review_status": status, "report_generation": gate, "human_review_required": True,
         "human_review_scope": "final_submission_only",
         "semantic_validation_status": semantic_status,
+        "attribution_first": config.get("attribution_first") is True,
+        "render_mode": "annotated_draft" if config.get("attribution_first") else "reviewed_report",
         "sw_technology_id": "SW-01", "hw_technology_id": "HW-01",
         "valid_perspective_cells": f"{structural_cells}/8", "valid_criterion_blocks": f"{len(items)-failed}/46",
         "unknown_count": unknown, "failed_count": failed,

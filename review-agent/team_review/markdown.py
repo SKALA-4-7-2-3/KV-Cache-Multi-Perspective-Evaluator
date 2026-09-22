@@ -2,6 +2,7 @@
 
 import re
 import hashlib
+import json
 from datetime import date, datetime
 
 import yaml
@@ -276,6 +277,30 @@ def render_review_markdown(state, result):
                 listing(lines, "필요한 조건", opinion["conditions"])
                 listing(lines, "추가되는 위험", opinion["risks"])
             lines.append("")
+    if cfg.get("attribution_first"):
+        lines += ["### 출처 기반 종합 초안과 검토 사항", "",
+                  "아래 의견은 생성된 해석을 보존한 초안이다. 자동 의미 검사 통과를 뜻하지 않는다. "
+                  "보고서는 출처가 직접 제시한 내용과 평가자의 해석을 구분하고, "
+                  "근거 연결 미확인이나 표현상 문제를 해당 의견 옆에 표시한다.", ""]
+        for i, opinion in enumerate(integrated.get("draft_opinions", []), 1):
+            lines += [f"#### 종합 초안 {i}", "", f"- 초안 ID: opinion_{i}",
+                      f"- 생성된 의견: {text(opinion.get('conclusion', '미제공'))}",
+                      f"- 관점 연결 해석: {text(opinion.get('explanation', '미제공'))}"]
+            for key, label in [("technology_ids", "관련 기술"), ("source_assessment_ids", "제시된 평가 연결"),
+                               ("evidence_ids", "제시된 근거 연결 (확인 상태는 검토 사항 참조)"),
+                               ("conditions", "성립 조건"), ("risks", "제약"), ("unknowns", "미확인 사항")]:
+                listing(lines, label, opinion.get(key, []))
+            notes = [n for n in integrated.get("review_notes", []) if n.get("item_id") == f"opinion_{i}"]
+            listing(lines, "검토 사항", [f"{n.get('stage')}: {n.get('reason')}" for n in notes],
+                    empty="개별 지적 미기재; 의미 검사 통과의 보증이 아님")
+            lines.append("")
+        for note in integrated.get("review_notes", []):
+            if not str(note.get("item_id", "")).startswith("opinion_"):
+                lines.append(f"- 전체 검토 사항 ({text(note.get('stage'))}): {text(note.get('reason'))}")
+        lines += ["", "<!-- RETAINED_SYNTHESIS_JSON", json.dumps({
+            "draft_opinions": integrated.get("draft_opinions", []),
+            "review_notes": integrated.get("review_notes", []),
+        }, ensure_ascii=False, indent=2), "END_RETAINED_SYNTHESIS_JSON -->", ""]
     lines += ["### 직접 비교하면 안 되는 결과", ""]
     noncomparable = [p for p in syn["metric_comparisons"] if not p["conditions_match"]]
     for pair in noncomparable:
@@ -293,7 +318,7 @@ def render_review_markdown(state, result):
     if syn["demo"]:
         lines += ["본 결과의 상위 관점별 평가는 모의 Agent 입력을 포함하며, 실제 고객 인터뷰나 전체 RAG 실행 및 성능 재현 결과를 의미하지 않는다.",
                   "현재 입력은 보고서 생성기 개발·LaTeX 변환 테스트·초안용이며 최종 제출 완료 자료로 표시하지 않는다."]
-    if all(doc["kind"] == "paper" for doc in syn["references"]):
+    if all(doc["kind"] == "paper" for doc in syn["references"]) and not cfg.get("usable_source_reports"):
         lines += ["현재 채택 근거는 논문뿐이다. 시장 규모·실제 채택·당사자 반응은 외부 원문 확인 전까지 미확인으로 유지한다."]
     lines += ["신뢰도 unavailable은 상위 Agent의 미평가를 뜻한다. 출력 품질을 높이려고 임의로 high/medium/low로 바꾸지 않는다.", ""]
     for label, values in [("자료 공백", decision["warnings"]), ("실행 실패", [i["message"] for i in rev["checks"] if i["code"] == "upstream_error"] + (integrated.get("limitations", []) if integrated.get("status") == "failed" else [])),
@@ -360,6 +385,48 @@ def render_review_markdown(state, result):
               "- Evidence/Reference ID와 citation_key는 중복되지 않으며 인용 연결을 확인한다.",
               "- 정량 주장은 값·단위·기준 시스템·검증 방식·Evidence를 함께 기록한다.",
               "- 레이아웃 제어문을 만들지 않는다. LaTeX 변환·escape·표 배치·참고문헌 렌더링은 후단 책임이다.", ""]
+    upstream_drafts = cfg.get("upstream_draft_findings") or []
+    upstream_notes = cfg.get("upstream_review_notes") or []
+    if upstream_drafts or upstream_notes:
+        lines += ["### 상위 에이전트의 분석 초안과 검토 사항", "",
+                  "아래 자료는 앞 단계에서 생성됐으나 확정 근거로 채택되지 않은 분석이다. "
+                  "원래 주장과 출처 연결·검토 사항을 함께 읽고, 출처가 제시한 내용과 해석을 구분한다. "
+                  "미채택 사실만으로 삭제하지 않으며 확인된 사실로 승격하지 않는다.", "",
+                  "<!-- UPSTREAM_ANALYSIS_JSON", json.dumps({
+                      "draft_findings": upstream_drafts, "review_notes": upstream_notes,
+                  }, ensure_ascii=False, indent=2), "END_UPSTREAM_ANALYSIS_JSON -->", ""]
+    collected_sources = cfg.get("collected_sources") or []
+    if collected_sources:
+        lines += ["### 웹 출처 인용 후보 메타데이터", "",
+                  "아래 목록은 출처 연결용 메타데이터이며, 모든 항목을 보고서 참고문헌에 넣으라는 뜻이 아니다. "
+                  "URL만 있는 자료의 내용을 추측하지 않는다. 실제 분석에 사용한 출처만 본문에 인용하고 "
+                  "최종 REFERENCE에 남긴다.", ""]
+        for index, source in enumerate(collected_sources, 1):
+            lines += [f"#### 수집 자료 {index}: {text(source.get('title') or '제목 미확인')}"]
+            for key, label in [("source_id", "자료 ID"), ("evidence_id", "수집 근거 ID"),
+                               ("reference_id", "참고문헌 연결 ID"), ("citation_key", "인용 키"),
+                               ("url", "URL"), ("publisher", "발행 주체"), ("author", "저자"),
+                               ("published_at", "발행일"), ("retrieved_at", "수집일"),
+                               ("role", "수집 관점"), ("usage_status", "활용 상태"),
+                               ("technology_ids", "관련 기술"), ("summary", "수집 시 요약"),
+                               ("source_audit", "수집 시 확인 사항")]:
+                if source.get(key) is not None:
+                    lines.append(f"- {label}: {text(source[key])}")
+            lines.append("")
+        # URL inventory is data, outside the validated claim index.
+        lines += ["<!-- COLLECTED_SOURCES_JSON", json.dumps(collected_sources, ensure_ascii=False, indent=2),
+                  "END_COLLECTED_SOURCES_JSON -->", ""]
+    usable_source_reports = cfg.get("usable_source_reports") or []
+    if usable_source_reports:
+        lines += ["### 출처에 귀속해 활용할 수 있는 수집 본문", "",
+                  "아래 JSON은 실제 보존된 웹 본문 발췌와 출처 연결이다. 주장 검증 완료를 뜻하지 않지만 "
+                  "해당 출처가 무엇을 설명하는지 읽고 관련된 분석에 활용할 수 있다. 출처의 설명과 "
+                  "평가자의 해석을 구분하고, 업체 주장은 업체에 귀속하며 적용 범위와 미확인 사항을 남긴다. "
+                  "상위 검토 미채택만으로 실질 내용을 버리지 않는다. 메뉴·광고·로그인 안내만 있는 자료는 "
+                  "주장 근거로 사용하지 않는다. 사용할 내용이 있을 때 연결된 인용 키로 본문에 인용한다. "
+                  "자료 개수에 맞추기 위한 인용이나 미사용 출처의 REFERENCE 추가는 하지 않는다.", "",
+                  "<!-- USABLE_SOURCE_REPORTS_JSON", json.dumps(usable_source_reports, ensure_ascii=False, indent=2),
+                  "END_USABLE_SOURCE_REPORTS_JSON -->", ""]
     section(12)
     lines += ["### validation_summary", "", f"- overall_result: {'fail' if decision['blocking_issues'] else 'warn' if decision['warnings'] else 'pass'}",
               f"- blocking_issue_count: {len(decision['blocking_issues'])}", f"- warning_count: {len(decision['warnings'])}",
@@ -377,7 +444,7 @@ def render_review_markdown(state, result):
         "status_consistency_validation": ("pass", "동일 report_decision 함수로 상태·생성 조건 판정."),
         "summary_aggregation_validation": ("pass", "네 관점의 counter_evidence/gaps와 검증된 종합 의견을 요약에 함께 반영. 미입력 위험은 미평가로 표시."),
         "synthesis_coverage_validation": ("pass" if integrated.get("status") == "completed" else "warn", "일치·상충·조건 비교·병행의 기술별 의견 또는 보류 사유를 검사. 근거 부족과 모델 누락을 구분."),
-        "semantic_grounding_validation": ("pass" if decision["semantic_validation_status"] == "passed" else "fail", "모든 종합 의견을 연결 평가·근거와 의미 대조. 반려 시 한 번 수정 후 재검사, 미통과 시 후단 차단."),
+        "semantic_grounding_validation": ("pass" if decision["semantic_validation_status"] == "passed" else "warn" if cfg.get("attribution_first") else "fail", "종합 의견의 연결 평가·근거를 의미 대조한다. 출처 중심 초안에서는 미통과 의견과 검토 사항을 함께 보존하며 통과로 표시하지 않는다."),
     }
     all_items = {f"{r['perspective']}/{t}/{i['criterion_id']}": i
                  for r in syn["comparison_matrix"] for t in TECHNOLOGIES for i in r[t]["items"]}
@@ -438,6 +505,9 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     if not markdown.startswith("---\n") or "\n---\n" not in markdown[4:]:
         raise ValueError("report-input-v1 헤더가 없습니다.")
     front, body = markdown[4:].split("\n---\n", 1)
+    raw_body = body
+    # Serialized source excerpts are untrusted data, not report layout or claim-index fields.
+    body = re.sub(r"<!-- (?:COLLECTED_SOURCES|RETAINED_SYNTHESIS|UPSTREAM_ANALYSIS|USABLE_SOURCE_REPORTS)_JSON\n[\s\S]*?\nEND_(?:COLLECTED_SOURCES|RETAINED_SYNTHESIS|UPSTREAM_ANALYSIS|USABLE_SOURCE_REPORTS)_JSON -->", "", body)
     header = yaml.load(front, Loader=UniqueSafeLoader)
     if not isinstance(header, dict) or header.get("schema_version") != VERSION:
         raise ValueError("지원하지 않는 보고서 입력 형식입니다.")
@@ -450,7 +520,7 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
         raise ValueError("필수 헤더가 없거나 버전이 잘못되었습니다.")
     if any(isinstance(v, (dict, list, set)) for v in header.values()):
         raise ValueError("frontmatter는 중첩 없는 flat YAML이어야 합니다.")
-    if type(header["demo"]) is not bool or header["next"] not in {"repair", "render"} or header["synthesis_status"] not in {"not_run", "skipped", "completed", "partial", "failed"}:
+    if type(header["demo"]) is not bool or header["next"] not in {"repair", "render"} or header["synthesis_status"] not in {"not_run", "skipped", "completed", "partial", "failed", "draft"}:
         raise ValueError("demo/next/synthesis_status 형식이 잘못되었습니다.")
     if any(type(header[k]) is not int or header[k] < 0 for k in ("unknown_count", "failed_count", "evidence_count", "reference_candidate_count")):
         raise ValueError("집계는 0 이상의 정수여야 합니다.")
@@ -461,7 +531,7 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     expected = {"complete": "allowed", "partial": "allowed_with_gaps", "failed": "blocked"}
     if expected.get(header.get("review_status")) != header.get("report_generation"):
         raise ValueError("출력 상태와 보고서 생성 조건이 다릅니다.")
-    if header.get("semantic_validation_status", "not_run") not in {"passed", "rejected", "failed", "not_run"}:
+    if header.get("semantic_validation_status", "not_run") not in {"passed", "rejected", "failed", "not_run", "review_required"}:
         raise ValueError("자동 의미 검사 상태가 잘못되었습니다.")
     for n, title in enumerate(SECTIONS, 1):
         if body.count(f"## {n}. {title}\n") != 1:
@@ -551,9 +621,9 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     for line in re.findall(r"^\| [1-9] \| (?:met|not_met|unknown) \| .* \| (.*) \|$", trl_section, re.M):
         if not set(re.findall(r"\[([^\]]+)\]", line)).issubset(known):
             raise ValueError("TRL 단계별 Evidence 연결이 깨졌습니다.")
-    if re.search(r"(?:<|&lt;)(?:내용|목록|정수|실제 실행 ID|[^\n]{0,60}criterion[^\n]{0,20})(?:>|&gt;)", markdown):
+    if re.search(r"(?:<|&lt;)(?:내용|목록|정수|실제 실행 ID|[^\n]{0,60}criterion[^\n]{0,20})(?:>|&gt;)", body):
         raise ValueError("템플릿 placeholder가 남아 있습니다.")
-    if re.search(r"\\(?:section|subsection|input|include|bibliography|documentclass|usepackage|begin|end)\b", markdown):
+    if re.search(r"\\(?:section|subsection|input|include|bibliography|documentclass|usepackage|begin|end)\b", body):
         raise ValueError("보고서 레이아웃용 LaTeX 제어 명령은 허용하지 않습니다.")
     if require_allowed and header["report_generation"] == "blocked":
         raise ValueError("보고서 생성 차단: 보완 또는 오류 진단이 먼저 필요합니다.")
@@ -567,7 +637,7 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
                            or header.get("semantic_validation_status") != "passed"
                            or header.get("next") == "repair" or header.get("synthesis_status") != "completed"):
         raise ValueError("최종 실행 입력 아님: 모의 입력·차단·보완 대기·종합 미완료 여부를 확인하세요. unknown 자체는 차단 사유가 아닙니다.")
-    return header, body
+    return header, raw_body
 
 
 def review_handoff_node(state):

@@ -10,7 +10,7 @@ Research는 다시 실행하지 않습니다. 기본 입력은 research 브랜�
 
 ```bash
 uv sync --project integration
-integration/.venv/bin/python -m pipeline --output outputs/integration/first-report --draft
+integration/.venv/bin/python -m pipeline --output outputs/integration/first-report
 ```
 
 `OPENAI_API_KEY`, `TAVILY_API_KEY`를 환경변수로 제공하거나 기존
@@ -21,10 +21,10 @@ integration/.venv/bin/python -m pipeline --output outputs/integration/first-repo
 
 ```bash
 # 입력, 모델, 조사 기준일이 같은 실행을 이어서 진행
-integration/.venv/bin/python -m pipeline --output outputs/integration/first-report --resume --draft
+integration/.venv/bin/python -m pipeline --output outputs/integration/first-report --resume
 
 # 특정 단계만 다시 실행 (그 출력이 바뀌면 이후 결과도 다시 생성)
-integration/.venv/bin/python -m pipeline --output outputs/integration/first-report --resume --rerun review --draft
+integration/.venv/bin/python -m pipeline --output outputs/integration/first-report --resume --rerun review
 
 # 저장 결과 입력 변환까지만 수행 (외부 API 호출 없음)
 integration/.venv/bin/python -m pipeline --output outputs/integration/prepare-only --stop-after prepare
@@ -42,16 +42,47 @@ integration/.venv/bin/python -m pipeline --output outputs/integration/prepare-on
 4. `pipeline/reporting.py`: 실제 종합 결과로 기존 ReportAgent를 호출해 LaTeX와 PDF를 생성합니다.
 
 원본 자료는 `research.bundle.json`, 모델에 전달한 파생 입력은 `papers.compat.json`,
-선택된 문맥과 원본 연결 기록은 `research.context_manifest.json`에 저장합니다.
+전달한 문맥과 원본 연결 기록은 `research.context_manifest.json`에 저장합니다.
 각 단계 출력과 `run.json`은 중간 실패 후 재사용할 수 있습니다.
 
-최종 산출물은 `review.output.md`, `report.tex`, `report.pdf`입니다.
-`--draft`는 실제 8개 관점 결과가 있고 역할 실패가 없을 때, Review의 형식 정리만 수행하고
-추가 종합 생성·의미 검토 호출을 생략하여 검증 전 초안을 생성합니다. 검토 미실시/미통과를
-그대로 표시하며, 반려된 종합 의견은 포함하지 않습니다.
-이 옵션을 생략하면 기존의 종합 검토 통과 요건을 유지합니다.
+최종 산출물은 `review.output.md`, `report.input.md`, `report.tex`, `report.pdf`입니다.
+기본 실행은 출처를 명시하는 분석 초안(`annotated_draft`)입니다. 앞 단계에서 인용되지 않은
+웹 출처도 제목·URL·발행 주체·날짜·활용 상태와 함께 종합 입력으로 전달합니다.
+웹 본문은 상위 에이전트 결과 파일에 보존합니다. 종합에는 세 에이전트의 분석과 함께
+실제 수집한 웹 발췌·출처 정보를 전달해, 앞 단계에서 인용하지 못한 유용한 자료도 분석에 활용합니다.
+제목·URL만으로 내용을 추측하지 않으며, 탐색 메뉴만 수집된 페이지는 분석 근거로 사용하지 않습니다.
+종합 의견은 `draft_opinions`, 개별 표현·근거 연결 및 검사 응답 문제는 `review_notes`에 보존합니다.
+의미 검사 미통과 때문에 전체 의견을 삭제하지 않으며, 검사 통과로 표시하지도 않습니다.
+PDF의 단일 `REFERENCE`에 논문과 웹 자료의 제목·URL·저자/기관을 함께 넣습니다.
+동일 URL은 중복 제거하고, 실제 본문에서 활용하여 인용한 자료만 참고문헌에 넣습니다.
+수집 목록 전체를 참고문헌으로 출력하거나 목표 개수를 맞추기 위한 인용을 만들지 않습니다.
+검토에서 보류된 시장·이해관계자 분석은 `retained_draft_findings`로 보존해 종합에 전달하고,
+종합 의견과 검토 사항을 함께 보고서에 포함합니다.
+수집된 본문은 `stakeholders.output.json`, `market.output.json`에서 확인할 수 있습니다.
+보고서 작성 전 수집 본문을 출처별로 읽어 구체적 관찰·인용 구절·운영/시장 해석을
+`report.source-analysis.json`에 저장합니다. 앞 단계에서 미채택된 유용한 웹 내용도
+본문에 반영하고, 메뉴만 수집된 자료 등은 생략 사유를 남깁니다. 같은 입력으로 재개하면 이 분석도 재사용합니다.
+
+`--draft`는 추가 종합 생성·의미 검토 호출을 생략하고 관점별 결과와 수집 자료로 초안을 만듭니다.
+세 관점 정보를 연결한 새 종합 의견이 필요하면 이 옵션을 생략합니다.
 보고서에는 근거 부족, 판단 보류, 일부 역할 실패가 남을 수 있습니다.
 PDF 생성은 전체 평가 정확도나 제출 품질 검증의 완료를 의미하지 않습니다.
+
+## 원래 한도와 자료 보존
+
+통합에서 줄였던 호출 한도를 제거하고 각 에이전트의 원래 기본값을 사용합니다.
+
+| 에이전트 | 검색 | 본문 수집 | 모델 호출 |
+| --- | ---: | ---: | ---: |
+| 이해관계자 | 6 | 10 | 5 |
+| 시장 | 6 | 10 | 5 |
+
+수집 한도는 성공한 고유 출처 수를 보장하지 않습니다. 확보된 자료가 8개라면 8개 전체를,
+그보다 많거나 적으면 실제 확보한 자료 전체를 전달하며 개수를 맞추기 위해 자료를 만들지 않습니다.
+논문 분석 입력과 참고문헌 형식은 기존 방식을 유지합니다. 근거 조각 191개를 추가로 모두 투입하지 않습니다.
+Research 결과의 authors가 비어 있으면 공식 arXiv에서 확인한 `pipeline/paper_authors.json`을 사용해
+참고문헌의 저자만 보완합니다. Research 원본은 수정하거나 재실행하지 않습니다.
+각 에이전트가 원래 사용하던 웹 페이지당 수집 길이와 내부 정책은 그대로 사용합니다.
 
 ## PDF 컴파일
 

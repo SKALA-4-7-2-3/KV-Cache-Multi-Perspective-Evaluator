@@ -9,6 +9,7 @@ from __future__ import annotations
 from copy import deepcopy
 from hashlib import sha256
 import json
+from pathlib import Path
 import re
 from typing import Any
 
@@ -56,6 +57,8 @@ class _Bridge:
         self.bundle, self.request, self.results = bundle, request, results
         self.run_id, self.as_of = run_id, str(as_of)[:10]
         self.documents, self.evidence, self.attribution = {}, {}, {}
+        self.collected_sources = []
+        self.source_reports = []
         self.aliases, self.notes = {}, []
         self.source_run = bundle["run"].get("run", {})
         self.collected_at = self.source_run.get("finished_at") or self.source_run.get("started_at") or self.as_of
@@ -86,6 +89,7 @@ class _Bridge:
 
     def sources(self):
         methods = {}
+        author_metadata = json.loads(Path(__file__).with_name("paper_authors.json").read_text())
         for tech, dossier in self.by_tech.items():
             paper = dossier["paper"]
             arxiv_id = paper.get("arxiv_id")
@@ -98,7 +102,12 @@ class _Bridge:
                 "published_at": paper.get("published_at"), "retrieved_at": self.collected_at,
                 "source_type": "paper", "citation_key": "SW01_RDKV" if tech == "SW-01" else "HW01_PHOTONIC_CXL",
             }
-            self.attribution[tech] = {"authors": ", ".join(paper.get("authors") or []) or "unknown", "venue_or_site": "arXiv"}
+            supplemental = author_metadata.get(str(arxiv_id).split("v")[0], {})
+            authors = paper.get("authors") or supplemental.get("authors", [])
+            self.attribution[tech] = {"authors": ", ".join(authors) or "unknown", "venue_or_site": "arXiv"}
+            if not paper.get("authors") and supplemental:
+                self.attribution[tech]["authors_source"] = supplemental["source_url"]
+                self.attribution[tech]["authors_checked_at"] = supplemental["checked_at"]
             for observation in dossier.get("experiment_observations", []):
                 for eid in observation.get("evidence_ids", []):
                     methods.setdefault(eid, set()).add(_method(observation))
@@ -145,11 +154,23 @@ class _Bridge:
             excerpt = raw.get("excerpt") or ""
             url = raw.get("url") or ""
             techs = [t for t in raw.get("technology_ids", raw.get("tech_ids", [])) if t in TECHS]
-            if not excerpt or not url.startswith(("https://", "http://")) or not techs:
-                continue
             quotes = _unique(supports.get(eid, []))
             matching = [q for q in quotes if _normalize_space(q) in _normalize_space(excerpt)]
             audit = raw.get("audit") or {}
+            # Forward every source URL, including uncited/partial collections.
+            # Full fetched content remains in the originating agent's output.
+            source_metadata = {
+                "source_id": f"{role}:{eid}", "evidence_id": eid, "role": role,
+                "title": raw.get("title"), "url": url,
+                "publisher": raw.get("publisher"), "author": raw.get("author"),
+                "published_at": raw.get("published_at"), "retrieved_at": raw.get("retrieved_at"),
+                "technology_ids": techs,
+                "usage_status": "cited" if matching else "collected_not_cited",
+                "collection_status": raw.get("access_status") or ("excerpt_available" if excerpt else "content_unavailable"),
+            }
+            self.collected_sources.append(source_metadata)
+            if not excerpt or not url.startswith(("https://", "http://")) or not techs:
+                continue
             acceptable = not audit or audit.get("decision") in {"use", "limited"}
             acquired = raw.get("access_status") == "full_text" or bool(raw.get("collected_content_sha256"))
             available = bool(matching) and acceptable and acquired
@@ -171,7 +192,6 @@ class _Bridge:
                                      "venue_or_site": raw.get("publisher") or "unknown"}
             canonical = eid if eid not in self.evidence else f"{role}::{eid}"
             self.aliases[eid] = canonical
-            # Only literal supporting excerpts are needed downstream; full collection remains in agent output.
             retained = "\n[…]\n".join(matching) if matching else excerpt
             scope = raw.get("scope") or audit.get("relevance")
             self.evidence[canonical] = {
@@ -185,6 +205,17 @@ class _Bridge:
                     "collected_excerpt_sha256": digest, "source_audit": audit,
                     "original_source_type": raw.get("source_type"), "pdf_reverified_this_run": False},
             }
+            source_metadata.update(evidence_id=canonical, reference_id=did,
+                                   citation_key=self.documents[did]["citation_key"])
+            # Keep the collector's actual text available for attributed analysis.
+            # This does not promote it to verified evidence or a confirmed finding.
+            self.source_reports.append({
+                **source_metadata,
+                "excerpt": re.sub(r"!\[[^\]]*\]\(data:[^\s)]+\)", "", excerpt),
+                "source_audit": audit,
+                "review_status": "source_report_not_independently_verified",
+                "usage_note": "실제 수집 본문에서 관련 내용을 분석해 인용할 수 있습니다. 업체 주장·인접 기술 사례는 해당 출처에 귀속하고, 메뉴·탐색 문구만 있거나 관련 없는 자료는 사용하지 않습니다.",
+            })
 
     def item(self, tech, cid, conclusion, ids=(), *, judgment="conditional", basis="inference",
              conditions=(), gaps=(), findings=(), risks=(), relevance="direct", **extra):
@@ -209,8 +240,9 @@ class _Bridge:
             **extra).model_dump(mode="json")
 
     def role(self, cells, status="completed", demo=False):
-        return {"round": 0, "status": "failed" if status == "failed" else "completed", "demo": demo,
-                "results": {tech: {"status": "failed" if status == "failed" else "completed", "items": items} for tech, items in cells.items()}}
+        status = status if status in {"completed", "unknown", "failed"} else "completed"
+        return {"round": 0, "status": status, "demo": demo,
+                "results": {tech: {"status": status, "items": items} for tech, items in cells.items()}}
 
     def technical(self):
         cells = {}
@@ -288,7 +320,10 @@ class _Bridge:
                     basis="mixed" if known else "unknown", findings=findings,
                     conditions=[c for r in selected for c in r.get("conditions", [])], gaps=gaps,
                     relevance="direct" if selected and all(r.get("relation_to_technology") == "exact" for r in selected) else "indirect"))
-        return self.role(cells, output.get("status"), demo=output.get("mode") not in {None, "live"})
+        status = output.get("status")
+        if status == "failed" and container.get("retained_draft_findings"):
+            status = "unknown"
+        return self.role(cells, status, demo=output.get("mode") not in {None, "live"})
 
     def stakeholder_result(self):
         from team_review.rubric import OPERATING_ORGANIZATION_CRITERIA
@@ -323,7 +358,10 @@ class _Bridge:
                     relevance="direct" if claims and all(c.get("source_scope") == "direct" for c in claims) else "indirect",
                     stakeholder_group="클라우드 데이터센터 LLM 추론 서비스 운영 조직",
                     attributed_to=" / ".join(_unique(c.get("actor") for c in claims)) or None))
-        return self.role(cells, output.get("execution_status"), demo=output.get("mode") not in {None, "live"})
+        status = output.get("execution_status")
+        if status == "failed" and output.get("retained_draft_findings"):
+            status = "unknown"
+        return self.role(cells, status, demo=output.get("mode") not in {None, "live"})
 
 
 def build_review_state(bundle, request, results, *, run_id, as_of) -> dict[str, Any]:
@@ -348,6 +386,16 @@ def build_review_state(bundle, request, results, *, run_id, as_of) -> dict[str, 
               "원본 자료에 논문 버전이 없으면 unknown으로 유지합니다. 시장·이해관계자·도메인 결과의 미확인은 그대로 남깁니다.")
     return {
         "config": {"run_id": run_id, "domain": bridge.domain["name"], "demo": False,
+            "attribution_first": True, "collected_sources": bridge.collected_sources,
+            "usable_source_reports": bridge.source_reports,
+            "upstream_draft_findings": [dict(finding, role=role)
+                for role in ("market", "stakeholders")
+                for finding in results[role].get("retained_draft_findings", [])],
+            "upstream_review_notes": [{"role": role, "note": note}
+                for role in ("market", "stakeholders")
+                for note in results[role].get("review_notes", [])],
+            "upstream_statuses": {"stakeholders": results["stakeholders"].get("execution_status"),
+                "market": results["market"].get("result", {}).get("status")},
             "raw_domain_input": request_text, "normalized_domain": {"id": bridge.domain["id"], "name": bridge.domain["name"]},
             "evaluation_as_of": bridge.as_of, "requirements": {str(k): str(v) for k, v in requirements.items()},
             "domain_requirements": deepcopy(requirements), "source_attribution": bridge.attribution,
@@ -360,7 +408,7 @@ def build_review_state(bundle, request, results, *, run_id, as_of) -> dict[str, 
 
 
 def run_review(state, *, model, draft=False) -> dict[str, Any]:
-    """Run the actual Review model and its bounded semantic repair; never inject stubs.
+    """Run Review with source attribution and retained draft diagnostics.
 
 Upstream repair requests are returned as diagnostics to the parent. This wrapper
 does not claim that a role was rerun, manufacture a passed seal, or call Research.
@@ -371,5 +419,4 @@ does not claim that a role was rerun, manufacture a passed seal, or call Researc
         return review_handoff_node(deepcopy(state))
     actual = deepcopy(state)
     actual["config"]["synthesis_model"] = model
-    actual["config"]["fast_report"] = True
     return review_agent_node(actual)

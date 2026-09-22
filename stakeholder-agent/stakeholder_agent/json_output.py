@@ -1,4 +1,4 @@
-"""Validated JSON handoff of final findings, never of an unfiltered model draft.
+"""Hand off reviewed findings and separately labelled source-linked drafts.
 
 Observed benefits and burdens are not technology suitability judgments. The
 current research graph does not implement a requirement-level suitability rubric,
@@ -226,6 +226,8 @@ class StakeholderOutput(OutputModel):
     follow_up_questions: list[str]
     errors: list[OutputError]
     usage: Usage
+    retained_draft_findings: list[dict[str, Any]] = Field(default_factory=list)
+    review_notes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def consistent_links(self):
@@ -317,7 +319,8 @@ def render_json_output(state: dict, normalized: NormalizedInput | None, *, confi
                        mode: str = "live", input_error: str | None = None) -> dict:
     """Export reviewed findings with stable IDs and the latest design's envelope.
 
-    The semantic review gate fails closed. Source bodies are the bounded excerpts
+    Unaccepted, source-linked drafts are retained separately with review notes.
+    Source bodies are the bounded excerpts
     actually supplied to the graph, retained for downstream citation validation.
     The original upstream evidence IDs and raw chunk provenance are preserved.
     """
@@ -360,6 +363,33 @@ def render_json_output(state: dict, normalized: NormalizedInput | None, *, confi
                        supports=[Citation(**support.model_dump()) for support in claim.supports])
         for index, claim in accepted.items()
     }
+    retained_drafts = []
+    for index, claim in enumerate(draft.claims if draft else []):
+        if index in accepted or not claim.text.strip():
+            continue
+        supports = [support.model_dump() for support in claim.supports
+                    if support.evidence_id in sources]
+        if not supports:
+            continue
+        notes = [issue for issue in issues if issue.startswith(f"주장 {index}:")]
+        if index in rejected and not notes:
+            notes.append("의미 검토에서 보류된 모델 초안입니다.")
+        if not semantic_ok:
+            notes.append("의미 검토가 완료되지 않았습니다.")
+        for support in supports:
+            source = sources[support["evidence_id"]]
+            if source.audit.get("decision") in {"hold", "exclude"}:
+                notes.append(f"출처 검토 상태 {source.audit['decision']}: {source.id}")
+        retained_drafts.append({
+            "id": f"STK-{run_id}-R{outer_round}-D{index + 1:03d}",
+            "technology_ids": [claim.tech_id], "domain_id": claim.domain_id,
+            "stakeholder_id": claim.group, "aspect": claim.aspect, "kind": claim.kind,
+            "text": claim.text, "condition": claim.condition, "source_scope": claim.source_scope,
+            "actor": claim.actor, "actor_relationship": claim.actor_relationship,
+            "evidence_ids": _unique(support["evidence_id"] for support in supports),
+            "supports": supports, "review_status": "needs_review",
+            "review_notes": _unique(notes or ["출처 연결을 보존한 미확정 분석입니다."]),
+        })
     used_ids = _unique(eid for finding in findings.values() for eid in finding.evidence_ids)
 
     def linked(insights):
@@ -405,7 +435,7 @@ def render_json_output(state: dict, normalized: NormalizedInput | None, *, confi
         error_messages.append("출처 검토 미완료: " + ", ".join(state["pending_source_ids"])
                               + ". 보류 자료는 주장 근거로 사용하지 않았습니다.")
     if not semantic_ok and draft is not None:
-        error_messages.append("의미 검토를 완료하지 못하여 분석 주장과 그 요약을 공개 결과에서 제외했습니다.")
+        error_messages.append("의미 검토를 완료하지 못했습니다. 출처가 연결된 분석 초안은 검토 의견과 함께 별도 전달합니다.")
     errors = [OutputError(id=f"STK-{run_id}-R{outer_round}-ERR-{_digest(message)[:12]}",
                           round=outer_round, stage="input" if message == input_error else "research_or_review",
                           code="invalid_input" if message == input_error else "execution_issue", message=message)
@@ -414,7 +444,7 @@ def render_json_output(state: dict, normalized: NormalizedInput | None, *, confi
     if mode == "fixture":
         gaps.append("오프라인 fixture 실행입니다. 실제 모델 및 웹 조사 결과가 아닙니다.")
     if rejected:
-        gaps.append(f"검증에서 제외된 주장 {len(rejected)}개와 이에 의존한 요약 및 시사점은 사용하지 않았습니다.")
+        gaps.append(f"검토에서 보류된 주장 {len(rejected)}개 중 출처가 연결된 내용은 미확정 분석으로 별도 전달합니다.")
     if draft:
         for claim in draft.claims:
             if claim.kind == "unknown":
@@ -492,5 +522,6 @@ def render_json_output(state: dict, normalized: NormalizedInput | None, *, confi
         new_evidence={eid: record for eid, record in evidence.items() if record.source_type == "web"},
         evidence=evidence, references=references, gaps=_unique(gaps),
         follow_up_questions=_unique(draft.follow_up if draft else []), errors=errors,
-        usage=_usage(state, normalized, config))
+        usage=_usage(state, normalized, config), retained_draft_findings=retained_drafts,
+        review_notes=_unique(note for row in retained_drafts for note in row["review_notes"]))
     return output.model_dump(mode="json")

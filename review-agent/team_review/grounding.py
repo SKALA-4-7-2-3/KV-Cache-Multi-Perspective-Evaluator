@@ -19,7 +19,8 @@ def conservative_issues(payload):
             continue
         opinion = item["content"]
         prose = " ".join(str(opinion[k]) for k in ("conclusion", "explanation", "risks"))
-        if opinion["kind"] == "tension" and not re.search(r"절감|확장|완화|처리량|개선|편익|효율", opinion["conclusion"]):
+        if (not payload.get("attribution_first") and opinion["kind"] == "tension"
+                and not re.search(r"절감|확장|완화|처리량|개선|편익|효율", opinion["conclusion"])):
             issues.append({"item_id": item["item_id"], "verdict": "unsupported", "evidence_ids": [],
                            "reason": "상충 결론에 기대 편익이 빠지고 제약만 나열됨. 입력의 편익과 그 실현을 제한하는 조건을 함께 써야 함."})
         if opinion["kind"] == "agreement" and "메모리 용량 확장" in prose and not re.search(r"절감|압축|데이터량 감소", prose):
@@ -69,16 +70,63 @@ def fingerprint(value):
 
 def audit_payload(candidate, source):
     assessments = {a["assessment_id"]: a for a in source["assessments"]}
+    annotated = source.get("attribution_first") is True
     items = []
     for index, opinion in enumerate(candidate["opinions"], 1):
         items.append({"item_id": f"opinion_{index}", "content": opinion,
-                      "assessments": [assessments[aid] for aid in opinion["source_assessment_ids"]],
-                      "evidence": {eid: source["evidence"][eid] for eid in opinion["evidence_ids"]}})
+                      "assessments": [assessments[aid] for aid in opinion["source_assessment_ids"]
+                                      if not annotated or aid in assessments],
+                      "evidence": {eid: source["evidence"][eid] for eid in opinion["evidence_ids"]
+                                   if not annotated or eid in source["evidence"]}})
     items.append({"item_id": "limitations", "content": {k: candidate[k] for k in ("limitations", "unresolved_relations")},
                   "assessments": source["assessments"], "evidence": source["evidence"]})
     return {"domain": source["domain"], "requirements": source["requirements"],
             "unconfirmed_assessments": source["unconfirmed_assessments"], "trl": source["trl"],
-            "metric_comparisons": source["metric_comparisons"], "items": items}
+            "metric_comparisons": source["metric_comparisons"], "items": items,
+            **({"attribution_first": True, "collected_sources": source.get("collected_sources", []),
+                "upstream_draft_findings": source.get("upstream_draft_findings", []),
+                "upstream_review_notes": source.get("upstream_review_notes", []),
+                "usable_source_reports": source.get("usable_source_reports", [])}
+               if annotated else {})}
+
+
+def annotate_audit(value, payload):
+    """Keep valid per-item feedback and report malformed links without rejecting the draft."""
+    expected = {item["item_id"]: item for item in payload["items"]}
+    checks, diagnostics, seen = [], [], set()
+    raw_checks = value.get("checks", []) if isinstance(value, dict) else []
+    if not isinstance(raw_checks, list):
+        raw_checks = []
+    for raw in raw_checks:
+        try:
+            check = Check.model_validate(raw).model_dump(mode="json")
+        except ValueError:
+            diagnostics.append({"item_id": "semantic_response", "stage": "semantic_response",
+                                "verdict": "uncertain", "reason": "의미 검사 응답의 일부 항목 형식을 읽을 수 없음.",
+                                "evidence_ids": []})
+            continue
+        item_id = check["item_id"]
+        if item_id not in expected or item_id in seen:
+            diagnostics.append({**check, "stage": "semantic_response", "verdict": "uncertain",
+                                "reason": "의미 검사에 알려지지 않았거나 중복된 의견 ID가 있음. " + check["reason"],
+                                "evidence_ids": [], "reported_evidence_ids": check["evidence_ids"]})
+            continue
+        seen.add(item_id)
+        invalid = sorted(set(check["evidence_ids"]) - set(expected[item_id]["evidence"]))
+        if invalid:
+            diagnostics.append({**check, "stage": "semantic_response", "verdict": "uncertain",
+                                "reason": "검사기가 의견의 연결 범위 밖 근거 ID를 반환함. 원래 의견은 보존하며 연결 확인이 필요함.",
+                                "evidence_ids": [], "invalid_evidence_ids": invalid})
+            check = {**check, "verdict": "uncertain", "reason": "검사 근거 연결 미확인. " + check["reason"],
+                     "evidence_ids": [eid for eid in check["evidence_ids"] if eid not in invalid]}
+        if item_id != "limitations" and check["verdict"] == "supported" and not check["evidence_ids"]:
+            check = {**check, "verdict": "uncertain", "reason": "검사 응답에 연결 근거가 없음. " + check["reason"]}
+        checks.append(check)
+    for item_id in expected.keys() - seen:
+        diagnostics.append({"item_id": item_id, "stage": "semantic_response", "verdict": "uncertain",
+                            "reason": "이 항목의 의미 검사 응답이 누락됨. 원래 의견은 보존함.", "evidence_ids": []})
+    return {"status": "review_required", "checks": checks, "diagnostics": diagnostics,
+            "raw_checks": raw_checks}
 
 
 def validate_audit(value, payload):
@@ -101,7 +149,16 @@ def call_grounding(payload, *, model):
     with OpenAI(timeout=120, max_retries=0) as client:
         response = client.responses.parse(
             model=model, temperature=0, store=False, max_output_tokens=4500,
-            instructions=PROMPT_PATH.read_text(encoding="utf-8"),
+            instructions=PROMPT_PATH.read_text(encoding="utf-8") + (
+                "\n이번 실행은 출처 귀속을 우선하는 초안이다. collected_sources는 웹 URL과 서지 정보다. "
+                "usable_source_reports는 실제 수집한 본문 발췌다. 해당 발췌를 출처에 귀속한 설명과 "
+                "조건부 해석은 검토에 활용하되 strict evidence로 승격하지 않는다. "
+                "URL만으로 본문 내용을 확인했다고 판단하지 않는다. 상위 분석과 연결 근거에서 "
+                "출처가 보고한 내용과 작성자의 해석을 구분해 검토한다. 각 항목에 제공된 evidence의 "
+                "키만 evidence_ids에 반환한다. 수집 자료의 source_id를 evidence_id로 대체하지 않는다. "
+                "출처의 확인 범위를 명시한 조건부 해석이나 편익 없는 제약 설명 자체는 오류가 아니다. "
+                "확인되지 않은 문장은 uncertain과 사유로 표시한다."
+                if payload.get("attribution_first") else ""),
             input=json.dumps(payload, ensure_ascii=False), text_format=Audit,
         )
     if response.status != "completed" or response.output_parsed is None:

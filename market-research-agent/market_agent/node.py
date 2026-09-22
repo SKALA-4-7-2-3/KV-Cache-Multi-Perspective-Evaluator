@@ -1,5 +1,6 @@
 """시장 역할: 원문 수집 → 근거 추출·검증 → 평가 → 제한된 보완."""
 import re
+from hashlib import sha256
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -9,7 +10,7 @@ from .tools import Budget, ProviderError
 from .collection import collect_sources
 from .search_plan import initial_questions, repair_questions
 from .research import annotate
-from .validation import validate_analysis
+from .validation import validate_analysis, normalized
 from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft, review_claims
 from .sources import content_quality
 
@@ -36,6 +37,66 @@ class RunState(TypedDict, total=False):
     compose_successes: int
     draft: DraftAnalysis
     result: MarketResult
+    source_linked_drafts: dict
+    retained_draft_findings: list
+    review_notes: list
+
+
+def _claim_key(claim):
+    citation = claim.citation
+    identity = '\n'.join([claim.tech_id, claim.criterion_id, citation.evidence_id,
+                          normalized(citation.quote)])
+    return 'CLM-' + sha256(identity.encode()).hexdigest()[:16]
+
+
+def _retained_findings(state):
+    """Keep source-linked model content without promoting it to accepted evidence."""
+    candidates = dict(state.get('source_linked_drafts', {}))
+    for key, claim in state.get('candidate_pool', {}).items():
+        candidates.setdefault(key, {'claim': claim.model_dump(mode='json'), 'review_notes': []})
+    rows = []
+    for key, candidate in candidates.items():
+        if state['claim_dispositions'].get(key) == 'included':
+            continue
+        claim = candidate['claim']
+        citation = claim['citation']
+        if citation['evidence_id'] not in state['evidence']:
+            continue
+        notes = list(candidate.get('review_notes', []))
+        disposition = state['claim_dispositions'].get(key)
+        if disposition:
+            notes.append(disposition)
+        rows.append({
+            'id': key, 'technology_ids': [claim['tech_id']],
+            'criterion_id': claim['criterion_id'], 'text': claim['statement'],
+            'basis': claim['basis'], 'source_scope': claim['relation_to_technology'],
+            'conditions': claim['conditions'], 'metric': claim.get('metric'),
+            'evidence_ids': [citation['evidence_id']], 'supports': [citation],
+            'review_status': 'needs_review',
+            'review_notes': list(dict.fromkeys(notes or ['출처 연결을 보존한 미확정 분석입니다.'])),
+        })
+    # Preserve the model's assessment wording too when canonical materialization
+    # replaced it. Quotes remain the actual linked claim quotes, never new ones.
+    for index, draft in enumerate(state['draft'].assessments):
+        linked = [candidates[key]['claim'] for key in draft.claim_ids if key in candidates]
+        supports = [claim['citation'] for claim in linked
+                    if claim['citation']['evidence_id'] in state['evidence']]
+        final = next((row for row in state['analysis'].assessments
+                      if (row.tech_id, row.criterion_id) == (draft.tech_id, draft.criterion_id)), None)
+        if not supports or not draft.judgment.strip() or (final and final.judgment == draft.judgment):
+            continue
+        notes = [error['code'] for error in state.get('composition_errors', [])
+                 if error.get('tech_id') == draft.tech_id
+                 and error.get('criterion_id') == draft.criterion_id]
+        rows.append({
+            'id': f'MARKET-DRAFT-{index + 1:03d}', 'technology_ids': [draft.tech_id],
+            'criterion_id': draft.criterion_id, 'text': draft.judgment,
+            'basis': draft.basis, 'conditions': draft.conditions,
+            'evidence_ids': list(dict.fromkeys(c['evidence_id'] for c in supports)),
+            'supports': supports, 'review_status': 'needs_review',
+            'review_notes': list(dict.fromkeys(notes + ['근거 연결과 함께 보존한 모델 평가 초안입니다.'])),
+        })
+    return rows
 
 
 def relevant_candidate(row, tech):
@@ -86,6 +147,15 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
             answer=budget.call('llm',lambda:Extraction.model_validate(analyst.extract(data,state['evidence'],
                 previous=state['claim_pool'],issues=state['extraction_errors'])))
             added,errors=validate_claims(data,answer.claims,state['evidence'])
+            retained=dict(state.get('source_linked_drafts',{}))
+            for claim in answer.claims:
+                if claim.citation.evidence_id in state['evidence']:
+                    retained[_claim_key(claim)]={
+                        'claim':claim.model_dump(mode='json'),
+                        'review_notes':[error['code'] for error in errors
+                            if (error.get('tech_id'),error.get('criterion_id'),error.get('evidence_id'))
+                            == (claim.tech_id,claim.criterion_id,claim.citation.evidence_id)]}
+            update['source_linked_drafts']=retained
             reviews={r.evidence_id:r.model_dump() for r in answer.reviews if r.evidence_id in eligible}
             for eid in eligible:
                 if eid not in reviews:
@@ -192,12 +262,15 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     draft=previous_draft(previous,initial_pool,blank_draft())
     analysis,_=materialize(data,draft,initial_pool)
     state=graph.compile().invoke(dict(data=data,round=round_number,evidence=initial_evidence,sources={},analysis=analysis,
-        errors=[],history=[],queries=[],fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},reviews={},extraction_errors=[],composition_errors=[],
+        errors=[],history=[],queries=[],fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},reviews={},extraction_errors=[],composition_errors=[],source_linked_drafts={},
         repair_kind='',repair_used=round_number==1,model_successes=0,compose_successes=0,draft=draft),config={'recursion_limit':20})
     state.update(events=list(budget.events),initial_evidence_ids=list(initial_evidence),model=getattr(analyst,'model','injected'),
         token_usage=list(getattr(analyst,'usage',[])),output_checks=list(getattr(analyst,'output_checks',[])),
         debug_analyses=list(getattr(analyst,'debug_analyses',[])),claim_dispositions=pool_dispositions(state['claim_pool'],state['analysis']))
     state['claim_dispositions'].update({k:v for k,v in state['claim_review_log'].items() if k not in state['claim_pool']})
+    state['retained_draft_findings']=_retained_findings(state)
+    state['review_notes']=list(dict.fromkeys(note for row in state['retained_draft_findings']
+                                           for note in row['review_notes']))
     return state
 
 
@@ -207,4 +280,6 @@ def parent_update(state):
         "retrieved_at": e["retrieved_at"], "page_count": None} for e in evidence.values()}
     result = state["result"].model_dump(mode="json")
     return {"assessments": {"market": result}, "documents": documents, "evidence": evidence,
+        "retained_draft_findings": state.get("retained_draft_findings", []),
+        "review_notes": state.get("review_notes", []),
         "errors": {f'market-{result["round"]}-{i}': error for i, error in enumerate(result["errors"])}}

@@ -124,9 +124,11 @@ def main():
     (output / "review.output.md").write_text(markdown)
     if args.stop_after == "review": return 0
     from .reporting import generate_report
-    artifacts = stage("report", lambda: generate_report(markdown, output, model=args.model, draft=args.draft),
-        stage_input={"markdown": markdown, "draft": args.draft}, code_paths=[ROOT / "report-agent/src"])
-    manifest["status"] = "draft_report_generated" if args.draft else "report_generated"
+    artifacts = stage("report", lambda: generate_report(markdown, output, model=args.model,
+        draft=args.draft, attribution_first=True),
+        stage_input={"markdown": markdown, "draft": args.draft, "attribution_first": True},
+        code_paths=[ROOT / "report-agent/src"])
+    manifest["status"] = "annotated_draft_generated"
     manifest["artifacts"] = artifacts
     save(manifest_path, manifest)
     print(f"report: {artifacts['pdf_path']}", flush=True)
