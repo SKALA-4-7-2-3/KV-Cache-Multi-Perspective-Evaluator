@@ -1,6 +1,7 @@
 """시장 역할: 원문 수집 → 근거 추출·검증 → 평가 → 제한된 보완."""
 import re
 from typing import TypedDict
+from urllib.parse import urlsplit
 
 from langgraph.graph import END, START, StateGraph
 
@@ -44,6 +45,9 @@ class RunState(TypedDict, total=False):
 def relevant_candidate(row, tech):
     """일반 제품 문서를 걸러내는 최소 검사. 사실성·동일 기술 여부는 별도 평가한다."""
     text = f"{row.get('title', '')} {row.get('content', '')}"
+    # 다른 기술 논문의 벤치마크가 시장 자료의 제한된 원문 슬롯을 독점하지 않게 한다.
+    if urlsplit(row.get('url','')).hostname=='arxiv.org' and tech.name.casefold() not in text.casefold():
+        return bool(re.search(r'market|economic|adoption|pricing|serving cost',text,re.I))
     # RDKV는 TV/셋톱박스 플랫폼에서도 쓰는 약어다. 이름 일치만으로 채택하지 않는다.
     if tech.approach == 'SW' and re.search(r'\brdkv\b|rdk.video', text, re.I):
         return bool(re.search(r'kv[\s_-]*cache|rate.distortion|\bllm\b|language model|quantization|attention', text, re.I))
@@ -153,7 +157,8 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
             if budget.remaining('llm'):
                 try:
                     draft=budget.call('llm',lambda:DraftAnalysis.model_validate(analyst.compose(data,input_pool,
-                        previous=state.get('draft'),issues=state['composition_errors'])))
+                        previous=state.get('draft'),issues=state['composition_errors'])),
+                        max_attempts=max(1,min(2,budget.remaining('llm')-(1 if hasattr(analyst,'audit') else 0))))
                     errors=[]  # 새 평가가 성공한 경우에만 이전 평가 오류를 해소한다.
                     update['model_successes']=state['model_successes']+1
                     update['compose_successes']=state['compose_successes']+1
@@ -194,7 +199,8 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
             pool,log,review_errors=review_claims(state['claim_pool'],draft.claim_reviews)
             analysis,link_errors=materialize(data,draft,pool)
             analysis,validation_errors=validate_analysis(data,analysis,state['evidence'])
-            errors+=review_errors+link_errors+validation_errors
+            errors=[e for e in errors if e['stage'] not in {'audit','llm_audit'}]
+            errors+=[{**e,'stage':'audit'} for e in review_errors+link_errors+validation_errors]
             analysis=annotate(analysis,data,state['evidence'],state['queries'],errors,budget,True,reviewed=state['examined'])
             return dict(claim_pool=pool,analysis=analysis,errors=errors,draft=draft,
                 claim_review_log={**state['claim_review_log'],**log},history=state['history']+['audit'],

@@ -72,7 +72,7 @@ def relevance(text, tech, criteria):
 def rank_candidates(rows, tech, criteria):
     def score(row):
         host = (urlsplit(row.get('url', '')).hostname or '').lower()
-        first_party = host in {'arxiv.org', 'github.com', 'docs.vllm.ai', 'marvell.com', 'www.marvell.com', 'computeexpresslink.org'}
+        first_party = host in {'github.com', 'docs.vllm.ai', 'marvell.com', 'www.marvell.com', 'computeexpresslink.org'}
         direct = tech.name.casefold() in f"{row.get('title', '')} {row.get('content', '')}".casefold()
         body = f"{row.get('title', '')} {row.get('content', '')}".casefold()
         purpose = any(term in body for c in criteria for term in TERMS[c])

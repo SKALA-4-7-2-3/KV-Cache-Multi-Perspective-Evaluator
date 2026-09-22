@@ -30,6 +30,12 @@ class GraphTests(unittest.TestCase):
             self.assertFalse(relevant_candidate(row, tech))
         self.assertTrue(relevant_candidate(dict(title='RDKV', content='Rate-distortion KV cache quantization'), tech))
 
+    def test_unrelated_research_benchmarks_do_not_take_market_source_slots(self):
+        from market_agent.node import relevant_candidate
+        tech=read_input(INPUT).technologies['HW-01']
+        self.assertFalse(relevant_candidate(dict(url='https://arxiv.org/abs/2404.19381',title='CXL memory NDP',content='Memory processing benchmark'),tech))
+        self.assertTrue(relevant_candidate(dict(url='https://www.marvell.com/product',title='CXL memory product',content='KV cache product release'),tech))
+
     def test_every_unknown_records_research_state_and_zero_budget_reason(self):
         data = read_input(INPUT).model_copy(update={'limits': Limits(search=0, extract=0, llm=0)})
         result = run_market(data, FixtureWeb(), FixtureAnalyst(), mode='fixture')['result']

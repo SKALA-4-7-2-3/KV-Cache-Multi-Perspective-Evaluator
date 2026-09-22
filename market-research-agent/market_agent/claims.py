@@ -83,7 +83,7 @@ def validate_claims(data, claims, evidence):
 
 def criterion_supported(claim):
     """시장 역할에 명백히 맞지 않는 기술 설명을 의미 검토의 독립 최소 조건으로 거른다."""
-    quote=claim.citation.quote
+    quote=re.sub(r'no cost to efficiency','',claim.citation.quote,flags=re.I)
     if claim.criterion_id=='commercialization':
         return bool(re.search(r'product|commercial|launch|releas|licen[cs]e|available|repository|github|제품|출시|라이선스',quote,re.I))
     if claim.criterion_id=='adoption':
@@ -91,7 +91,7 @@ def criterion_supported(claim):
     if claim.criterion_id=='ecosystem_support':
         return bool(re.search(r'support|integrat|compatib|framework|library|runtime|interoperab|지원|통합',quote,re.I))
     if claim.criterion_id=='business_value':
-        return bool(re.search(r'cost|price|efficien|latency|throughput|speedup|speed.up|footprint|'
+        return bool(re.search(r'cost|price|memory efficiency|energy efficiency|latency|throughput|speedup|speed.up|footprint|'
             r'reduc.{0,45}memory|memory.{0,45}(reduc|sav|capac|utiliz)|utilization|energy|비용|메모리.{0,20}절약',quote,re.I))
     return True
 
@@ -116,7 +116,11 @@ def review_claims(pool, reviews):
             if review.evidence_level in {'projection','planned_release','inference'}:
                 checked.basis='inference'
                 checked.conditions=list(dict.fromkeys([*checked.conditions,'전망·계획에 근거한 추론이며 실제 고객 성과 미검증']))
-            checked.citation.source_character += f'; 근거 수준: {review.evidence_level}'
+            if 'arxiv.org' in checked.citation.source_character and re.search(r'carbon|environment|sustainab',checked.citation.quote,re.I):
+                checked.evidence_level='projection'
+                checked.basis='inference'
+                checked.conditions=list(dict.fromkeys([*checked.conditions,'환경·에너지 효과는 연구 저자의 전망이며 실측 고객 성과 미검증']))
+            checked.citation.source_character = checked.citation.source_character.split('; 근거 수준:')[0] + f'; 근거 수준: {checked.evidence_level}'
             accepted[key] = checked
             log[key] = 'accepted: ' + review.reason
         else:

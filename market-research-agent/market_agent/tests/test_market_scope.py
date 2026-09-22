@@ -16,6 +16,9 @@ class MarketScopeTests(unittest.TestCase):
 
     def test_formula_is_not_customer_value(self):
         self.assertFalse(self.check('business_value','RDKV computes bit allocation by a reverse water-filling solution.'))
+    def test_generic_accuracy_efficiency_is_not_business_value(self):
+        self.assertFalse(self.check('business_value','Our results show better accuracy at no cost to efficiency.'))
+
     def test_memory_benefit_keeps_research_condition(self):
         c=self.check('business_value','RDKV reduces memory usage for long context inference.')['A']
         self.assertEqual(c.basis,'inference')

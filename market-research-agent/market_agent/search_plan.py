@@ -16,6 +16,8 @@ def initial_questions(data):
     questions = []
     for tech in data.technologies.values():
         query = f'"{tech.name}" KV cache implementation product repository'
+        if 'photonic' in tech.name.casefold():
+            query='photonic fabric CXL memory appliance KV cache product site:marvell.com'
         # 상위 PDF 제목이 중간에서 잘릴 수 있어 이름을 검색하고 논문 URL은 별도 조회한다.
         questions.append(Question(tech_id=tech.id, criterion_id='commercialization',
             criteria=['commercialization', 'adoption', 'ecosystem_support'], query=query,
