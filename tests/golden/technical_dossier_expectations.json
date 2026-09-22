@@ -1,0 +1,173 @@
+{
+  "schema_version": "1.0.0",
+  "papers": [
+    {
+      "selector": {
+        "paper_id_regex": "^2605\\.08317(?:-|$)"
+      },
+      "expectations": [
+        {
+          "expectation_id": "rdkv.mean-improvement",
+          "description": "세 평가군의 평균 9.1% 개선",
+          "all_of": ["9[.]1\\s*%"]
+        },
+        {
+          "expectation_id": "rdkv.accuracy-at-retention",
+          "description": "2.48% cache retention에서 97.81% full-cache accuracy",
+          "all_of": ["97[.]81\\s*%", "2[.]48\\s*%"]
+        },
+        {
+          "expectation_id": "rdkv.decode-speedup-128k",
+          "description": "128K 조건의 4.5배 decode speedup",
+          "all_of": ["128\\s*K", "4[.]5\\s*[x×]", "(?:decode|디코드|speedup)"]
+        },
+        {
+          "expectation_id": "rdkv.memory-reduction-128k",
+          "description": "128K 조건의 1.9배 peak-memory reduction",
+          "all_of": ["128\\s*K", "1[.]9\\s*[x×]", "(?:memory|메모리)"]
+        },
+        {
+          "expectation_id": "rdkv.memory-absolute-128k",
+          "description": "128K에서 FullKV 58.1GB와 RDKV 30.5GB",
+          "all_of": ["58[.]1\\s*GB", "30[.]5\\s*GB"]
+        },
+        {
+          "expectation_id": "rdkv.256k-result",
+          "description": "256K에서 RDKV 44.5GB 실행 결과",
+          "all_of": ["256\\s*K", "44[.]5", "(?:GB|memory|메모리)"]
+        },
+        {
+          "expectation_id": "rdkv.prefill-overhead",
+          "description": "prefill overhead 6%",
+          "all_of": ["6(?:[.]0)?\\s*%", "(?:prefill|overhead|오버헤드)"]
+        },
+        {
+          "expectation_id": "rdkv.frozen-after-prefill",
+          "description": "prefill 뒤 allocation을 갱신하지 않는 한계",
+          "all_of": ["(?:prefill|프리필)", "(?:frozen|재평가하지|갱신하지|고정)"]
+        }
+      ]
+    },
+    {
+      "selector": {
+        "paper_id_regex": "^2607\\.27187(?:-|$)"
+      },
+      "expectations": [
+        {
+          "expectation_id": "pf.table1-batch-set",
+          "description": "Table I 공통 batch size 1, 2, 8, 16, 32",
+          "all_of": ["(?:batch|배치)", "\\{?\\s*1\\s*,\\s*2\\s*,\\s*8\\s*,\\s*16\\s*,\\s*32\\s*\\}?"]
+        },
+        {
+          "expectation_id": "pf.table1-standard-context",
+          "description": "Table I 표준 context 1K–100K",
+          "all_of": ["(?:standard|표준)", "1\\s*K\\s*[-–—−]\\s*100\\s*K"]
+        },
+        {
+          "expectation_id": "pf.table1-maverick-context",
+          "description": "Maverick context 최대 1M",
+          "all_of": ["Maverick", "1\\s*M"]
+        },
+        {
+          "expectation_id": "pf.table1-scout-context",
+          "description": "Scout context 최대 4M",
+          "all_of": ["Scout", "4\\s*M"]
+        },
+        {
+          "expectation_id": "pf.table1-8b-a100-host",
+          "description": "LLaMA-8B 1×A100 host-memory 3.3×–27.5×",
+          "all_of": ["LLaMA[- ]?8B", "1\\s*[x×]\\s*A100", "3[.]3\\s*[x×]\\s*[-–—−]\\s*27[.]5\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-8b-a100-disk",
+          "description": "LLaMA-8B 1×A100 disk 0.53×–1.72×",
+          "all_of": ["LLaMA[- ]?8B", "1\\s*[x×]\\s*A100", "0[.]53\\s*[x×]\\s*[-–—−]\\s*1[.]72\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-8b-h100-host",
+          "description": "LLaMA-8B 1×H100 host-memory 1.9×–11.8×",
+          "all_of": ["LLaMA[- ]?8B", "1\\s*[x×]\\s*H100", "1[.]9\\s*[x×]\\s*[-–—−]\\s*11[.]8\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-8b-h100-disk-na",
+          "description": "LLaMA-8B 1×H100 disk는 미시험",
+          "all_of": ["LLaMA[- ]?8B", "1\\s*[x×]\\s*H100", "(?:disk|storage|SSD)"],
+          "any_of": ["not[ -]?tested", "미(?:시험|평가|측정)", "측정되지", "—"]
+        },
+        {
+          "expectation_id": "pf.table1-8b-h200-host",
+          "description": "LLaMA-8B 1×H200 host-memory 1.5×–17.2×",
+          "all_of": ["LLaMA[- ]?8B", "1\\s*[x×]\\s*H200", "1[.]5\\s*[x×]\\s*[-–—−]\\s*17[.]2\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-8b-h200-disk",
+          "description": "LLaMA-8B 1×H200 disk 0.38×–1.27×",
+          "all_of": ["LLaMA[- ]?8B", "1\\s*[x×]\\s*H200", "0[.]38\\s*[x×]\\s*[-–—−]\\s*1[.]27\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-70b-h200-host",
+          "description": "LLaMA-70B 2×H200 host-memory 2.7×–51.4×",
+          "all_of": ["LLaMA[- ]?70B", "2\\s*[x×]\\s*H200", "2[.]7\\s*[x×]\\s*[-–—−]\\s*51[.]4\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-70b-h200-disk-na",
+          "description": "LLaMA-70B 2×H200 disk는 미시험",
+          "all_of": ["LLaMA[- ]?70B", "2\\s*[x×]\\s*H200", "(?:disk|storage|SSD)"],
+          "any_of": ["not[ -]?tested", "미(?:시험|평가|측정)", "측정되지", "—"]
+        },
+        {
+          "expectation_id": "pf.table1-405b-h200-host",
+          "description": "LLaMA-405B 8×H200 host-memory 2.7×–100.0×",
+          "all_of": ["LLaMA[- ]?405B", "8\\s*[x×]\\s*H200", "2[.]7\\s*[x×]\\s*[-–—−]\\s*100(?:[.]0)?\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-405b-h200-disk",
+          "description": "LLaMA-405B 8×H200 disk 2.1×–9.7×",
+          "all_of": ["LLaMA[- ]?405B", "8\\s*[x×]\\s*H200", "2[.]1\\s*[x×]\\s*[-–—−]\\s*9[.]7\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-maverick-host",
+          "description": "Maverick 8×H200 host-memory 2.7×–23.1×",
+          "all_of": ["Maverick", "8\\s*[x×]\\s*H200", "2[.]7\\s*[x×]\\s*[-–—−]\\s*23[.]1\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-maverick-disk-na",
+          "description": "Maverick 8×H200 disk는 미시험",
+          "all_of": ["Maverick", "8\\s*[x×]\\s*H200", "(?:disk|storage|SSD)"],
+          "any_of": ["not[ -]?tested", "미(?:시험|평가|측정)", "측정되지", "—"]
+        },
+        {
+          "expectation_id": "pf.table1-scout-host",
+          "description": "Scout 8×H200 host-memory 2.6×–54.6×",
+          "all_of": ["Scout", "8\\s*[x×]\\s*H200", "2[.]6\\s*[x×]\\s*[-–—−]\\s*54[.]6\\s*[x×]"]
+        },
+        {
+          "expectation_id": "pf.table1-scout-disk-na",
+          "description": "Scout 8×H200 disk는 미시험",
+          "all_of": ["Scout", "8\\s*[x×]\\s*H200", "(?:disk|storage|SSD)"],
+          "any_of": ["not[ -]?tested", "미(?:시험|평가|측정)", "측정되지", "—"]
+        },
+        {
+          "expectation_id": "pf.appliance-capacity-topology-bandwidth",
+          "description": "32TB/16 hosts/128GB/s-host 설계 조건",
+          "all_of": ["32\\s*TB", "16(?:[- ]?host|\\s*hosts|개\\s*host)", "128\\s*GB\\s*/\\s*s"]
+        },
+        {
+          "expectation_id": "pf.emulation-result",
+          "description": "hardware emulation 결과를 별도로 명시",
+          "all_of": ["emulat", "350\\s*ns"]
+        },
+        {
+          "expectation_id": "pf.simulation-result",
+          "description": "serving simulation 결과를 별도로 명시",
+          "all_of": ["simulat", "(?:2[,]?690\\s*ms|6[.]6\\s*[x×])"]
+        },
+        {
+          "expectation_id": "pf.physical-e2e-pending",
+          "description": "physical end-to-end 미검증 한계",
+          "all_of": ["(?:physical|물리)", "end[- ]?to[- ]?end", "(?:pending|미검증|검증.*(?:않|예정))"]
+        }
+      ]
+    }
+  ]
+}
