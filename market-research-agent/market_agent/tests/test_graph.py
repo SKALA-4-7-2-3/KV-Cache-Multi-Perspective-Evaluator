@@ -16,7 +16,7 @@ class GraphTests(unittest.TestCase):
         result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),mode='fixture')['result']
         self.assertEqual(result.status,'provisional')
         self.assertEqual(result.execution_status,'completed')
-        self.assertEqual(result.output_schema_version,'0.5')
+        self.assertEqual(result.output_schema_version,'0.6')
 
     def test_unsearched_criteria_make_execution_partial(self):
         result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),auto_repair=False,mode='fixture')['result']

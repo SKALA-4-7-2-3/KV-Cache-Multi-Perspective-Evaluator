@@ -1,6 +1,6 @@
 # 시장조사 에이전트
 
-기술 조사 결과 JSON을 받아 RDKV와 Photonic-CXL의 시장성을 조사하고, 통합 에이전트에 전달할 **`market_handoff.md` 한 개**를 생성합니다. LangGraph로 검색·본문 검사·근거 추출·평가 작성·선정 기술·동일 기술군·인접 시장의 3단계 조사와 전달 완성을 제어합니다.
+기술 조사 결과 JSON을 받아 RDKV와 Photonic-CXL의 시장성을 조사하고, 통합 에이전트에 전달할 **`market_handoff.md` 한 개**를 생성합니다. LangGraph로 검색 → 자료 종합 평가 → 별도 의미 검토를 반복하며, 선정 기술·같은 기술군·인접 시장의 순서로 허용 근거를 넓힙니다.
 
 ## 폴더 구성
 
@@ -66,11 +66,13 @@ python -m market_agent.cli --input \
 
 통합 에이전트에는 `deliverables/market_handoff.md` 한 개를 전달합니다. 선정 기술의 판정과 관련 제품·기술군 정보를 구분하고 각 주장에 인용·조건을 연결합니다. 실행별 자동 결과와 원문은 outputs/ 및 .cache/에 별도로 보존합니다.
 
-**v1.4 변경:** 최종 12개 항목에 unknown을 남기지 않습니다. 근거가 부족하면 관련 자료를 제공하는 잠정평가 또는 기술 시나리오로 완성합니다. 검색 범위는 선정 기술 → 같은 기술군 → 인접 시장으로 확대합니다. JSON 기본 상한은 검색 18 / 원문 24 / LLM 10회이며 사용자가 지정한 작은 한도는 그대로 지킵니다.
+**v1.5 구현:** 매 조사 단계에서 원자료로 관찰·판단·조건을 생성하고 별도 의미 검토를 거칩니다. 직접 원문 → 관련 기술군·기술 요약 → 인접 시장·검색 발췌로 평가 기준도 확대합니다. 표·짧은 항목·긴 문단과 키워드 없는 동의 표현을 후보에 보존합니다. 정형 문구는 자료/모델/검토 실패 시의 비상 출력에만 사용하며 보고서에 표시합니다.
 
-**현재 4파일 자료 재검증:** 근거 기반 3개 + 관련 자료 잠정평가 9개, unknown 0개입니다. 기존 수집 자료를 사용했으며 신규 API 호출은 0회입니다. 남아 있는 원문 접근·주장 검증 문제 때문에 실행 상태는 partial이고 평가 상태는 provisional입니다. 새 외부 검색 실행은 이번 JSON 4개의 OpenAI·Tavily 전송 승인 대기 상태입니다.
+**검증 범위:** 첨부 JSON 4개의 오프라인 실행과 SDK 모의 호출, 승인된 실제 API 실행 두 번을 수행했습니다. 실제 실행에서는 자료 범위 혼동과 빈 조건·잘못된 참고자료 연결이 발견되어 항목별 고정 출력 슬롯·소유 자료 ID·필수 조건 계약으로 보완했습니다. 최종 계약은 185개 자동 검사를 통과했습니다. 저장된 웹 자료를 이용한 gpt-4.1 추가 품질 검증은 자동 승인 검토에서 별도 전송·모델 사용 승인을 요구하여 대기 중입니다. 두 실제 실행은 품질 문제 때문에 최종 전달본으로 채택하지 않았습니다.
 
-내부 계약은 **0.5**입니다. `evaluation_mode`, `confidence`, `supporting_materials`를 추가했습니다. `status=provisional`은 잠정평가가 남았다는 뜻이며 `execution_status=completed/partial/failed`는 실제 처리 상태입니다. CLI 종료 코드는 완료 0 / 부분 처리 3 / 치명적 실패 2입니다. [단계별 평가 설계](docs/PROGRESSIVE_DELIVERY.md)에 자료 수준, 실패 시 동작, 부모 연결 계약을 설명했습니다.
+`deliverables/market_handoff.md`는 이전 v1.4의 실제 수집 자료 재검증 결과(근거 기반 3개·정형 잠정평가 9개)입니다. v1.5의 시험 결과는 내부 outputs/에 남기고 전달본으로 교체하지 않았습니다.
+
+현재 내부 계약은 **0.6**입니다. `observation`, `generation_method`, `evaluation_level`로 관찰·생성 방식·평가 단계를 기록합니다. `status=provisional`은 잠정 판단이 남은 상태, `execution_status`는 처리 상태입니다. CLI 종료 코드 0/3/2와 기술당 6항목 계약은 유지합니다. [자료 종합 평가 설계](docs/ADAPTIVE_SYNTHESIS.md)를 참고하세요.
 
 `fixture`는 실제 시장 조사가 아닙니다. 라이브 검증 결과·남은 한계는 [검증 기록](market_agent/LIVE_VALIDATION.md)에 기록합니다. 논문의 메모리·속도 효과는 실제 고객의 비용 절감이나 도입 실적을 자동으로 입증하지 않습니다.
 
@@ -81,4 +83,4 @@ python -m unittest discover -s market_agent/tests -v
 python -m compileall -q market_agent
 ```
 
-현재 **157개 회귀 테스트와 compileall**을 통과했습니다. JSON 인용 경계·조사 분기·주장 의미·부분 상태의 회귀 검사와 compileall로 검증합니다. 라이브 결과의 내용 검토는 아래 검증 기록에서 별도로 확인합니다. 이관 검증과 원본 추적 정보는 [이관 기록](MIGRATION.md), 실제 조사 한계는 [라이브 검증 기록](market_agent/LIVE_VALIDATION.md)에 있습니다.
+현재 **185개 회귀 테스트와 compileall**을 통과했습니다. JSON 인용 경계·조사 분기·주장 의미·부분 상태의 회귀 검사와 compileall로 검증합니다. 라이브 결과의 내용 검토는 아래 검증 기록에서 별도로 확인합니다. 이관 검증과 원본 추적 정보는 [이관 기록](MIGRATION.md), 실제 조사 한계는 [라이브 검증 기록](market_agent/LIVE_VALIDATION.md)에 있습니다.

@@ -1,18 +1,21 @@
 """실제 LLM과 명시적으로 가상인 오프라인 제공자."""
 
 import json
+from copy import deepcopy
 from datetime import date
 
 from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
-from .prompts import EXTRACTION_PROMPT, COMPOSITION_PROMPT
+from .prompts import EXTRACTION_PROMPT, COMPOSITION_PROMPT, SYNTHESIS_PROMPT, SYNTHESIS_REVIEW_PROMPT
 from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment, SelectedExtraction, ClaimReview, ReviewedDraftAnalysis
 from .extraction_contract import extraction_schema, flatten_extraction
 from .premises import technical_evidence
 from .policy import assessment_eligible, CONDITIONAL_CRITERIA
 from .quotes import quote_bank, resolve_quotes
 from .tools import ProviderError
+from .schemas import Synthesis, SynthesisRow, SynthesisReviews
+from .adaptive_materials import POLICIES
 from .json_input import model_background
 from .dossier_input import comparison_background
 
@@ -30,6 +33,24 @@ def strict_schema(model):
             for value in item:visit(value)
     visit(schema)
     return schema
+
+
+def synthesis_schema(packet, level, targets):
+    cells={}
+    for tech,criterion in targets:
+        owned=[q for q,p in packet.items() if tech in p['tech_ids']]
+        if not owned:
+            cells[tech+'::'+criterion]={'type':'null'}
+            continue
+        cell=deepcopy(strict_schema(SynthesisRow));fields=cell['properties']
+        fields['tech_id']['enum']=[tech];fields['criterion_id']['enum']=[criterion]
+        fields['relation_to_technology']['enum']=POLICIES[level]['relations']
+        fields['quote_ids']['items']['enum']=owned;fields['quote_ids']['minItems']=1
+        fields['conditions']['minItems']=1;fields['conditions']['items']['minLength']=1
+        for field in ['observation','judgment']:fields[field]['minLength']=1
+        cells[tech+'::'+criterion]={'anyOf':[cell,{'type':'null'}]}
+    return {'title':'MarketSynthesisByCell','type':'object','additionalProperties':False,'required':['assessments'],
+        'properties':{'assessments':{'type':'object','additionalProperties':False,'required':list(cells),'properties':cells}}}
 
 
 class OpenAIAnalyst:
@@ -62,6 +83,8 @@ class OpenAIAnalyst:
         if isinstance(parsed, dict):
             try:
                 if schema is SelectedExtraction:parsed=flatten_extraction(parsed)
+                if schema is Synthesis and isinstance(parsed.get('assessments'),dict):
+                    parsed={'assessments':[row for row in parsed['assessments'].values() if row is not None]}
                 parsed = schema.model_validate(parsed)
             except (ValidationError,ValueError):
                 raise ProviderError('invalid_structured_output') from None
@@ -119,6 +142,25 @@ class OpenAIAnalyst:
     def audit(self,data,claims):
         return self.compose(data,claims,audit=True)
 
+    def synthesize(self, data, packet, level, targets, previous=None, issues=None):
+        payload={'research_policy':POLICIES[level], 'as_of':str(data.as_of),'domain':data.domain,
+            'technologies':{k:{'name':v.name,'approach':v.approach,'paper_url':v.url} for k,v in data.technologies.items()},
+            'criteria':CRITERIA,'targets':[{'tech_id':t,'criterion_id':c} for t,c in targets],
+            'packet':packet,'comparison_constraints':comparison_background(data),
+            'previous':previous.model_dump(mode='json') if previous else None,'issues':issues or []}
+        schema=synthesis_schema(packet,level,targets)
+        runnable=self._llm.with_structured_output(schema,method='json_schema',strict=True,include_raw=True)
+        return self._invoke('synthesize',runnable,Synthesis,SYNTHESIS_PROMPT,payload)
+
+    def review_synthesis(self, data, draft, packet, level):
+        used={q for row in draft.assessments for q in row.quote_ids}
+        payload={'research_policy':POLICIES[level],'as_of':str(data.as_of),'criteria':CRITERIA,
+            'technologies':{k:v.name for k,v in data.technologies.items()},
+            'assessments':draft.model_dump(mode='json'),'packet':{q:v for q,v in packet.items() if q in used},
+            'comparison_constraints':comparison_background(data)}
+        runnable=self._llm.with_structured_output(strict_schema(SynthesisReviews),method='json_schema',strict=True,include_raw=True)
+        return self._invoke('review_synthesis',runnable,SynthesisReviews,SYNTHESIS_REVIEW_PROMPT,payload)
+
     def close(self):
         client = getattr(self._llm, "root_client", None)
         if client:
@@ -153,3 +195,23 @@ class FixtureAnalyst:
             verdict='unknown',basis='unknown',claim_ids=[],conditions=[],gaps=['fixture 자료']) for t in data.technologies for c in CRITERIA]
         return DraftAnalysis(assessments=rows,followup_questions=[],claim_reviews=[
             ClaimReview(claim_id=k,supported=True,reason='합성 테스트 제공자가 미리 검토한 주장') for k in claims])
+
+
+class AdaptiveFixtureAnalyst(FixtureAnalyst):
+    """새 Graph의 오프라인 검사. 실제 시장 평가나 실제 모델 응답이 아니다."""
+    def synthesize(self,data,packet,level,targets,previous=None,issues=None):
+        from .schemas import SynthesisRow
+        rows=[]
+        if level:
+            for tech,criterion in targets:
+                refs=[q for q,p in packet.items() if tech in p['tech_ids']][:1]
+                if refs:rows.append(SynthesisRow(tech_id=tech,criterion_id=criterion,
+                    observation='가상 검사 자료이며 실제 시장 실적을 입증하지 않는다.',
+                    judgment=CRITERIA[criterion]+': 실제 자료 종합과 구별한 오프라인 처리 경로를 검사한다.',
+                    quote_ids=refs,relation_to_technology='method_family',conditions=['합성 fixture 결과'],limitations=['실제 시장 평가 아님']))
+        return Synthesis(assessments=rows)
+
+    def review_synthesis(self,data,draft,packet,level):
+        from .schemas import SynthesisReview
+        return SynthesisReviews(reviews=[SynthesisReview(tech_id=r.tech_id,criterion_id=r.criterion_id,
+            supported=True,relevant=True,scope_preserved=True,uncertainty_preserved=True,reason='가상 응답 계약 검사') for r in draft.assessments])

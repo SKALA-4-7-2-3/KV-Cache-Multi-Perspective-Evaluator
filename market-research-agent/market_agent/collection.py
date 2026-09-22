@@ -116,8 +116,8 @@ def collect_sources(state, data, web, budget, questions, relevant_candidate):
             publisher=urlsplit(url).hostname or '', published_at=published, retrieved_at=datetime.now(timezone.utc).isoformat(),
             locator='; '.join(s.locator for s in segments) or '검색 발췌',
             excerpt='\n\n'.join(s.text for s in segments) if segments else raw[:12000], segments=segments,
-            access_scope=scope, content_hash=content_hash, source_type='발행 도메인 확인; 주장 성격은 인용별 표시', access_status=access, tech_ids=[tech_id],
-            content_status=quality, content_reason=quality_reason, requested_url=requested_url,criteria=criteria)
+            access_scope=scope, content_hash=content_hash, source_type='발행 도메인 확인; 주장 성격은 인용별 표시', access_status=access, tech_ids=list(dict.fromkeys([*(prior.tech_ids if prior else []),tech_id])),
+            content_status=quality, content_reason=quality_reason, requested_url=requested_url,criteria=list(dict.fromkeys([*(prior.criteria if prior else []),*criteria])))
         by_url[url] = eid
         by_url[requested_url] = eid
         if access == 'full_text':

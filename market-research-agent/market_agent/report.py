@@ -48,7 +48,7 @@ def render_report(state):
             '| --- | --- | --- | --- | --- | --- |']
         for criterion, label in CRITERIA.items():
             r = rows[tech.id, criterion]
-            text = esc(r.judgment)
+            text = (esc('자료 관찰: '+r.observation)+'<br>' if r.observation else '') + esc('평가: '+r.judgment if r.observation else r.judgment)
             for f in r.context_findings:
                 subjects = ', '.join(dict.fromkeys(c.subject for c in f.citations))
                 refs = ', '.join(dict.fromkeys(c.evidence_id for c in f.citations))
@@ -59,7 +59,8 @@ def render_report(state):
                     text += '<br>' + metric_text(f.metric)
             if r.metric:
                 text += '<br>' + metric_text(r.metric)
-            gaps=r.gaps if r.evaluation_mode=='grounded' else [REASONS[key] for key in r.unknown_reasons if key in REASONS]
+            gaps=list(r.gaps) if r.evaluation_mode=='grounded' or r.generation_method=='model_synthesis' else []
+            gaps.extend(REASONS[key] for key in r.unknown_reasons if key in REASONS)
             limits = '; '.join(dict.fromkeys([*r.conditions, *gaps])) or '기록된 추가 조건·공백 없음'
             citations = row_citations(r)
             for c in citations:
@@ -70,7 +71,8 @@ def render_report(state):
             ids=', '.join(dict.fromkeys(refs)) or '기술 설명 기반'
             mode={'grounded':'근거 기반','provisional':'관련 자료 잠정평가','scenario':'기술 시나리오','research_plan':'조사 계획'}[r.evaluation_mode]
             confidence={'high':'높음','medium':'보통','low':'낮음'}[r.confidence]
-            nature = f'{mode}; 신뢰도 {confidence}; {r.basis} / {r.relation_to_technology}'
+            generation={'model_synthesis':'자료 종합 생성','verified_claim':'검증 주장 기반','deterministic_fallback':'정형 비상 출력'}[r.generation_method]
+            nature = f'{mode}; {generation}; 신뢰도 {confidence}; {r.basis} / {r.relation_to_technology}'
             characters = list(dict.fromkeys(c.source_character for c in r.citations))
             if characters:
                 nature += '; ' + '; '.join(characters)

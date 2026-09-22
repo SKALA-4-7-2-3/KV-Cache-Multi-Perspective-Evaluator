@@ -16,6 +16,8 @@ from .validation import validate_analysis, normalized
 
 
 def revalidate(saved, sources):
+    if saved['result'].get('progress',{}).get('engine')=='adaptive-v1':
+        return revalidate_adaptive(saved,sources)
     data=MarketInput.model_validate(saved['input'])
     result=MarketResult.model_validate(saved['result'])
     evidence={k:Evidence.model_validate(v) for k,v in saved['evidence'].items()}
@@ -39,7 +41,7 @@ def revalidate(saved, sources):
     analysis=complete_delivery(data,analysis,evidence,errors)
     statuses=technology_status(data,analysis)
     incomplete=bool(errors) or any(r.research_status=='not_started' for r in analysis.assessments)
-    updated=result.model_copy(update={'output_schema_version':'0.5','assessments':analysis.assessments,'errors':errors,
+    updated=result.model_copy(update={'output_schema_version':'0.6','assessments':analysis.assessments,'errors':errors,
         'progress':{**result.progress,'errors':errors,'delivery_coverage':delivery_coverage(analysis)},'technology_status':statuses,
         'status':'failed' if result.status=='failed' else ('completed' if all(v=='completed' for v in statuses.values()) else 'provisional'),
         'execution_status':'failed' if result.execution_status=='failed' else ('partial' if incomplete else 'completed')})
@@ -52,6 +54,33 @@ def revalidate(saved, sources):
         extraction_history=saved.get('extraction_history',[]),reviews=saved.get('source_reviews',{}),
         history=[*saved.get('graph_history',[]),'local_scope_revalidation'],
         output_checks=[*saved.get('output_checks',[]),{'stage':'local_scope_revalidation','new_api_calls':0}])
+
+
+def revalidate_adaptive(saved,sources):
+    from .adaptive import restore_records, merge_verified
+    from .schemas import Analysis, unknown
+    data=MarketInput.model_validate(saved['input']);old=MarketResult.model_validate(saved['result'])
+    evidence={k:Evidence.model_validate(v) for k,v in saved['evidence'].items()}
+    analysis,issues,records=restore_records(data,old.progress,evidence,sources)
+    analysis=merge_verified(data,analysis,Analysis(assessments=old.assessments,followup_questions=[]),evidence)
+    rows={(r.tech_id,r.criterion_id):r for r in analysis.assessments}
+    from .schemas import CRITERIA
+    analysis=Analysis(assessments=[rows.get((t,c),unknown(t,c,'저장된 자료 종합 평가 재검증 실패'))
+        for t in data.technologies for c in CRITERIA],followup_questions=[])
+    errors=old.errors+issues
+    budget=Budget(data.limits);budget.used.update(old.usage)
+    reviewed={(r.tech_id,r.criterion_id):r.reviewed_evidence_ids for r in analysis.assessments}
+    analysis=annotate(analysis,data,evidence,saved['queries'],errors,budget,True,reviewed=reviewed)
+    analysis=complete_delivery(data,analysis,evidence,errors)
+    statuses=technology_status(data,analysis)
+    result=old.model_copy(update={'output_schema_version':'0.6','assessments':analysis.assessments,'errors':errors,
+        'technology_status':statuses,'status':'failed' if old.status=='failed' else ('completed' if all(v=='completed' for v in statuses.values()) else 'provisional'),
+        'execution_status':'failed' if old.execution_status=='failed' else ('partial' if errors or any(r.generation_method=='deterministic_fallback' for r in analysis.assessments) else 'completed'),
+        'progress':{**old.progress,'errors':errors,'synthesis_records':records,'delivery_coverage':delivery_coverage(analysis)}})
+    return dict(data=data,result=result,evidence=evidence,sources=sources,queries=saved['queries'],events=saved['events'],
+        model=saved['model'],token_usage=saved['token_usage'],initial_evidence_ids=list(data.evidence),claim_pool={},
+        history=[*saved.get('graph_history',[]),'local_synthesis_revalidation'],
+        output_checks=[*saved.get('output_checks',[]),{'stage':'local_synthesis_revalidation','new_api_calls':0}])
 
 
 def main(argv=None):

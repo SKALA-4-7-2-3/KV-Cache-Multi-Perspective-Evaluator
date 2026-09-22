@@ -133,6 +133,9 @@ def complete_delivery(data, analysis, evidence, errors):
         for criterion in CRITERIA:
             row = prior.get((tech.id, criterion), unknown(tech.id, criterion, '')).model_copy(deep=True)
             materials = select_materials(data, tech.id, criterion, evidence, errors)
+            if row.generation_method=='model_synthesis' and row.verdict!='unknown':
+                rows.append(row)
+                continue
             row.supporting_materials = materials
             if row.verdict not in {'unknown', 'provisional'} and row.basis != 'unknown':
                 row.evaluation_mode = 'grounded'
@@ -144,6 +147,7 @@ def complete_delivery(data, analysis, evidence, errors):
             judgment, condition = DECISIONS[tech.approach][criterion]
             row.evaluation_mode = 'provisional' if web or row.context_findings else ('scenario' if premise or tech.summary else 'research_plan')
             row.confidence = 'low'
+            row.generation_method = 'deterministic_fallback'
             row.verdict, row.basis, row.relation_to_technology = 'provisional', 'inference', 'adjacent'
             row.judgment = f'{tech.name}: {judgment}'
             row.conditions = [*row.conditions, condition, '잠정 도입 판단이며 선정 기술의 매출·상용 출시·고객 채택을 확정하는 평가가 아님']

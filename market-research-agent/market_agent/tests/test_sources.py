@@ -17,6 +17,14 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(content_quality(raw, 'https://example.org/release', self.tech)[0], 'substantive')
         self.assertEqual(content_quality(raw.replace('\n\n', '\n'), 'https://example.org/release', self.tech)[0], 'substantive')
 
+    def test_plain_titles_and_menu_labels_are_metadata_but_short_terms_are_body(self):
+        from market_agent.sources import content_quality
+        for text in ['Title: RDKV: Rate-Distortion Bit Allocation', 'RDKV', self.tech.paper, 'Home\nProducts']:
+            with self.subTest(text=text):
+                self.assertEqual(content_quality(text,self.tech.url,self.tech)[0],'metadata_only')
+        for text in ['Academic only','# Academic only','## Not supported for production use']:
+            self.assertEqual(content_quality(text,self.tech.url,self.tech)[0],'substantive')
+
     def test_wrong_paper_title_is_rejected(self):
         from market_agent.sources import content_quality
         raw = '# Title:An unrelated study of language models\n\nAbstract: We evaluate a different model and report experimental results.'

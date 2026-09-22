@@ -63,6 +63,10 @@ def relevant_candidate(row, tech, level=0):
 
 def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True,
                round_number=0, previous=None, existing_evidence=None, existing_claims=None, previous_progress=None):
+    if callable(getattr(analyst,'synthesize',None)) and callable(getattr(analyst,'review_synthesis',None)):
+        from .adaptive import run_adaptive
+        return run_adaptive(data,web,analyst,mode=mode,budget=budget,auto_repair=auto_repair,round_number=round_number,
+            previous=previous,existing_evidence=existing_evidence,existing_claims=existing_claims,previous_progress=previous_progress)
     if round_number not in {0,1}:
         raise ValueError('round_number must be 0 or 1')
     budget = budget or Budget(data.limits)

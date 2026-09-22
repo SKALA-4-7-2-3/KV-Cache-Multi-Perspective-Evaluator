@@ -9,6 +9,15 @@ from market_agent.schemas import CRITERIA, Citation, ContextFinding
 
 
 class ReportTests(unittest.TestCase):
+    def test_model_synthesis_limitations_are_delivered_for_provisional_rows(self):
+        from market_agent.providers import AdaptiveFixtureAnalyst
+        state = run_market(read_input(Path(__file__).parents[1]/'fixtures/input.md'), FixtureWeb(), AdaptiveFixtureAnalyst(), mode='fixture')
+        row = state['result'].assessments[0]
+        row.evaluation_mode = 'provisional'
+        row.gaps = ['자료에는 지역별 집계 기준과 발행 연도가 없다']
+        self.assertEqual(row.generation_method, 'model_synthesis')
+        self.assertIn(row.gaps[0], render_report(state))
+
     def test_only_owned_rows_and_cited_context_sources_are_delivered(self):
         state = run_market(read_input(Path(__file__).parents[1]/'fixtures/input.md'), FixtureWeb(), FixtureAnalyst(), mode='fixture')
         e = next(e for e in state['evidence'].values() if e.access_status == 'full_text')

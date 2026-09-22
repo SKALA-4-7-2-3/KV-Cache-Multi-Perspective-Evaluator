@@ -1,6 +1,6 @@
 # JSON 입력 기반 시장조사 에이전트
 
-> 현재 전달 계약은 0.5입니다. 최종 항목은 unknown 대신 근거 기반·잠정평가·기술 시나리오로 제공합니다. JSON 기본 한도는 검색 18 / 원문 24 / LLM 10회입니다. [현재 설계](../docs/PROGRESSIVE_DELIVERY.md)를 우선 참고하세요. 아래 이전 회차 설명은 구형 동작일 수 있습니다.
+> 현재 계약은 0.6입니다. OpenAIAnalyst와 CLI fixture는 검색→자료 종합→별도 검토 Graph를 사용합니다. 기존 extract/compose 주입 제공자는 호환 경로로 지원합니다. [현재 설계](../docs/ADAPTIVE_SYNTHESIS.md)를 우선 참고하세요. 아래 이전 회차 설명은 구형 동작일 수 있습니다.
 기술 조사 담당자의 paper_analysis JSON 입력에서 RDKV(SW)와 Photonic-CXL(HW)의 시장성을 조사합니다. [설치 안내](../README.md)에 따라 가상환경을 준비하고 이 패키지의 상위 폴더 `market-research-agent`에서 실행합니다.
 
 ## 1. 실행

@@ -14,7 +14,7 @@ from dotenv import dotenv_values
 from .node import parent_update, run_market
 from .parser import InputError, read_input
 from .prompts import PROMPT_VERSION
-from .providers import FixtureAnalyst, FixtureWeb, OpenAIAnalyst
+from .providers import AdaptiveFixtureAnalyst, FixtureWeb, OpenAIAnalyst
 from .report import render_report
 from .tools import ProviderError, TavilyWeb
 from .schemas import Limits
@@ -56,7 +56,7 @@ def save_run(state, output, key):
         if not re.fullmatch(r'[\w-]+', doc_id):
             raise InputError('invalid_document_id')
         (cache / "sources" / f"{doc_id}.md").write_text(body, encoding="utf-8")
-    snapshot = {"output_schema_version": '0.5', "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
+    snapshot = {"output_schema_version": '0.6', "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
         "model": state["model"], "input": data.model_dump(mode="json"),
         "result": state["result"].model_dump(mode="json"),
         "evidence": {k: v.model_dump(mode="json") for k, v in state["evidence"].items()},
@@ -86,7 +86,7 @@ def check_reuse(output, key):
     if not cache.is_dir():
         raise InputError('legacy_or_missing_snapshot: 구형 출력은 보존되며 새 검증 결과로 재사용하지 않습니다')
     saved = json.loads((cache / 'run.json').read_text())
-    if saved.get('output_schema_version') != '0.5' or saved.get('fingerprint') != key:
+    if saved.get('output_schema_version') != '0.6' or saved.get('fingerprint') != key:
         raise InputError('snapshot_mismatch: 입력·모델·코드·프롬프트·출력 버전이 다릅니다')
     manifest = json.loads((cache / 'manifest.json').read_text())
     files = manifest.get('files', {})
@@ -158,7 +158,7 @@ def main(argv=None):
                 raise InputError("missing_credentials: " + ", ".join(missing))
             web, analyst = TavilyWeb(values["TAVILY_API_KEY"]), OpenAIAnalyst(values["OPENAI_API_KEY"], args.model, debug=args.debug)
         else:
-            web, analyst = FixtureWeb(), FixtureAnalyst()
+            web, analyst = FixtureWeb(), AdaptiveFixtureAnalyst()
         state = run_market(data, web, analyst, mode=args.mode)
         save_run(state, output, key)
         result = state["result"]

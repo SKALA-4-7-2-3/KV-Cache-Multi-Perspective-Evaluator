@@ -145,6 +145,9 @@ class Assessment(Record):
     verdict: Verdict = "unknown"
     citations: list[Citation] = Field(default_factory=list)
     context_findings: list[ContextFinding] = Field(default_factory=list)
+    observation: str = ''
+    generation_method: Literal['verified_claim', 'model_synthesis', 'deterministic_fallback'] = 'verified_claim'
+    evaluation_level: int = Field(default=0,ge=0,le=2)
     evaluation_mode: Literal['grounded', 'provisional', 'scenario', 'research_plan'] = 'grounded'
     confidence: Literal['high', 'medium', 'low'] = 'low'
     supporting_materials: list[SupportingMaterial] = Field(default_factory=list)
@@ -250,7 +253,7 @@ class ReviewedDraftAnalysis(DraftAnalysis):
 
 
 class MarketResult(Record):
-    output_schema_version: str = "0.5"
+    output_schema_version: str = "0.6"
     role: Literal["market"] = "market"
     status: Literal["completed", "provisional", "unknown", "failed"]
     round: int
@@ -268,3 +271,32 @@ def unknown(tech_id: str, criterion_id: str, reason: str) -> Assessment:
     return Assessment(tech_id=tech_id, criterion_id=criterion_id, judgment=reason,
                       basis="unknown", relation_to_technology="unknown", evidence_ids=[],
                       conditions=[], metric=None, gaps=[reason])
+
+
+class SynthesisRow(Record):
+    tech_id: str
+    criterion_id: Criterion
+    observation: str
+    judgment: str
+    relation_to_technology: Literal['exact', 'method_family', 'adjacent']
+    quote_ids: list[str]
+    conditions: list[str]
+    limitations: list[str]
+
+
+class Synthesis(Record):
+    assessments: list[SynthesisRow]
+
+
+class SynthesisReview(Record):
+    tech_id: str
+    criterion_id: Criterion
+    supported: bool
+    relevant: bool
+    scope_preserved: bool
+    uncertainty_preserved: bool
+    reason: str
+
+
+class SynthesisReviews(Record):
+    reviews: list[SynthesisReview]

@@ -69,8 +69,9 @@ def metric_matches_quote(metric, quote):
 
 
 def numeric_tokens(text):
-    """번역문 숫자 비교: million/billion 및 쉼표 표기를 같은 값으로 본다."""
+    """번역문 숫자 비교: 영어·한국어 배율 및 쉼표 표기를 같은 값으로 본다."""
     values=set()
-    for match in re.finditer(r'(?<![A-Za-z0-9])(?P<n>\d[\d,]*(?:\.\d+)?)\s*(?P<s>thousand|million|billion|trillion)?',text,re.I):
-        values.add(Decimal(match['n'].replace(',',''))*scale(match['s'] or ''))
+    multipliers={**SCALES,'천':1000,'만':10000,'백만':1000000,'억':100000000,'조':1000000000000}
+    for match in re.finditer(r'(?<![A-Za-z0-9])(?P<n>\d[\d,]*(?:\.\d+)?)\s*(?P<s>thousand|million|billion|trillion|백만|천|만|억|조)?',text,re.I):
+        values.add(Decimal(match['n'].replace(',',''))*Decimal(multipliers.get((match['s'] or '').lower(),1)))
     return values
