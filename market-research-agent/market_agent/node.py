@@ -1,31 +1,38 @@
-"""시장 역할의 LangGraph와 부모 그래프에 전달할 변경분."""
-
+"""시장 역할: 원문 수집 → 근거 추출·검증 → 평가 → 제한된 보완."""
 import re
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from .schemas import Analysis, CRITERIA, MarketInput, MarketResult, unknown
+from .schemas import Analysis, CRITERIA, MarketResult, unknown, Extraction, DraftAnalysis, DraftAssessment
 from .tools import Budget, ProviderError
 from .collection import collect_sources
 from .search_plan import initial_questions, repair_questions
 from .research import annotate
 from .validation import validate_analysis
+from .claims import validate_claims, materialize, pool_dispositions, recover_previous, previous_draft
+from .sources import content_quality
 
 
-class RunState(TypedDict):
-    data: MarketInput
+class RunState(TypedDict, total=False):
+    data: object
     round: int
     evidence: dict
     sources: dict
     analysis: Analysis
-    last_validated: Analysis
     errors: list
-    validation_errors: list
-    history: list[str]
-    queries: list[dict]
+    history: list
+    queries: list
     fatal: bool
+    claim_pool: dict
+    reviews: dict
+    extraction_errors: list
+    composition_errors: list
+    repair_kind: str
+    repair_used: bool
     model_successes: int
+    compose_successes: int
+    draft: DraftAnalysis
     result: MarketResult
 
 
@@ -41,95 +48,142 @@ def relevant_candidate(row, tech):
 
 
 def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True,
-               round_number=0, previous=None, existing_evidence=None):
-    if round_number not in {0, 1}:
-        raise ValueError("round_number must be 0 or 1")
+               round_number=0, previous=None, existing_evidence=None, existing_claims=None):
+    if round_number not in {0,1}:
+        raise ValueError('round_number must be 0 or 1')
     budget = budget or Budget(data.limits)
     budget.constrain(data.limits)
-    initial_evidence = {k: e.model_copy(deep=True) for k, e in {**data.evidence, **(existing_evidence or {})}.items()}
-    empty = Analysis(assessments=[unknown(t, c, "미확인: 아직 시장 근거가 없습니다")
-        for t in data.technologies for c in CRITERIA], followup_questions=initial_questions(data))
+    initial_evidence = {k:e.model_copy(deep=True) for k,e in {**data.evidence,**(existing_evidence or {})}.items()}
+    for e in initial_evidence.values():
+        if e.access_status=='full_text' and e.content_status=='unchecked':
+            tech=next((data.technologies[t] for t in e.tech_ids if t in data.technologies),next(iter(data.technologies.values())))
+            e.content_status,e.content_reason=content_quality(e.excerpt,e.url,tech)
+    initial_pool,_=validate_claims(data,[*recover_previous(previous),*(existing_claims or {}).values()],initial_evidence)
+
+    def blank_draft():
+        reason = '미확인: fixture 모드에는 실제 시장 근거가 없습니다' if mode=='fixture' else '이번 조사에서 선정 기술 자체를 판단할 직접 근거를 확인하지 못함'
+        return DraftAnalysis(assessments=[DraftAssessment(tech_id=t,criterion_id=c,judgment=reason,
+            verdict='unknown',basis='unknown',claim_ids=[],conditions=[],gaps=[reason]) for t in data.technologies for c in CRITERIA],followup_questions=[])
 
     def collect(state):
-        questions = initial_questions(data) if state["round"] == 0 else repair_questions(
-            data, state["analysis"].assessments, state["analysis"].followup_questions, state["queries"])
-        update = collect_sources(state, data, web, budget, questions, relevant_candidate)
-        update["analysis"] = annotate(state["analysis"], data, update["evidence"], update["queries"],
-            update["errors"], budget, False)
-        return update
+        rows=[r.model_copy(deep=True) for r in state['analysis'].assessments]
+        covered={(c.tech_id,c.criterion_id) for c in state['claim_pool'].values()}
+        for r in rows:
+            if (r.tech_id,r.criterion_id) in covered:
+                r.verdict,r.gaps='conditional',[]  # 조사 우선순위만 계산; 보고서 판정과 분리
+        questions=initial_questions(data) if state['round']==0 else repair_questions(data,rows,[],state['queries'])
+        return collect_sources(state,data,web,budget,questions,relevant_candidate)
 
-    def assess(state):
-        update = {"history": state["history"] + ["assess"]}
-        if state["fatal"] or not budget.remaining("llm") or not any(e.access_status == "full_text" for e in state["evidence"].values()):
+    def extract(state):
+        update={'history':state['history']+['extract']}
+        eligible={k:e for k,e in state['evidence'].items() if e.access_status=='full_text' and e.content_status=='substantive'}
+        fresh=set(eligible)-state['reviews'].keys()
+        if state['fatal'] or not eligible or not budget.remaining('llm') or (not fresh and state['repair_kind']!='extract'):
             return update
         try:
-            analysis = budget.call("llm", lambda: Analysis.model_validate(analyst.analyze(data, state["evidence"],
-                state["analysis"] if state['model_successes'] else None,
-                state["validation_errors"] + [{'stage': 'research', 'rows': [
-                    {'tech_id': r.tech_id, 'criterion_id': r.criterion_id, 'research_status': r.research_status,
-                        'unknown_reasons': r.unknown_reasons, 'search_ids': r.search_ids}
-                    for r in state['analysis'].assessments]}])))
-            update.update(analysis=analysis, model_successes=state["model_successes"] + 1,
-                errors=[e for e in state["errors"] if e["stage"] != "llm"])
+            answer=budget.call('llm',lambda:Extraction.model_validate(analyst.extract(data,state['evidence'],
+                previous=state['claim_pool'],issues=state['extraction_errors'])))
+            added,errors=validate_claims(data,answer.claims,state['evidence'])
+            reviews={r.evidence_id:r.model_dump() for r in answer.reviews if r.evidence_id in eligible}
+            for eid in eligible:
+                if eid not in reviews:
+                    errors.append(dict(stage='claims',code='missing_source_review',evidence_id=eid))
+            claimed_ids={c.citation.evidence_id for c in answer.claims}
+            for eid,r in reviews.items():
+                if (r['outcome']=='claims_extracted') != (eid in claimed_ids):
+                    errors.append(dict(stage='claims',code='source_review_mismatch',evidence_id=eid))
+            pool={**state['claim_pool'],**added}
+            analysis,_=materialize(data,blank_draft(),pool)
+            update.update(claim_pool=pool,reviews={**state['reviews'],**reviews},analysis=analysis,
+                extraction_errors=errors,model_successes=state['model_successes']+1,
+                errors=[e for e in state['errors'] if e['stage'] not in {'claims','llm_extract'}]+errors)
         except ProviderError as exc:
-            update.update(errors=state["errors"] + [{"stage": "llm", "code": exc.code}], fatal=exc.fatal)
+            error=dict(stage='llm_extract',code=exc.code)
+            update.update(extraction_errors=[error],errors=state['errors']+[error],fatal=exc.fatal)
         return update
 
-    def validate(state):
-        analysis, errors = validate_analysis(data, state["analysis"], state["evidence"])
-        prior = {(r.tech_id, r.criterion_id): r for r in state.get("last_validated", analysis).assessments}
-        retained = set()
-        for index, row in enumerate(analysis.assessments):
-            old = prior.get((row.tech_id, row.criterion_id))
-            if (old and old.basis != 'unknown' and row.basis == 'unknown'
-                    and 'conflicting_sources' not in row.unknown_reasons):
-                analysis.assessments[index] = old.model_copy(deep=True)
-                retained.add((row.tech_id, row.criterion_id))
-        errors = [e for e in errors if (e.get('tech_id'), e.get('criterion_id')) not in retained]
-        current = [e for e in state["errors"] if e["stage"] != "validate"] + errors
-        analysis = annotate(analysis, data, state["evidence"], state["queries"], current, budget, state["model_successes"] > 0)
-        if errors and not analysis.followup_questions:
-            analysis = analysis.model_copy(update={"followup_questions": repair_questions(data, analysis.assessments, [], state["queries"])})
-        return {"analysis": analysis, "last_validated": analysis, "validation_errors": errors, "errors": current,
-            "history": state["history"] + ["validate"]}
+    def can_repair(state):
+        return auto_repair and not state['repair_used'] and not state['fatal'] and budget.remaining('llm')>0
 
-    def route(state):
-        needs_more = state["analysis"].followup_questions or state["validation_errors"] or any(r.verdict == "unknown" for r in state["analysis"].assessments)
-        can_work = budget.remaining("llm") and (budget.remaining("search") or budget.remaining("extract") or state["validation_errors"])
-        return "repair" if auto_repair and state["round"] == 0 and needs_more and can_work and not state["fatal"] else "finish"
+    def after_extract(state):
+        # 유효 근거가 있으면 평가 작성 1회를 우선 확보한다.
+        room=budget.remaining('llm')-(1 if state['claim_pool'] else 0)
+        if can_repair(state) and room>0:
+            if state['extraction_errors']:
+                return 'repair_extract'
+            covered={(c.tech_id,c.criterion_id) for c in state['claim_pool'].values()}
+            if len(covered)<len(data.technologies)*len(CRITERIA) and budget.remaining('search') and budget.remaining('extract'):
+                return 'repair_collect'
+        return 'compose'
 
-    def repair(state):
-        return {"round": state["round"] + 1, "history": state["history"] + ["repair"]}
+    def compose(state):
+        update={'history':state['history']+['compose']}
+        draft=state.get('draft',blank_draft())
+        current=[e for e in state['errors'] if e['stage'] not in {'compose','validate','llm_compose'}]
+        errors=[]
+        if state['claim_pool'] and not state['fatal']:
+            if budget.remaining('llm'):
+                try:
+                    draft=budget.call('llm',lambda:DraftAnalysis.model_validate(analyst.compose(data,state['claim_pool'],
+                        previous=state.get('draft'),issues=state['composition_errors'])))
+                    update['model_successes']=state['model_successes']+1
+                    update['compose_successes']=state['compose_successes']+1
+                except ProviderError as exc:
+                    errors.append(dict(stage='llm_compose',code=exc.code))
+                    update['fatal']=exc.fatal
+            else:
+                errors.append(dict(stage='llm_compose',code='budget_exhausted:llm'))
+        analysis,link_errors=materialize(data,draft,state['claim_pool'])
+        analysis,validation_errors=validate_analysis(data,analysis,state['evidence'])
+        errors+=link_errors+validation_errors
+        # 인용 수정 실패도 미확인의 이유로 보존한다.
+        current+=errors
+        reviewed={}
+        for c in state['claim_pool'].values():
+            reviewed.setdefault((c.tech_id,c.criterion_id),[]).append(c.citation.evidence_id)
+        analysis=annotate(analysis,data,state['evidence'],state['queries'],current,budget,
+            state['model_successes']>0,reviewed=reviewed)
+        update.update(draft=draft,analysis=analysis,composition_errors=errors,errors=current)
+        return update
+
+    def after_compose(state):
+        return 'repair_compose' if state['composition_errors'] and can_repair(state) else 'finish'
+
+    def repair(kind):
+        def action(state):
+            return dict(round=1,repair_used=True,repair_kind=kind,history=state['history']+['repair_'+kind])
+        return action
 
     def finish(state):
-        statuses = {t: "completed" if all(a.verdict != "unknown" for a in state["analysis"].assessments if a.tech_id == t)
-            else "unknown" for t in data.technologies}
-        failed = state["fatal"] or (state["model_successes"] == 0 and any(
-            e["stage"] in {"llm", "search", "extract"} and not e['code'].startswith('budget_') for e in state["errors"]))
-        status = "failed" if failed else ("completed" if all(s == "completed" for s in statuses.values()) else "unknown")
-        result = MarketResult(status=status, round=state["round"], assessments=state["analysis"].assessments,
-            followup_questions=state["analysis"].followup_questions, technology_status=statuses,
-            errors=state["errors"], usage=dict(budget.used), mode=mode)
-        return {"result": result, "history": state["history"] + ["finish"]}
+        statuses={t:'completed' if all(r.verdict!='unknown' for r in state['analysis'].assessments if r.tech_id==t)
+            else 'unknown' for t in data.technologies}
+        api_failure=any(e['stage'].startswith('llm') or e['stage'] in {'search','extract'} for e in state['errors']
+            if not e['code'].startswith('budget_'))
+        failed=state['fatal'] or (state['model_successes']==0 and api_failure)
+        result=MarketResult(status='failed' if failed else ('completed' if all(v=='completed' for v in statuses.values()) else 'unknown'),
+            round=state['round'],assessments=state['analysis'].assessments,followup_questions=state['analysis'].followup_questions,
+            technology_status=statuses,errors=state['errors'],usage=dict(budget.used),mode=mode)
+        return {'result':result,'history':state['history']+['finish']}
 
-    graph = StateGraph(RunState)
-    for name, action in [("collect", collect), ("assess", assess), ("validate", validate), ("repair", repair), ("finish", finish)]:
-        graph.add_node(name, action)
-    graph.add_edge(START, "collect")
-    graph.add_edge("collect", "assess")
-    graph.add_edge("assess", "validate")
-    graph.add_conditional_edges("validate", route, {"repair": "repair", "finish": "finish"})
-    graph.add_edge("repair", "collect")
-    graph.add_edge("finish", END)
-    state = graph.compile().invoke({"data": data, "round": round_number, "evidence": initial_evidence,
-        "sources": {}, "analysis": previous or empty, "errors": [], "validation_errors": [], "queries": [],
-        "history": [], "fatal": False, "model_successes": 0}, config={"recursion_limit": 20})
-    state["events"] = list(budget.events)
-    state["initial_evidence_ids"] = list(initial_evidence)
-    state["model"] = getattr(analyst, "model", "injected")
-    state["token_usage"] = list(getattr(analyst, "usage", []))
-    state['output_checks'] = list(getattr(analyst, 'output_checks', []))
-    state['debug_analyses'] = list(getattr(analyst, 'debug_analyses', []))
+    graph=StateGraph(RunState)
+    for name,action in [('collect',collect),('extract',extract),('compose',compose),('finish',finish)]:
+        graph.add_node(name,action)
+    for kind in ['collect','extract','compose']:
+        graph.add_node('repair_'+kind,repair(kind))
+        graph.add_edge('repair_'+kind,kind)
+    graph.add_edge(START,'collect')
+    graph.add_edge('collect','extract')
+    graph.add_conditional_edges('extract',after_extract,{'repair_extract':'repair_extract','repair_collect':'repair_collect','compose':'compose'})
+    graph.add_conditional_edges('compose',after_compose,{'repair_compose':'repair_compose','finish':'finish'})
+    graph.add_edge('finish',END)
+    draft=previous_draft(previous,initial_pool,blank_draft())
+    analysis,_=materialize(data,draft,initial_pool)
+    state=graph.compile().invoke(dict(data=data,round=round_number,evidence=initial_evidence,sources={},analysis=analysis,
+        errors=[],history=[],queries=[],fatal=False,claim_pool=initial_pool,reviews={},extraction_errors=[],composition_errors=[],
+        repair_kind='',repair_used=round_number==1,model_successes=0,compose_successes=0,draft=draft),config={'recursion_limit':20})
+    state.update(events=list(budget.events),initial_evidence_ids=list(initial_evidence),model=getattr(analyst,'model','injected'),
+        token_usage=list(getattr(analyst,'usage',[])),output_checks=list(getattr(analyst,'output_checks',[])),
+        debug_analyses=list(getattr(analyst,'debug_analyses',[])),claim_dispositions=pool_dispositions(state['claim_pool'],state['analysis']))
     return state
 
 

@@ -30,7 +30,7 @@ def valid_citations(citations, evidence, as_of):
         return False
     for c in citations:
         e = evidence.get(c.evidence_id)
-        if not e or e.access_status in {'snippet', 'failed'} or (e.published_at and e.published_at > as_of):
+        if not e or e.access_status in {'snippet', 'failed'} or e.content_status in {'metadata_only','identity_mismatch'} or (e.published_at and e.published_at > as_of):
             return False
         if not c.quote.strip() or not c.subject.strip() or not c.source_character.strip():
             return False
@@ -53,8 +53,6 @@ def identity_supported(tech, citations, evidence):
         e = evidence[c.evidence_id]
         text = normalized(c.identity_quote or c.quote)
         if any(normalized(t) in text for t in tokens):
-            continue
-        if any(t in e.url for t in ids) and c.identity_quote:
             continue
         if e.access_status == 'provided_summary' and tech.id in e.tech_ids:
             continue

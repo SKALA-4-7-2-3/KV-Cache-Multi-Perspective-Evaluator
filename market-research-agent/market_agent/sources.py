@@ -23,7 +23,8 @@ def content_quality(raw, url, tech):
     body = re.split(r'^#+\s*(?:Bibliographic|arXivLabs|References & Citations)', raw, maxsplit=1, flags=re.M)[0]
     paragraphs = []
     for block in re.split(r'\n\s*\n', body):
-        text = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', block).strip()
+        text = re.sub(r'^#{1,6}[^\n]*', '', block, flags=re.M)
+        text = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', text).strip()
         if not text or text.startswith(('#', '|')):
             continue
         if re.match(r'^(arXivLabs|Both individuals|Have an idea|Watch the latest|Navigation)', text, re.I):

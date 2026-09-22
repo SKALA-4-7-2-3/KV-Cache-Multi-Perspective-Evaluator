@@ -49,13 +49,16 @@ def save_run(state, output, key):
         if not re.fullmatch(r'[\w-]+', doc_id):
             raise InputError('invalid_document_id')
         (cache / "sources" / f"{doc_id}.md").write_text(body, encoding="utf-8")
-    snapshot = {"output_schema_version": '0.2', "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
+    snapshot = {"output_schema_version": '0.3', "fingerprint": key, "created_at": datetime.now(timezone.utc).isoformat(),
         "model": state["model"], "input": data.model_dump(mode="json"),
         "result": state["result"].model_dump(mode="json"),
         "evidence": {k: v.model_dump(mode="json") for k, v in state["evidence"].items()},
         "queries": state["queries"], "events": state["events"],
         "token_usage": state["token_usage"],
         "output_checks": state.get('output_checks', []),
+        "claim_pool": {k:v.model_dump(mode='json') for k,v in state.get('claim_pool',{}).items()},
+        "source_reviews": state.get('reviews',{}),
+        "claim_dispositions": state.get('claim_dispositions',{}),
         "parent_update": parent_update(state)}
     (cache / "run.json").write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
     if state.get('debug_analyses'):
@@ -72,7 +75,7 @@ def check_reuse(output, key):
     if not cache.is_dir():
         raise InputError('legacy_or_missing_snapshot: 구형 출력은 보존되며 새 검증 결과로 재사용하지 않습니다')
     saved = json.loads((cache / 'run.json').read_text())
-    if saved.get('output_schema_version') != '0.2' or saved.get('fingerprint') != key:
+    if saved.get('output_schema_version') != '0.3' or saved.get('fingerprint') != key:
         raise InputError('snapshot_mismatch: 입력·모델·코드·프롬프트·출력 버전이 다릅니다')
     manifest = json.loads((cache / 'manifest.json').read_text())
     files = manifest.get('files', {})

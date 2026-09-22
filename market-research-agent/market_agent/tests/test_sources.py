@@ -14,6 +14,7 @@ class SourceTests(unittest.TestCase):
         from market_agent.sources import content_quality
         raw = '# PF-NIC release\n\nPF-NIC supports shared CXL memory for AI inference. Availability is limited to evaluation partners.'
         self.assertEqual(content_quality(raw, 'https://example.org/release', self.tech)[0], 'substantive')
+        self.assertEqual(content_quality(raw.replace('\n\n', '\n'), 'https://example.org/release', self.tech)[0], 'substantive')
 
     def test_wrong_paper_title_is_rejected(self):
         from market_agent.sources import content_quality

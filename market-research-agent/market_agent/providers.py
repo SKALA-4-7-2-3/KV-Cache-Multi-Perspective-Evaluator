@@ -6,8 +6,8 @@ from datetime import date
 from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
-from .prompts import SYSTEM_PROMPT
-from .schemas import Analysis, CRITERIA, Question, unknown
+from .prompts import EXTRACTION_PROMPT, COMPOSITION_PROMPT
+from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment
 from .tools import ProviderError
 
 
@@ -23,21 +23,12 @@ class OpenAIAnalyst:
         self.debug = debug
         self.debug_analyses = []
         self._llm = ChatOpenAI(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
-        self._structured = self._llm.with_structured_output(Analysis, method="json_schema", strict=True, include_raw=True)
+        self._extractor = self._llm.with_structured_output(Extraction, method="json_schema", strict=True, include_raw=True)
+        self._composer = self._llm.with_structured_output(DraftAnalysis, method="json_schema", strict=True, include_raw=True)
 
-    def analyze(self, data, evidence, previous=None, issues=None):
-        material = []
-        for e in evidence.values():
-            item = e.model_dump(mode='json')
-            if e.segments:
-                item.pop('excerpt')  # 문단 본문 중복 전송 방지
-            material.append(item)
-        payload = {"scope": {"domain": data.domain, "as_of": str(data.as_of)},
-            "input_markdown": data.raw_markdown, "input_warnings": data.warnings,
-            "criteria": CRITERIA, "evidence": material,
-            "previous": previous.model_dump(mode="json") if previous else None, "validation_issues": issues or []}
+    def _invoke(self, stage, runnable, schema, prompt, payload):
         try:
-            response = self._structured.invoke([("system", SYSTEM_PROMPT), ("human", json.dumps(payload, ensure_ascii=False))])
+            response = runnable.invoke([("system", prompt), ("human", json.dumps(payload, ensure_ascii=False))])
         except (ValidationError, OutputParserException):
             raise ProviderError("invalid_structured_output") from None
         except Exception as exc:
@@ -46,20 +37,36 @@ class OpenAIAnalyst:
             fatal = status in {401, 403} or code == "insufficient_quota"
             retryable = not fatal and (status in {408, 429, 500, 502, 503, 504} or type(exc).__name__ in {"APITimeoutError", "APIConnectionError"})
             raise ProviderError(f"openai_{status or type(exc).__name__}", retryable=retryable, fatal=fatal) from None
-        self.usage.append(getattr(response.get("raw"), "usage_metadata", None) or {})
-        if not isinstance(response.get("parsed"), Analysis) or response.get("parsing_error"):
-            raise ProviderError("invalid_structured_output")
-        parsed = response['parsed']
+        self.usage.append({"stage": stage, **(getattr(response.get("raw"), "usage_metadata", None) or {})})
+        parsed = response.get('parsed')
+        if not isinstance(parsed, schema) or response.get('parsing_error'):
+            raise ProviderError('invalid_structured_output')
         if self.debug:
-            self.debug_analyses.append(parsed.model_dump(mode='json'))
-        required = {'verdict', 'citations', 'context_findings'}
-        checks = [{'tech_id': r.tech_id, 'criterion_id': r.criterion_id,
-            'missing': sorted(required - r.model_fields_set), 'basis': r.basis,
-            'citations': len(r.citations), 'contexts': len(r.context_findings)} for r in parsed.assessments]
-        self.output_checks.append(checks)
-        if any(check['missing'] for check in checks):
-            raise ProviderError('missing_required_handoff_fields')
+            self.debug_analyses.append({'stage': stage, 'result': parsed.model_dump(mode='json')})
+        self.output_checks.append({'stage': stage, 'schema': schema.__name__, 'valid': True})
         return parsed
+
+    def extract(self, data, evidence, previous=None, issues=None):
+        material = []
+        for e in evidence.values():
+            if e.access_status != 'provided_summary' and not (e.access_status=='full_text' and e.content_status=='substantive'):
+                continue
+            item=e.model_dump(mode='json')
+            if e.segments:
+                item.pop('excerpt')
+            material.append(item)
+        payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
+            'technologies': {k:v.model_dump(mode='json') for k,v in data.technologies.items()},
+            'evidence': material, 'previous_claims': {k:v.model_dump(mode='json') for k,v in (previous or {}).items()},
+            'validation_issues':issues or []}
+        return self._invoke('extract',self._extractor,Extraction,EXTRACTION_PROMPT,payload)
+
+    def compose(self, data, claims, previous=None, issues=None):
+        payload = {'scope':{'domain':data.domain,'as_of':str(data.as_of)},
+            'technologies':{k:v.name for k,v in data.technologies.items()}, 'criteria':CRITERIA,
+            'claims':{k:v.model_dump(mode='json') for k,v in claims.items()},
+            'previous':previous.model_dump(mode='json') if previous else None,'validation_issues':issues or []}
+        return self._invoke('compose',self._composer,DraftAnalysis,COMPOSITION_PROMPT,payload)
 
     def close(self):
         client = getattr(self._llm, "root_client", None)
@@ -85,8 +92,13 @@ class FixtureWeb:
 class FixtureAnalyst:
     model = "fixture-no-llm"
 
-    def analyze(self, data, evidence, previous=None, issues=None):
-        rows = [unknown(t, c, "미확인: fixture 모드에는 실제 시장 근거가 없습니다") for t in data.technologies for c in CRITERIA]
-        questions = [Question(tech_id=t.id, criterion_id="market_size_growth", query=f"{t.name} market size adoption official",
-            reason="실제 시장 규모·채택 자료 필요") for t in data.technologies.values()]
-        return Analysis(assessments=rows, followup_questions=questions)
+    def extract(self, data, evidence, previous=None, issues=None):
+        return Extraction(claims=[],reviews=[SourceReview(evidence_id=e.id,outcome='no_market_claim',
+            reason='가상 테스트 자료에는 실제 시장 근거가 없음') for e in evidence.values()
+            if e.access_status=='full_text' and e.content_status=='substantive'])
+
+    def compose(self, data, claims, previous=None, issues=None):
+        rows=[DraftAssessment(tech_id=t,criterion_id=c,judgment='미확인: fixture 모드에는 실제 시장 근거가 없습니다',
+            verdict='unknown',basis='unknown',claim_ids=[],conditions=[],gaps=['fixture 자료']) for t in data.technologies for c in CRITERIA]
+        return DraftAnalysis(assessments=rows,followup_questions=[])
+

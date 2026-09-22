@@ -150,8 +150,46 @@ class Analysis(Record):
     followup_questions: list[Question]
 
 
+class Claim(Record):
+    tech_id: str
+    criterion_id: Criterion
+    statement: str
+    basis: Literal['fact', 'inference']
+    relation_to_technology: Literal['exact', 'method_family', 'adjacent']
+    citation: Citation
+    conditions: list[str]
+    metric: Metric | None
+
+
+class SourceReview(Record):
+    evidence_id: str
+    outcome: Literal['claims_extracted', 'no_market_claim']
+    reason: str
+
+
+class Extraction(Record):
+    claims: list[Claim]
+    reviews: list[SourceReview]
+
+
+class DraftAssessment(Record):
+    tech_id: str
+    criterion_id: Criterion
+    judgment: str
+    verdict: Verdict
+    basis: Basis
+    claim_ids: list[str]
+    conditions: list[str]
+    gaps: list[str]
+
+
+class DraftAnalysis(Record):
+    assessments: list[DraftAssessment]
+    followup_questions: list[Question]
+
+
 class MarketResult(Record):
-    output_schema_version: str = "0.2"
+    output_schema_version: str = "0.3"
     role: Literal["market"] = "market"
     status: Literal["completed", "unknown", "failed"]
     round: int

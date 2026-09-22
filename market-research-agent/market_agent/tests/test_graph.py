@@ -39,27 +39,32 @@ class GraphTests(unittest.TestCase):
         self.assertLessEqual(state['result'].usage['extract'], 6)
 
     def test_repaired_validation_error_is_not_left_as_current_error(self):
-        from market_agent.schemas import Citation
+        from market_agent.schemas import Claim, Citation, Extraction, SourceReview
         class SupportedWeb(FixtureWeb):
-            def extract(self, url):
+            def extract(self,url):
                 return 'RDKV implementation is available under a research license.'
         class RepairedAnalyst(FixtureAnalyst):
-            calls = 0
-            def analyze(self, data, evidence, previous=None, issues=None):
-                self.calls += 1
-                answer = super().analyze(data, evidence, previous, issues)
-                row = next(r for r in answer.assessments if r.tech_id == 'SW-01' and r.criterion_id == 'commercialization')
-                row.basis, row.verdict, row.relation_to_technology = 'fact', 'conditional', 'exact'
-                row.judgment = '연구 라이선스 구현 공개가 보고됨'
-                e = next(e for e in evidence.values() if e.access_status == 'full_text')
-                row.evidence_ids = [e.id]
-                row.citations = [Citation(evidence_id=e.id, quote=e.excerpt if self.calls > 1 else 'invented quote',
-                    subject='RDKV', source_character='합성 자료')]
+            calls=0
+            def extract(self,data,evidence,previous=None,issues=None):
+                self.calls+=1
+                web=[e for e in evidence.values() if e.access_status=='full_text' and e.content_status=='substantive']
+                e=web[0]
+                claim=Claim(tech_id='SW-01',criterion_id='commercialization',statement='연구 라이선스 구현 공개가 보고됨',
+                    basis='fact',relation_to_technology='exact',conditions=['연구용'],metric=None,
+                    citation=Citation(evidence_id=e.id,quote=e.excerpt if self.calls>1 else 'invented quote',
+                        subject='RDKV',source_character='합성 자료'))
+                return Extraction(claims=[claim],reviews=[SourceReview(evidence_id=x.id,
+                    outcome='claims_extracted' if x.id==e.id else 'no_market_claim',reason='검토') for x in web])
+            def compose(self,data,claims,previous=None,issues=None):
+                answer=super().compose(data,claims)
+                row=next(r for r in answer.assessments if r.tech_id=='SW-01' and r.criterion_id=='commercialization')
+                row.basis,row.verdict,row.claim_ids='fact','conditional',list(claims)
+                row.judgment,row.conditions='연구 라이선스 구현 공개가 보고됨',['연구용']
                 return answer
-        state = run_market(read_input(INPUT), SupportedWeb(), RepairedAnalyst(), mode='fixture')
-        row = next(r for r in state['result'].assessments if r.tech_id == 'SW-01' and r.criterion_id == 'commercialization')
-        self.assertEqual(row.basis, 'fact')
-        self.assertFalse(any(e['stage'] == 'validate' for e in state['result'].errors))
+        state=run_market(read_input(INPUT),SupportedWeb(),RepairedAnalyst(),mode='fixture')
+        row=next(r for r in state['result'].assessments if r.tech_id=='SW-01' and r.criterion_id=='commercialization')
+        self.assertEqual(row.basis,'fact')
+        self.assertFalse(any(e['stage'] in {'claims','validate'} for e in state['result'].errors))
 
     def test_parent_evidence_is_not_mutated_when_source_is_shared(self):
         data = read_input(INPUT)
@@ -74,12 +79,13 @@ class GraphTests(unittest.TestCase):
         report = result["result"]
         self.assertEqual(len(report.assessments), 12)
         self.assertEqual(report.round, 1)
-        self.assertEqual(report.usage["llm"], 2)
+        self.assertEqual(report.usage["llm"], 1)
         self.assertLessEqual(report.usage["search"], 6)
         self.assertLessEqual(report.usage["extract"], 10)
         self.assertEqual(report.status, "unknown")
         self.assertTrue(result["sources"])
-        self.assertEqual(result["history"], ["collect", "assess", "validate", "repair", "collect", "assess", "validate", "finish"])
+        self.assertEqual(sum(step.startswith('repair_') for step in result['history']), 1)
+        self.assertEqual(result['history'][-1], 'finish')
 
     def test_zero_budget_returns_unknown_without_provider_calls(self):
         data = read_input(INPUT).model_copy(update={"limits": Limits(search=0, extract=0, llm=0)})
@@ -111,12 +117,12 @@ class GraphTests(unittest.TestCase):
 
     def test_invalid_model_response_returns_failure_instead_of_crashing(self):
         class InvalidAnalyst(FixtureAnalyst):
-            def analyze(self, *args):
+            def extract(self, *args, **kwargs):
                 return {"wrong": "shape"}
         result = run_market(read_input(INPUT), FixtureWeb(), InvalidAnalyst(), mode="fixture")
         self.assertEqual(result["result"].status, "failed")
         self.assertEqual(len(result["result"].assessments), 12)
-        self.assertTrue(any(e["stage"] == "llm" for e in result["result"].errors))
+        self.assertTrue(any(e["stage"].startswith("llm") for e in result["result"].errors))
 
     def test_injected_role_budget_cannot_exceed_input_and_is_not_reset(self):
         data = read_input(INPUT).model_copy(update={"limits": Limits(search=1, extract=1, llm=1)})

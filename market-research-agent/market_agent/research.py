@@ -3,6 +3,8 @@ from .sources import TERMS
 from .search_plan import SUFFIXES
 
 REASONS = {
+    'content_insufficient': '관련 페이지의 본문을 충분히 확보하지 못함',
+    'processing_error': '근거 추출·평가의 처리 오류가 남아 있어 결론을 보류함',
     'not_searched': '이 항목을 직접 조사하거나 관련 원문을 검토하지 못함',
     'no_relevant_source': '이번 검색에서 관련 자료를 확보하지 못함',
     'source_inaccessible': '관련 후보의 원문에 접근하지 못함',
@@ -14,7 +16,7 @@ REASONS = {
 }
 
 
-def annotate(analysis, data, evidence, queries, errors, budget, model_ran):
+def annotate(analysis, data, evidence, queries, errors, budget, model_ran, *, reviewed=None):
     rows = []
     for original in analysis.assessments:
         row = original.model_copy(deep=True)
@@ -24,10 +26,14 @@ def annotate(analysis, data, evidence, queries, errors, budget, model_ran):
         scoped = [e for e in evidence.values() if row.tech_id in e.tech_ids and e.access_status == 'full_text'
             and any(term in e.excerpt.casefold() for term in TERMS[row.criterion_id])]
         cited = row.evidence_ids + [c.evidence_id for f in row.context_findings for c in f.citations]
-        row.reviewed_evidence_ids = list(dict.fromkeys([*(e.id for e in scoped), *cited])) if model_ran else []
+        row.reviewed_evidence_ids = list(dict.fromkeys([*(reviewed.get((row.tech_id,row.criterion_id),[]) if reviewed is not None else (e.id for e in scoped)), *cited])) if model_ran else []
         row.research_status = 'reviewed' if row.reviewed_evidence_ids else ('searched' if row.search_ids else 'not_started')
         row.unknown_reasons = [r for r in row.unknown_reasons if r in {'identity_unverified', 'conflicting_sources', 'date_unverified'}]
         if row.basis == 'unknown':
+            if any(row.tech_id in e.tech_ids and e.content_status in {'metadata_only','identity_mismatch'} for e in evidence.values()):
+                row.unknown_reasons.append('content_insufficient')
+            if any(e['stage'] in {'claims','compose','validate','llm_extract','llm_compose'} and e.get('tech_id',row.tech_id)==row.tech_id and e.get('criterion_id',row.criterion_id)==row.criterion_id for e in errors):
+                row.unknown_reasons.append('processing_error')
             if row.research_status == 'not_started':
                 row.unknown_reasons.append('not_searched')
             if relevant_queries and not scoped:
