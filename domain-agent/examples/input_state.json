@@ -1,0 +1,77 @@
+{
+  "config": {
+    "run_id": "demo-domain-agent",
+    "domain": {
+      "name": "장문맥 문서 QA 데이터센터·클라우드 서빙",
+      "scenario": "대규모 문서 QA 서비스의 KV cache 용량·대역폭 병목을 평가한다. 온디바이스는 보조 시나리오다.",
+      "target_users": [
+        "추론 인프라 개발자",
+        "클라우드 서비스 운영자"
+      ],
+      "requirements": [
+        {"criterion_id": "capacity", "target": "최대 문맥 길이와 동시성 목표를 수용할 메모리 용량", "priority": "must", "rationale": "OOM 방지"},
+        {"criterion_id": "quality", "target": "허용 가능한 QA 정확도 저하 범위가 수치로 정의되어야 함", "priority": "must", "rationale": "답변 품질 보호"},
+        {"criterion_id": "latency_predictability", "target": "목표 부하에서 TTFT·TPOT 꼬리 지연을 측정할 수 있어야 함", "priority": "must", "rationale": "SLO 운영"},
+        {"criterion_id": "throughput", "target": "동일 모델·하드웨어·동시성 기준 처리량 자료가 필요", "priority": "should", "rationale": "서비스 효율"},
+        {"criterion_id": "gpu_compatibility", "target": "기존 GPU 서빙 경로와의 통합 범위를 확인", "priority": "should", "rationale": "도입 위험"},
+        {"criterion_id": "dedicated_hardware_dependency", "target": "전용 장비·패브릭 의존성과 대체 경로를 확인", "priority": "should", "rationale": "공급망·확장성"},
+        {"criterion_id": "deployment_complexity", "target": "커널·런타임·클러스터 변경 범위와 운영 부담을 확인", "priority": "should", "rationale": "배포 가능성"},
+        {"criterion_id": "maturity", "target": "원문 구현·통합·운용 증거 범위를 구분", "priority": "should", "rationale": "성숙도 오해 방지"},
+        {"criterion_id": "customer_value", "target": "용량·품질·지연 편익과 도입·운영 비용을 함께 확인", "priority": "could", "rationale": "경제성"},
+        {"criterion_id": "domain_fit", "target": "장문맥 문서 QA의 모델·문맥·동시성 조건과 일치", "priority": "must", "rationale": "외삽 방지"}
+      ],
+      "shared_evidence_ids": []
+    }
+  },
+  "documents": {},
+  "evidence": {
+    "DEMO-SW-CAP-001": {
+      "id": "DEMO-SW-CAP-001",
+      "doc_id": "DEMO-SW",
+      "excerpt": "DEMO ONLY: 실제 기술 조사 에이전트의 원문 발췌로 교체하십시오.",
+      "location": "demo fixture",
+      "conditions": ["실제 측정값 아님"],
+      "criterion_ids": ["capacity", "quality"],
+      "basis": "direct",
+      "is_demo": true
+    },
+    "DEMO-HW-CAP-001": {
+      "id": "DEMO-HW-CAP-001",
+      "doc_id": "DEMO-HW",
+      "excerpt": "DEMO ONLY: 실제 기술 조사 에이전트의 원문 발췌로 교체하십시오.",
+      "location": "demo fixture",
+      "conditions": ["실제 측정값 아님"],
+      "criterion_ids": ["capacity", "dedicated_hardware_dependency"],
+      "basis": "direct",
+      "is_demo": true
+    }
+  },
+  "assessments": {
+    "technical": {
+      "status": "completed",
+      "technologies": [
+        {
+          "technology_id": "SW-01",
+          "name": "RDKV",
+          "approach": "SW",
+          "summary": "기술 조사 에이전트가 생성한 RDKV 요약이 들어갈 자리입니다.",
+          "experimental_conditions": ["실제 원문의 모델·GPU·문맥 길이 조건으로 교체"],
+          "limitations": ["실제 원문 한계로 교체"],
+          "evidence_ids": ["DEMO-SW-CAP-001"]
+        },
+        {
+          "technology_id": "HW-01",
+          "name": "Photonic-CXL",
+          "approach": "HW",
+          "summary": "기술 조사 에이전트가 생성한 Photonic-CXL 요약이 들어갈 자리입니다.",
+          "experimental_conditions": ["실제 원문의 에뮬레이션·시뮬레이션 조건으로 교체"],
+          "limitations": ["실제 원문 한계로 교체"],
+          "evidence_ids": ["DEMO-HW-CAP-001"]
+        }
+      ]
+    }
+  },
+  "review": {"round": 0},
+  "errors": {}
+}
+

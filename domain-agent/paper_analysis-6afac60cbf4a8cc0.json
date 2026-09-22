@@ -1,0 +1,655 @@
+{
+  "analysis": {
+    "limitations": {
+      "author_stated": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-be352b5256907aa41bc1df1d"
+          ],
+          "text": "serving evaluation의 PF Memory Appliance performance projections는 emulation-characterized bandwidth 및 latency parameters를 LLMServingSim에 입력하여 도출되었다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-be352b5256907aa41bc1df1d"
+          ],
+          "text": "physical PF Memory Appliance hardware에서 end-to-end inference workloads를 사용한 validation은 아직 pending이다."
+        }
+      ],
+      "compute_constraints": [],
+      "data_constraints": [],
+      "generalization_constraints": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-be352b5256907aa41bc1df1d"
+          ],
+          "text": "저자들의 empirical characterization은 8B 및 405B 모델에 대한 disk storage experiments에 집중되어 있다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-be352b5256907aa41bc1df1d"
+          ],
+          "text": "MoE variants와 DeepSeek 및 Qwen의 새로운 architectures에 대한 추가 characterization은 future work로 남아 있다."
+        }
+      ],
+      "inferred": [],
+      "not_reported": [
+        "inferred",
+        "compute_constraints",
+        "data_constraints",
+        "reproducibility_constraints"
+      ],
+      "reproducibility_constraints": []
+    },
+    "scope": {
+      "author_claimed_scope": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.88,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-d1aab11515037ec54425b885"
+          ],
+          "text": "PF Memory Appliance는 KV cache management를 넘어 host 간 model weight sharing 및 fault-tolerant serving을 위한 checkpoint storage에도 적용 가능하다."
+        }
+      ],
+      "domains": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.93,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-333091a610a056ceba22e8c8"
+          ],
+          "text": "논문은 장문맥 및 높은 동시성 요구가 있는 enterprise applications를 적용 맥락으로 제시하며, 법률 문서 분석, 의료 진단, 개인화 교육 플랫폼을 예로 든다."
+        }
+      ],
+      "evaluated_settings": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-de67db5290fa12183d6a7ef0"
+          ],
+          "text": "KV cache retrieval 특성화는 A100, H100, H200 시스템에서 8B–405B parameter 모델과 최대 4M tokens context를 대상으로 수행되었다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.96,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-f5f5a3518677e81d0c571698"
+          ],
+          "text": "평가에는 local A100 server와 Runpod의 H100/H200 cloud instances가 사용되었다."
+        }
+      ],
+      "inferred_scope": [],
+      "modalities": [],
+      "not_reported": [
+        "modalities",
+        "inferred_scope",
+        "out_of_scope"
+      ],
+      "operating_conditions": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.91,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-333091a610a056ceba22e8c8"
+          ],
+          "text": "대상 시나리오는 긴 context와 높은 동시성으로 인해 KV cache memory 요구량이 큰 LLM serving이다."
+        }
+      ],
+      "out_of_scope": [],
+      "target_tasks": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-070256973608cac8c63b964e"
+          ],
+          "text": "PF Memory Appliance는 LLM inference에서 KV cache management를 대상으로 한다."
+        }
+      ]
+    },
+    "technical_overview": {
+      "core_approach": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-f5f5a3518677e81d0c571698"
+          ],
+          "text": "PF Memory Appliance는 switch-free optical fiber shuffle을 통해 32 TB shared memory를 제공하는 photonic-CXL hybrid architecture이다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-333091a610a056ceba22e8c8"
+          ],
+          "text": "PF Memory Appliance는 switch-free full-crossbar topology로 16개 host에 걸쳐 32 TB shared memory를 구성한다."
+        }
+      ],
+      "experimental_results": [
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-de67db5290fa12183d6a7ef0"
+          ],
+          "text": "Host memory에서 KV cache를 retrieval하면 GPU re-computation 대비 최대 100× speedup을 달성했지만 capacity 제약이 심했다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-de67db5290fa12183d6a7ef0"
+          ],
+          "text": "SSD에서 KV cache를 retrieval한 최대 speedup은 bandwidth bottleneck으로 인해 9.7×였다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-333091a610a056ceba22e8c8"
+          ],
+          "text": "Emulation 결과, PF Memory Appliance는 electrical CXL pools 대비 50% 초과 latency reduction을 보였다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-333091a610a056ceba22e8c8"
+          ],
+          "text": "Simulation 결과, PF Memory Appliance는 multi-turn conversations workload에서 time-to-first-token을 6.6× 개선했다."
+        },
+        {
+          "claim_type": "observed_result",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-82214d08a0b9a3f1c01d4629"
+          ],
+          "text": "32 TB PF Memory Appliance에서는 50개부터 300개 conversation까지 mean TTFT가 2,690 ms로 유지되었고, full prefix cache hit rate는 82%였다."
+        }
+      ],
+      "inference_process": [],
+      "mechanisms": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-82214d08a0b9a3f1c01d4629"
+          ],
+          "text": "여러 host는 optical CXL을 통해 appliance에 접근하며, KV payload에는 GPU DMA를, metadata에는 CPU load/store를 사용한다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-89e5c3436a815934c2104a23"
+          ],
+          "text": "각 PF Memory Module은 PCIe Gen6 interface 상의 CXL 3.1 Type 3 device이다."
+        },
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-89e5c3436a815934c2104a23"
+          ],
+          "text": "PF-NIC는 host의 CXL interface를 photonic fabric interconnect에 연결하는 PCIe Gen6/CXL 3.1 adapter card이다."
+        }
+      ],
+      "not_reported": [
+        "training_process",
+        "inference_process"
+      ],
+      "novelty": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.97,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-1184caf20f99504071eea17a"
+          ],
+          "text": "PF Memory Appliance는 CXL load/store semantics와 passive 16×16 fiber shuffle을 결합하여 switch-free rack-scale memory pooling을 구현한다."
+        }
+      ],
+      "problem_definition": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.99,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-070256973608cac8c63b964e"
+          ],
+          "text": "대규모 LLM inference에서 KV cache는 수십 TB의 용량과 수백 GB/s의 대역폭을 요구하지만, 현존 memory tier는 두 요구사항을 동시에 제공하지 못한다."
+        }
+      ],
+      "requirements": [
+        {
+          "claim_type": "author_claim",
+          "confidence": 0.98,
+          "context_evidence_ids": [],
+          "evidence_ids": [
+            "ev-de67db5290fa12183d6a7ef0"
+          ],
+          "text": "KV cache retrieval은 수십 TB의 capacity와 100 GB/s 초과 bandwidth를 요구한다."
+        }
+      ],
+      "training_process": []
+    }
+  },
+  "diagnostics": [],
+  "evidence_registry": [
+    {
+      "chunk_id": "070256973608cac8c63b964e",
+      "content_hash": "a28c16e4d06877eb9e9438d9b0852ca8dfb6f8b4841de878fd8d02ee24d271f9",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-070256973608cac8c63b964e",
+      "page": 1,
+      "section": null,
+      "snippet": "A Photonic-CXL Memory Appliance for Scalable KV\n\nCache Management in LLM Inference\n\nJing Ding\nMachine Learning\nMarvell Technology\n\nYash Nishant\nMachine Learning\nMarvell Technology\n\nChandrish Ambati\nMachine Learning\nMarvell Technology\n\nJyothsna Kamati\nDesign Verification\nMarvell Technology\n\nSanta Clara, USA\njingd@marvell.com\n\nSanta Clara, USA\nynishant@marvell.com\n\nSanta Clara, USA\ncambati@marvell.com\n\nSanta Clara, USA\njkamati@marvell.com\n\nTrung Diep\nMachine Learning\nMarvell Technology\n\nSanta Clara, USA\ntrungd@marvell.com\n\neasily exceeds 10,000 tokens, with storage of ~3.3 GB per user.\nWith 3.5 billion daily active users at Meta and 1.3 million GPUs\nin datacenter infrastructures, each GPU would require 8.9 TB\nfor serving all users.\n\nAbstract— LLM inference at scale faces a memory wall: the\nKV cache demands tens of terabytes at hundreds of gigabytes per\nsecond, yet no current memory tier delivers both at once.\nCharacterization across multi-generation GPU systems with\nvarious LLaMA models shows host memory retrieval achieves up\nto 100x speedup over re-computation but supports only tens of\nconcurrent\nlong-context\nusers.\nElectrical\nCXL\npooling\ntheoretically bridges this gap, but switch l",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "82214d08a0b9a3f1c01d4629",
+      "content_hash": "8a544e242b01c151427ab19666b32bbe76a9fbbc28d7adfb306512fdee5e3e8a",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-82214d08a0b9a3f1c01d4629",
+      "page": 9,
+      "section": null,
+      "snippet": "bandwidth and capacity parameters to match the experimentally\ncharacterized photonic fabric specifications from Section IV.\n\nB. Results\n\ntier) encapsulates shared-memory management, rendezvous-\nbased consistency, and offset-addressed KV indexing across all\nhosts. Multiple hosts access the appliance over optical CXL with\nGPU DMA for KV payloads and CPU load/store for metadata.\n\nVI. PERFORMANCE EVALUATION\n\nA. Methodology\n\nWe combine the empirical characterization from Section II-\nB with the emulation results from Section IV to construct a\nperformance model that quantifies the end-to-end benefits of PF\nMemory Appliance for production LLM serving workloads.\n\nFig. 8(a) shows mean TTFT as the total token working set\nscales from 50 conversations to 300 conversations. With the 32\nTB PF Memory Appliance, TTFT remains flat at 2,690 ms\nregardless of conversation count—all KV cache entries are\nretained in the pooled memory, and subsequent turns benefit\nfrom full prefix cache hits (82% hit rate). In contrast, the 2 TB\nbaseline degrades rapidly: at 100 conversations, mean TTFT\nrises to 8,156 ms (3× higher) as the LRU eviction policy forces\nfull re-computation of evicted KV cache. At 300 conversa",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "1184caf20f99504071eea17a",
+      "content_hash": "3c3edb6b247c7515d87e6df5fd22eb7c89fe272a38f67bc94ba6adf358bf4368",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-1184caf20f99504071eea17a",
+      "page": 10,
+      "section": null,
+      "snippet": "the baseline's memory is fully exhausted. These results\ndemonstrate that the photonic-CXL memory pooling effectively\ncloses the capacity-bandwidth gap for production-scale LLM\nserving.\n\nLightmatter's Passage M1000 [45] integrates 34 chiplets\nwith 114 Tbps optical bandwidth. Ayar Labs' TeraPHY [46]\ndelivers 8 Tbps as the first UCIe optical chiplet supporting CXL\nprotocol transport. NVIDIA's SN6800 Spectrum-X switch uses\nan integrated fiber shuffle between multiple ASICs [47],\nvalidating the passive optical shuffle concept in production. The\nPF Memory Appliance builds on these advances by combining\nCXL load/store semantics with a passive 16×16 fiber shuffle for\nswitch-free, rack-scale memory pooling.",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "d1aab11515037ec54425b885",
+      "content_hash": "771785f8c997fd2902091a6e843b0a025637aad20987ad07e9436cc2f5b8fcfe",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-d1aab11515037ec54425b885",
+      "page": 10,
+      "section": null,
+      "snippet": "PF Memory\nAppliance's applicability beyond KV cache management,\nincluding model weight sharing across hosts and checkpoint\nstorage for fault-tolerant serving.\n\nIX. CONCLUSION\n\nThe fundamental electrical CXL constraints are well-\ndocumented: copper cables limited to ≤2 m, 50–70 ns per switch\nhop, and power-hungry retimers for distance extension. Hybrid\napproaches like Rcmp [39] (CXL intra-rack + RDMA inter-\nrack) and DFabric [40] work around but do not solve these\nconstraints. The PF Memory Appliance's passive fiber shuffle\ndirectly addresses all three: extending reach to 100+ m,\neliminating switch-hop latency, and reducing interconnect\npower.\n\nC. Photonic Interconnects in Datacenter\n\nWe presented a comprehensive characterization of KV cache\nretrieval across the memory hierarchy to reveal a fundamental\ncapacity-bandwidth gap in current systems. Host memory\nachieves up to 100× speedup over re-computation but supports\nonly tens of concurrent long-context users, while SSD storage\nscales in capacity but delivers at most 9.7× speedup. Electrical\nCXL memory pooling can theoretically bridge this gap but faces\nswitch latency, reach, and power constraints that prevent\npractical TB-scale depl",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "de67db5290fa12183d6a7ef0",
+      "content_hash": "200bc899416e32e0d0e1c91e04387471f8f6ae669f7a49409174266d727311bb",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-de67db5290fa12183d6a7ef0",
+      "page": 2,
+      "section": null,
+      "snippet": "–32) and\nprompt lengths (1K–4M tokens), submit the initial request to the\nmodel for prefill computation, during which the model generates\nand stores the complete KV cache.\n\nIn this paper, we present a comprehensive characterization\nof KV cache retrieval efficiency across the memory hierarchy,\nevaluating offloading across A100, H100, and H200 systems\nwith models from 8B to 405B parameters and contexts up to 4M\ntokens using repeated request. Our findings reveal that retrieving\nKV cache from host memory achieves up to 100× speedup over\nGPU re-computation but is severely capacity-constrained, while\nretrieving KV cache from SSD delivers limited speedups\n(maximum 9.7×) due to bandwidth bottlenecks. These results\nquantify the critical requirement: tens of terabytes of capacity at\nover 100 GB/s bandwidth—capabilities that current systems\ncannot simultaneously deliver.\n\nPhase 2: Cache offloading. For the host memory path, cache\nis offloaded to system DRAM for fast retrieval with limited\ncapacity. For the disk storage path, cache persisted to SSD for\nlarge capacity with slower retrieval.\n\nPhase 3: Retrieval performance measurement. We measure\nmemory retrieval time (Tmemory) to load KV cache ",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "333091a610a056ceba22e8c8",
+      "content_hash": "bd0b9fe79f5960fe0359dbb18f241214b64c9899397059520b2fc99b279635bb",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-333091a610a056ceba22e8c8",
+      "page": 1,
+      "section": "32 TB shared memory across 16 hosts via a switch-free full-",
+      "snippet": "crossbar topology. Emulation results demonstrate over 50 percent\nlatency reduction versus electrical CXL pools. Simulation results\nshow that the PF Memory Appliance eliminates cache eviction\ncliffs by improving time-to-first-token by 6.6x for multi-turn\nconversations workloads.\n\nKeywords— photonic interconnects, CXL, LLM inference, KV\ncache, datacenter architecture\n\nI. INTRODUCTION\n\nEnterprise applications at scale face even more severe\nmemory challenges due to their inherently long contexts and\nhigh concurrency requirements. Legal document analysis\nsystems must process extensive contracts alongside vast\nregulatory frameworks and case precedents, with each session\nrequiring tens of gigabytes of KV cache memory. Medical\ndiagnosis platforms combine complete patient histories with\ncomprehensive medical knowledge bases and clinical\nguidelines, quickly exhausting available GPU memory when\nserving\nmultiple\nhealthcare\nproviders\nsimultaneously.\nEducational platforms delivering personalized tutoring must\nmaintain extensive context including curriculum materials,\nlearning history, and performance analytics for thousands of\nconcurrent students, pushing memory requirements into the\nmulti-terab",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "f5f5a3518677e81d0c571698",
+      "content_hash": "b983cf514dddd3f7ed8a77e1b49143c2596a64a274c9671be5dd78715fc93959",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-f5f5a3518677e81d0c571698",
+      "page": 2,
+      "section": null,
+      "snippet": "etrieve KV blocks across requests. We compare tier\nconfigurations that offload KV blocks to host DRAM and local\nstorage when HBM is insufficient. We report time-to-first-token\n(TTFT) as the primary user-facing latency metric.\n\nThe PF Memory Appliance architecture, a photonic-CXL\nhybrid achieving 32 TB shared memory through a switch-free\noptical fiber shuffle, with bandwidth and latency evaluated\nthrough hardware emulation.\n\nEnd-to-end serving evaluation demonstrating that PF\nMemory Appliance-augmented systems sustain flat TTFT as\n\nOur evaluation uses a local A100 server and cloud instances\non Runpod with H100/H200 GPUs. The A100 testbed includes\none NVIDIA A100 (80 GB HBM2e) connected to a dual-socket",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "89e5c3436a815934c2104a23",
+      "content_hash": "1120ed6848cd961073e64e4a293efe670e1e796d9136093fce36e1d06887df8f",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-89e5c3436a815934c2104a23",
+      "page": 5,
+      "section": "1.125 TBs of HBM3E configurable as either a write-through",
+      "snippet": "cache or additional pooled memory. Each PF Memory Module\nis a CXL 3.1 Type 3 device over a PCIe Gen6 interface, enabling\ngeneral-purpose or accelerated servers to incorporate Photonic\nFabric connectivity while maintaining standard software\ncompatibility.\n\nThe PF Memory Appliance connects to host servers through\na Photonic Fabric NIC (PF-NIC), a PCIe Gen6/CXL 3.1 adapter\ncard that bridges the host's CXL interface to the photonic fabric\ninterconnect. The PF-NIC contains a variant of the PF Memory\nModule that omits external DDR5 and HBM memory, retaining\nonly the PF ASIC and optical connectivity. While the PF\nMemory Appliance also supports attachment via an AI\naccelerator co-packaged with a Photonic Fabric Chiplet (PF\nChiplet), this paper focuses on the PF-NIC implementation. Fig.",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "be352b5256907aa41bc1df1d",
+      "content_hash": "83a563a142796a0452a667864e1f20fd085778bd9f59878a0749278dad137c9e",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-be352b5256907aa41bc1df1d",
+      "page": 10,
+      "section": null,
+      "snippet": "VIII. LIMITATIONS AND FUTURE WORK\n\nCacheGen [30] compresses KV cache into 3.5–4.3× smaller\nbitstreams for network streaming. InfiniGen [31] speculatively\nprefetches critical KV entries from CPU memory. KVQuant\n[32] provides sub-4-bit quantization enabling 10M+ token\ncontexts.\nFlashAttention\n[33,\n34]\noptimizes\nattention\ncomputation by minimizing GPU SRAM↔HBM data\nmovement. These optimizations are orthogonal to memory\npooling and compose directly with PF Memory Appliance.\n\nThis study has several limitations. First, our empirical\ncharacterization is focused on disk storage experiments on the\n8B and 405B models; more characterization of the MoE\nvariants, including new architectures from DeepSeek and Qwen\nmodels, will be future work. Second, the PF Memory Appliance\nperformance projections in the serving evaluation are derived\nfrom\nemulation-characterized\nbandwidth\nand\nlatency\nparameters fed into the LLMServingSim framework; validation\non the physical PF Memory Appliance hardware with end-to-\nend inference workloads remains pending.\n\nThe common limitation is that per-node memory capacity\nforces multi-tier caching with escalating latency penalties, and\ncross-node\nsharing\nrequires\nnetwork\n",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "d9a7e00fd2fe035e6ea4a303",
+      "content_hash": "83fe41f6ccc0a8f3d2e8575af8f58e4424e7839cb17dd41dbf347f3dde6c9dfe",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-d9a7e00fd2fe035e6ea4a303",
+      "page": 4,
+      "section": null,
+      "snippet": "inference. Solid lines represent the KV data plane; dashed lines represent CPU\ncontrol operations. Each generation removes components from the critical path:\n(a)→(b) eliminates DRAM bounces; (b)→ (c,d) eliminates the network. CXL\nmodes additionally enable write-once-read-many KV reuse and eliminate KV-\nlocality-aware scheduling.\n\nFirst, electrical CXL links are limited to several meters of\ncopper reach; extending distance requires power-hungry\nretimers that add latency yet still confine deployments to sub-\nrack distances. TraCT connects hosts within a single chassis\n[15], and Beluga's 16-host pool relies on a co-located CXL 2.0\nswitch [16] — true rack-scale disaggregation remains infeasible.\nSecond, CXL switches introduce 70–500 ns latency per hop plus\nvariable arbitration delays under contention [14], and\nhierarchical topologies necessary for larger pools compound this\noverhead into the range where decode-phase SLO budgets are at\nrisk. Third, switch power scales super-linearly with port count\nand signaling rate, creating thermal density challenges that make\nthe hundreds of modules and multiple switch tiers needed for 32\nTB pools impractical.\n\nScaling electrical CXL to tens of tera",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "11a6b4e7e96d8afcc04dcbad",
+      "content_hash": "46dfd06079a5da9115d1fcd626fc5a3961db1cc0d802de2ea48f3b610e8fd10e",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-11a6b4e7e96d8afcc04dcbad",
+      "page": 5,
+      "section": null,
+      "snippet": "III. PHOTONIC FABRIC MEMORY APPLIANCE ARCHITECTURE\n\nshuffle provides dedicated optical paths between every host-\nmemory pair. This topology eliminates switch-induced latency\nentirely while enabling truly concurrent access—all 16 hosts can\nsimultaneously access different memory modules without\ncontention in the interconnect fabric.\n\nWe introduce the Photonic Fabric Memory Appliance: a\nmemory disaggregation platform that combines the capacity\nadvantages of pooled DDR5 with the bandwidth characteristics\nof HBM, while leveraging photonic interconnects to eliminate\nthe switching bottlenecks and reach limitations of electrical\nCXL architectures. Photonics [17] can replace the electrical\nswitching fabric entirely, providing all-to-all connectivity\nwithout intermediate switches while maintaining CXL protocol\ncompatibility at the host interface.\n\nA. System Overview\n\nThe PF Memory Appliance is a memory device built using",
+      "source_kind": "paper"
+    },
+    {
+      "chunk_id": "203a53aa03ba37791250c871",
+      "content_hash": "036682aebc96b4fbb306d6876ea2f642fb4dcda7a17c114707c551984153cf32",
+      "content_kind": "text",
+      "document_id": "paper-d6a67efde2a1ed0e9fb3",
+      "evidence_id": "ev-203a53aa03ba37791250c871",
+      "page": 2,
+      "section": null,
+      "snippet": "workload scales to 300 concurrent conversations, achieving\n6.6× improvement over eviction-degraded baselines.\n\nThe remainder of this paper is organized as follows. Section\nII provides background on our empirical characterization of the\nmemory wall and disaggregated inference transfer mechanisms.\nSection III introduces the PF Memory Appliance architecture.\nSection IV presents the emulation methodology and hardware\nevaluation results. Section V describes software integration with\nproduction inference frameworks. Section VI evaluates end-to-\nend serving performance with simulations. Section VII\ndiscusses related work. Section VIII addresses limitations and\nfuture work. Section IX concludes.\n\nII. BACKGROUND AND MOTIVATION\n\nA. Empirical Characterization of the Memory Wall\n\nMeanwhile, disaggregated inference architectures—which\nseparate the compute-bound prefill phase from the memory-\nbandwidth-bound decode phase onto distinct GPU workers [9,\n10, 11]—further exacerbate the data movement challenge. KV\ntensors produced during prefill must be delivered to decode\nworkers before token generation can begin, and this transfer\nlatency increasingly dominates time-to-first-token (TTFT) at\nlong con",
+      "source_kind": "paper"
+    }
+  ],
+  "paper": {
+    "abstract": null,
+    "arxiv_id": null,
+    "authors": [],
+    "page_count": 12,
+    "paper_id": "paper-d6a67efde2a1ed0e9fb3",
+    "source_hash": "d6a67efde2a1ed0e9fb38302708d83e1e43f2c237acd4826ec4daf1bd44e2326",
+    "source_path": "/home/stellacustodis/vault/00_inbox/2607.27187.pdf",
+    "title": "A Photonic-CXL Memory Appliance for Scalable KV"
+  },
+  "quality": {
+    "audits": [
+      {
+        "claim_key": "technical_overview.problem_definition.0",
+        "evidence_ids": [
+          "ev-070256973608cac8c63b964e"
+        ],
+        "reason": "초록이 KV cache가 수십 TB 용량 및 수백 GB/s 대역폭을 요구하며, 현존 memory tier가 두 요구를 동시에 충족하지 못한다고 직접 진술한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.core_approach.0",
+        "evidence_ids": [
+          "ev-f5f5a3518677e81d0c571698"
+        ],
+        "reason": "논문은 PF Memory Appliance를 switch-free optical fiber shuffle을 통해 32 TB shared memory를 달성하는 photonic-CXL hybrid로 직접 설명한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.core_approach.1",
+        "evidence_ids": [
+          "ev-333091a610a056ceba22e8c8"
+        ],
+        "reason": "논문 초록 부분이 switch-free full-crossbar topology를 통해 16개 host에 걸친 32 TB shared memory를 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.novelty.0",
+        "evidence_ids": [
+          "ev-1184caf20f99504071eea17a"
+        ],
+        "reason": "논문은 CXL load/store semantics와 passive 16×16 fiber shuffle을 결합해 switch-free rack-scale memory pooling을 구현한다고 직접 서술한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.mechanisms.0",
+        "evidence_ids": [
+          "ev-82214d08a0b9a3f1c01d4629"
+        ],
+        "reason": "여러 host의 optical CXL 접근, KV payload용 GPU DMA, metadata용 CPU load/store가 모두 명시되어 있다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.mechanisms.1",
+        "evidence_ids": [
+          "ev-89e5c3436a815934c2104a23"
+        ],
+        "reason": "각 PF Memory Module이 PCIe Gen6 interface 상의 CXL 3.1 Type 3 device라고 직접 명시되어 있다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.mechanisms.2",
+        "evidence_ids": [
+          "ev-89e5c3436a815934c2104a23"
+        ],
+        "reason": "PF-NIC가 host CXL interface와 photonic fabric interconnect를 연결하는 PCIe Gen6/CXL 3.1 adapter card라고 직접 명시되어 있다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.requirements.0",
+        "evidence_ids": [
+          "ev-de67db5290fa12183d6a7ef0"
+        ],
+        "reason": "논문은 KV cache retrieval의 핵심 요구사항을 수십 TB 용량 및 100 GB/s 초과 대역폭으로 직접 제시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.experimental_results.0",
+        "evidence_ids": [
+          "ev-de67db5290fa12183d6a7ef0"
+        ],
+        "reason": "Host memory retrieval이 GPU re-computation 대비 최대 100× speedup을 보였으나 심각한 capacity 제약이 있었다고 직접 보고한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.experimental_results.1",
+        "evidence_ids": [
+          "ev-de67db5290fa12183d6a7ef0"
+        ],
+        "reason": "SSD retrieval의 최대 speedup이 bandwidth bottleneck 때문에 9.7×였다고 직접 보고한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.experimental_results.2",
+        "evidence_ids": [
+          "ev-333091a610a056ceba22e8c8"
+        ],
+        "reason": "Emulation 결과가 electrical CXL pools 대비 50% 초과 latency reduction을 보였다고 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.experimental_results.3",
+        "evidence_ids": [
+          "ev-333091a610a056ceba22e8c8"
+        ],
+        "reason": "Simulation 결과가 multi-turn conversations workload에서 TTFT를 6.6× 개선했다고 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "technical_overview.experimental_results.4",
+        "evidence_ids": [
+          "ev-82214d08a0b9a3f1c01d4629"
+        ],
+        "reason": "32 TB appliance에서 50~300 conversations에 걸쳐 mean TTFT가 2,690 ms로 유지되었고, full prefix cache hit rate가 82%였다고 직접 보고한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.target_tasks.0",
+        "evidence_ids": [
+          "ev-070256973608cac8c63b964e"
+        ],
+        "reason": "논문 제목과 초록이 PF Memory Appliance의 목표를 LLM inference의 scalable KV cache management로 직접 제시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.domains.0",
+        "evidence_ids": [
+          "ev-333091a610a056ceba22e8c8"
+        ],
+        "reason": "논문은 장문맥 및 높은 동시성의 enterprise application 맥락을 설명하고 legal document analysis, medical diagnosis, personalized educational platforms를 구체적 사례로 든다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.operating_conditions.0",
+        "evidence_ids": [
+          "ev-333091a610a056ceba22e8c8"
+        ],
+        "reason": "논문은 enterprise application에서 긴 context와 높은 concurrency가 큰 KV cache memory 요구를 만든다고 직접 설명한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.evaluated_settings.0",
+        "evidence_ids": [
+          "ev-de67db5290fa12183d6a7ef0"
+        ],
+        "reason": "논문은 A100, H100, H200 시스템, 8B~405B 모델, 최대 4M-token context에 대한 characterization을 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.evaluated_settings.1",
+        "evidence_ids": [
+          "ev-f5f5a3518677e81d0c571698"
+        ],
+        "reason": "평가가 local A100 server와 Runpod H100/H200 cloud instances를 사용했다고 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "scope.author_claimed_scope.0",
+        "evidence_ids": [
+          "ev-d1aab11515037ec54425b885"
+        ],
+        "reason": "논문은 KV cache management를 넘어 host 간 model weight sharing과 fault-tolerant serving용 checkpoint storage에의 적용 가능성을 직접 언급한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "limitations.author_stated.0",
+        "evidence_ids": [
+          "ev-be352b5256907aa41bc1df1d"
+        ],
+        "reason": "Serving evaluation의 performance projection이 emulation-characterized bandwidth 및 latency parameters를 LLMServingSim에 입력해 도출되었다고 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "limitations.author_stated.1",
+        "evidence_ids": [
+          "ev-be352b5256907aa41bc1df1d"
+        ],
+        "reason": "Physical PF Memory Appliance hardware에서 end-to-end inference workload validation이 아직 pending이라고 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "limitations.generalization_constraints.0",
+        "evidence_ids": [
+          "ev-be352b5256907aa41bc1df1d"
+        ],
+        "reason": "Empirical characterization이 8B 및 405B 모델의 disk storage experiments에 집중되었다고 직접 명시한다.",
+        "verdict": "supported"
+      },
+      {
+        "claim_key": "limitations.generalization_constraints.1",
+        "evidence_ids": [
+          "ev-be352b5256907aa41bc1df1d"
+        ],
+        "reason": "MoE variants 및 DeepSeek·Qwen의 새로운 architectures에 대한 추가 characterization을 future work로 남긴다고 직접 명시한다.",
+        "verdict": "supported"
+      }
+    ],
+    "evidence_resolution_rate": 1.0,
+    "indexed_chunks": 52,
+    "ingestion_characters": 61208,
+    "partial_claims": 0,
+    "searched_queries": {
+      "limitations": [
+        "\"A Photonic-CXL Memory Appliance for Scalable KV\" limitations failure cases future work",
+        "Photonic-CXL memory appliance KV ablation sensitivity analysis",
+        "CXL photonic memory key-value store bottlenecks latency contention tail latency",
+        "photonic interconnect CXL memory compute power cost data constraints",
+        "scalable KV memory appliance threats to validity workload representativeness",
+        "CXL photonic KV system limitations compatibility reliability coherence security",
+        "limitations failure cases assumptions ablation future work compute data constraints threats to validity"
+      ],
+      "scope": [
+        "\"A Photonic-CXL Memory Appliance for Scalable KV\" tasks workloads datasets",
+        "Photonic-CXL scalable KV cache key-value serving application domains",
+        "CXL photonic memory appliance supported hardware assumptions memory hierarchy",
+        "photonic CXL key-value storage workload modality request trace dataset",
+        "CXL memory expansion photonic fabric applicability distributed KV serving",
+        "scalable KV appliance deployment requirements CXL hosts photonic links",
+        "target tasks domains datasets evaluated settings modalities assumptions applicability out of scope"
+      ],
+      "technical_overview": [
+        "\"A Photonic-CXL Memory Appliance for Scalable KV\" problem motivation objective",
+        "\"Photonic-CXL\" memory appliance scalable KV cache architecture method",
+        "photonic interconnect CXL memory appliance key-value storage training inference evaluation",
+        "\"Scalable KV\" photonic CXL memory appliance design implementation",
+        "CXL-attached photonic memory key-value workload latency bandwidth throughput results",
+        "photonic CXL memory appliance KV cache performance comparison baseline",
+        "problem definition main contribution method architecture objective loss training inference experimental results"
+      ]
+    },
+    "unsupported_claims": 0,
+    "warnings": []
+  },
+  "run": {
+    "audit_model": "gpt-5.6-terra",
+    "audit_provider": "openai",
+    "embedding_model": "gemini-embedding-2",
+    "finished_at": "2026-09-21T11:49:55.053958Z",
+    "gemini_model": null,
+    "index_version": "1.2.0",
+    "openai_model": "gpt-5.6-terra",
+    "prompt_version": "1.0.0",
+    "quality_repairs": 0,
+    "run_id": "95d6065daceb4c089ecfbef894235b21",
+    "started_at": "2026-09-21T11:48:25.442072Z",
+    "token_usage": {
+      "input_tokens": 14980,
+      "output_tokens": 6044,
+      "total_tokens": 21024
+    }
+  },
+  "schema_version": "1.1.0",
+  "status": "succeeded"
+}

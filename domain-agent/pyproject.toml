@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kv-domain-agent"
+version = "0.1.0"
+description = "RAG-free domain evaluation agent for the RDKV vs Photonic-CXL LangGraph project"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.7,<3",
+  "typing-extensions>=4.10",
+]
+
+[project.optional-dependencies]
+openai = [
+  "langchain-openai>=1.0,<2",
+]
+graph = [
+  "langgraph>=1.0,<2",
+]
+dev = [
+  "pytest>=8,<10",
+]
+
+[project.scripts]
+kv-domain-agent = "kv_domain_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+

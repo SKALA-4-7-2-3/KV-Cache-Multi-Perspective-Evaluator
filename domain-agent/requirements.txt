@@ -1,0 +1,5 @@
+pydantic>=2.7,<3
+typing-extensions>=4.10
+langchain-openai>=1.0,<2
+langgraph>=1.0,<2
+

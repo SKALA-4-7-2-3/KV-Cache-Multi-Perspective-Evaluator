@@ -1,0 +1,2 @@
+[console_scripts]
+kv-domain-agent = kv_domain_agent.cli:main
