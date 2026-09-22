@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from market_agent.parser import read_input
 from market_agent.providers import FixtureAnalyst, OpenAIAnalyst
 from market_agent.tools import ProviderError
-from market_agent.schemas import Extraction
+from market_agent.schemas import Extraction, Evidence
 
 
 class ProviderTests(unittest.TestCase):
@@ -24,6 +24,11 @@ class ProviderTests(unittest.TestCase):
             provider = OpenAIAnalyst("test-only")
         self.addCleanup(provider.close)
         return provider
+
+    def web_evidence(self):
+        return {'MKT-X':Evidence(id='MKT-X',doc_id='WEB-X',title='Product',url='https://example.org',
+            excerpt='Product-X supports shared CXL memory for inference deployments.',
+            access_status='full_text',content_status='substantive',tech_ids=['HW-01'])}
 
     def completion(self, content):
         return httpx.Response(200, json={"id": "test", "object": "chat.completion", "created": 0,
@@ -80,7 +85,7 @@ class ProviderTests(unittest.TestCase):
             answer=Extraction(claims=[],reviews=[]) if len(requests)==1 else FixtureAnalyst().compose(self.data,{})
             return self.completion(answer.model_dump_json())
         provider=self.provider(handler)
-        provider.extract(self.data,self.data.evidence)
+        provider.extract(self.data,self.web_evidence())
         provider.compose(self.data,{})
         self.assertIn('evidence',json.loads(requests[0]['messages'][1]['content']))
         composed=json.loads(requests[1]['messages'][1]['content'])
@@ -95,14 +100,14 @@ class ProviderTests(unittest.TestCase):
             return self.completion(Extraction(claims=[],reviews=[]).model_dump_json())
         data=read_input(Path(__file__).parents[1]/'fixtures/paper_analysis_hw.json')
         provider=self.provider(handler)
-        provider.extract(data,data.evidence)
+        provider.extract(data,{**data.evidence,**self.web_evidence()})
         payload=json.loads(requests[0]['messages'][1]['content'])
         context=payload['technologies']['HW-01']['technical_context']
         self.assertIn('limitations',context)
         self.assertIn('적용 조건',context)
         self.assertNotIn('/unavailable/',json.dumps(payload))
         self.assertNotIn('upstream-test-model',json.dumps(payload))
-        self.assertEqual(payload['evidence'],[])
+        self.assertEqual([e['evidence_id'] for e in payload['evidence']],['MKT-X'])
 
 
 if __name__ == "__main__":

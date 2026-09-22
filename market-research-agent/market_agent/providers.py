@@ -10,6 +10,7 @@ from .prompts import EXTRACTION_PROMPT, COMPOSITION_PROMPT
 from .schemas import CRITERIA, Extraction, SourceReview, DraftAnalysis, DraftAssessment, SelectedExtraction, ClaimReview, ReviewedDraftAnalysis
 from .quotes import quote_bank, resolve_quotes
 from .tools import ProviderError
+from .json_input import model_background
 
 
 class OpenAIAnalyst:
@@ -24,7 +25,6 @@ class OpenAIAnalyst:
         self.debug = debug
         self.debug_analyses = []
         self._llm = ChatOpenAI(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
-        self._extractor = self._llm.with_structured_output(SelectedExtraction, method="json_schema", strict=True, include_raw=True)
         self._composer = self._llm.with_structured_output(ReviewedDraftAnalysis, method="json_schema", strict=True, include_raw=True)
 
     def _invoke(self, stage, runnable, schema, prompt, payload):
@@ -40,6 +40,11 @@ class OpenAIAnalyst:
             raise ProviderError(f"openai_{status or type(exc).__name__}", retryable=retryable, fatal=fatal) from None
         self.usage.append({"stage": stage, **(getattr(response.get("raw"), "usage_metadata", None) or {})})
         parsed = response.get('parsed')
+        if isinstance(parsed, dict):
+            try:
+                parsed = schema.model_validate(parsed)
+            except ValidationError:
+                raise ProviderError('invalid_structured_output') from None
         if not isinstance(parsed, schema) or response.get('parsing_error'):
             raise ProviderError('invalid_structured_output')
         if self.debug:
@@ -49,6 +54,8 @@ class OpenAIAnalyst:
 
     def extract(self, data, evidence, previous=None, issues=None):
         bank=quote_bank(evidence)
+        if not bank:
+            return Extraction(claims=[], reviews=[])
         material = []
         for e in evidence.values():
             if not (e.access_status=='full_text' and e.content_status=='substantive'):
@@ -59,12 +66,15 @@ class OpenAIAnalyst:
         payload = {'scope': {'domain':data.domain,'as_of':str(data.as_of)},
             'criteria':CRITERIA,
             'technologies': {k:{'name':v.name,'paper_url':v.url,
-                **({'technical_context':v.summary[:6000],'technical_context_truncated':len(v.summary)>6000,
+                **({'technical_context':model_background(data,v),'technical_context_truncated':len(v.summary)>6000,
                     'input_warnings':v.issues} if data.input_format=='paper_analysis_json' else {})}
                 for k,v in data.technologies.items()},
             'evidence': material, 'previous_claims': {k:v.model_dump(mode='json') for k,v in (previous or {}).items()},
             'validation_issues':issues or []}
-        selected=self._invoke('extract',self._extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
+        schema=SelectedExtraction.model_json_schema()
+        schema['$defs']['SelectedClaim']['properties']['quote_id']={'type':'string','enum':list(bank)}
+        extractor=self._llm.with_structured_output(schema,method='json_schema',strict=True,include_raw=True)
+        selected=self._invoke('extract',extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
         return resolve_quotes(data,selected,bank,evidence)
 
     def compose(self, data, claims, previous=None, issues=None):

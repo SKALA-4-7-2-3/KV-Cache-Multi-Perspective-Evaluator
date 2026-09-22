@@ -90,6 +90,24 @@ def technical_summary(doc, registered):
     return '\n'.join(lines)
 
 
+def model_background(data, technology):
+    """원본 참조는 내부에 남기고 모델에는 기술 내용·한계만 투영한다."""
+    document = next((d for d in data.source_documents
+        if d.get('paper', {}).get('paper_id') == technology.paper_id), None)
+    if not document:
+        return technology.summary[:6000]
+    lines = []
+    for group, fields in document['analysis'].items():
+        lines.append(f'[{group}]')
+        for field, items in fields.items():
+            if field == 'not_reported':
+                lines.append(f'not_reported: {", ".join(items)}')
+            else:
+                for item in items:
+                    lines.append(f'{field} [{item["claim_type"]}; confidence={item["confidence"]}]: {item["text"]}')
+    return '\n'.join(lines)[:6000]
+
+
 def parse_paper_analyses(documents, *, as_of=None, domain=None, limits=None, approaches=None):
     documents = documents if isinstance(documents,list) else [documents]
     if not 1 <= len(documents) <= 2:
