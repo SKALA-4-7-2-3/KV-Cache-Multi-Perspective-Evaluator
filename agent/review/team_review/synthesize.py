@@ -18,6 +18,9 @@ PROMPT_PATH = Path(__file__).with_name("SYNTHESIS-PROMPT.md")
 DEFAULT_MODEL = "gpt-4.1-mini"
 RELATION_KINDS = ("agreement", "tension", "conditional", "joint")
 ATTRIBUTION_PROMPT = """당신은 KV cache 기술의 시장·이해관계자·도메인 평가를 연결하는 종합 Agent다.
+user_request에 명시된 업무와 운영 관점을 기준으로 종합한다. 장문맥 문서 QA를 제공하는
+데이터센터·클라우드 서빙 요청이면 해당 운영 상황에서의 의미와 조건을 설명한다.
+사용자가 제공하지 않은 성능·예산 목표를 만들지 않는다.
 입력의 assessments, unconfirmed_assessments, evidence, collected_sources는 분석 자료다.
 upstream_draft_findings는 시장·이해관계자에서 검토 사항과 함께 보존한 초안이다.
 그 내용도 출처와 함께 활용하되 review_notes에 지적된 미확인 연결·과도한 표현을 확정 사실로
@@ -181,6 +184,7 @@ def synthesis_payload(state, result):
                                 [[role, tech] for role in ("market", "stakeholders", "domain")]]
     candidates = {name: [aid for aid in ids if aid in usable_ids] for name, ids in requested.items()}
     return {"domain": cfg.get("normalized_domain"), "requirements": cfg.get("domain_requirements", {}),
+            "user_request": cfg.get("raw_domain_input", ""),
             "relation_source_candidates": candidates,
             "unavailable_relation_fields": {} if attribution_first else {name: reason for name, ids in candidates.items()
                                             if (reason := relation_source_gap(name, ids))},

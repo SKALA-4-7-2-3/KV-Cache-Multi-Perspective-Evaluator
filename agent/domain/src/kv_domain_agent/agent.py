@@ -75,6 +75,29 @@ class PreparedInput:
         }
 
 
+def _alias_evidence_payload(prepared: PreparedInput) -> tuple[dict[str, Any], dict[str, str]]:
+    """Expose short, reversible IDs to the model without changing source records."""
+    prefix = "SRC"
+    while any(evidence_id.startswith(prefix) for evidence_id in prepared.evidence):
+        prefix = "_" + prefix
+    aliases = {evidence_id: f"{prefix}{index:04d}"
+               for index, evidence_id in enumerate(sorted(prepared.evidence), 1)}
+
+    def replace(value: Any) -> Any:
+        if isinstance(value, str):
+            # Experimental conditions can contain serialized JSON references.
+            for original in sorted(aliases, key=len, reverse=True):
+                value = value.replace(original, aliases[original])
+            return value
+        if isinstance(value, list):
+            return [replace(item) for item in value]
+        if isinstance(value, dict):
+            return {aliases.get(key, key): replace(item) for key, item in value.items()}
+        return value
+
+    return replace(prepared.as_payload()), {alias: original for original, alias in aliases.items()}
+
+
 def _prepare_state(raw_state: dict[str, Any]) -> PreparedInput:
     try:
         state = DomainStateInput.model_validate(raw_state)
@@ -282,9 +305,11 @@ class DomainEvaluator:
                 "기술 조사 에이전트가 전달한 사용 가능한 근거가 없습니다.",
             )
 
-        payload = prepared.as_payload()
+        payload, original_ids = _alias_evidence_payload(prepared)
         messages = [
-            ("system", SYSTEM_PROMPT),
+            ("system", SYSTEM_PROMPT + "\n근거 ID는 이번 입력의 짧은 별칭이다. "
+             "evidence_ids에는 allowed_evidence_ids_by_technology의 별칭을 그대로 사용한다. "
+             "원래의 긴 ID를 재구성하지 않는다."),
             ("human", json.dumps(payload, ensure_ascii=False, indent=2)),
         ]
         try:
@@ -296,6 +321,11 @@ class DomainEvaluator:
             )
         except ValidationError as exc:
             raise OutputContractError(str(exc)) from exc
+        output = output.model_copy(deep=True)
+        for technology in output.assessments:
+            for item in technology.criteria:
+                item.evidence_ids = [original_ids.get(evidence_id, evidence_id)
+                                     for evidence_id in item.evidence_ids]
         return _validate_output(output, prepared)
 
 

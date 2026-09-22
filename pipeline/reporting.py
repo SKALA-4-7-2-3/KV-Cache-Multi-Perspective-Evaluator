@@ -106,12 +106,15 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
     )
     from report_agent.generator import (ATTRIBUTION_INSTRUCTIONS, GenerationError, ReportAgent,
                                         _strip_code_fence, prepare_candidate)
+    from report_agent.parser import parse_report_input
     from report_agent.prompt import SYSTEM_INSTRUCTIONS, build_repair_prompt
     from report_agent.validator import validate_latex
 
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "review.output.md").write_text(markdown, encoding="utf-8")
+    # Reject a structurally failed handoff before spending calls reading sources.
+    parse_report_input(markdown, allow_unreviewed=draft, allow_attributed_draft=attribution_first)
     if attribution_first:
         markdown = source_analysis(markdown, output_dir, model)
     (output_dir / "report.input.md").write_text(markdown, encoding="utf-8")

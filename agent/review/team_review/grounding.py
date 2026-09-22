@@ -81,6 +81,7 @@ def audit_payload(candidate, source):
     items.append({"item_id": "limitations", "content": {k: candidate[k] for k in ("limitations", "unresolved_relations")},
                   "assessments": source["assessments"], "evidence": source["evidence"]})
     return {"domain": source["domain"], "requirements": source["requirements"],
+            "user_request": source.get("user_request", ""),
             "unconfirmed_assessments": source["unconfirmed_assessments"], "trl": source["trl"],
             "metric_comparisons": source["metric_comparisons"], "items": items,
             **({"attribution_first": True, "collected_sources": source.get("collected_sources", []),
