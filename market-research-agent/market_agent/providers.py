@@ -113,7 +113,7 @@ class OpenAIAnalyst:
         selected=self._invoke('extract',extractor,SelectedExtraction,EXTRACTION_PROMPT,payload)
         return resolve_quotes(data,selected,bank,evidence)
 
-    def compose(self, data, claims, previous=None, issues=None):
+    def compose(self, data, claims, previous=None, issues=None, *, audit=False):
         payload = {'scope':{'domain':data.domain,'as_of':str(data.as_of)},
             'technologies':{k:v.name for k,v in data.technologies.items()}, 'criteria':CRITERIA,
             'expected_assessment_count':len(data.technologies)*len(CRITERIA),
@@ -122,7 +122,16 @@ class OpenAIAnalyst:
                 (v.tech_id,v.criterion_id,v.relation_to_technology)==(t,c,'exact')] for c in CRITERIA}
                 for t in data.technologies},
             'previous':previous.model_dump(mode='json') if previous else None,'validation_issues':issues or []}
-        return self._invoke('compose',self._composer,ReviewedDraftAnalysis,COMPOSITION_PROMPT,payload)
+        prompt=COMPOSITION_PROMPT
+        if audit:
+            prompt += '\n최종 독립 검토다. 앞 단계 판정을 신뢰하지 말고 각 statement를 인용문과 대조한다. '+\
+                '인용에 없는 세부 내용을 하나라도 추가했으면 supported=false다. '+\
+                '벤치마크 성능을 생태계 지원/제품화로, 일반 기술 소개를 실고객 채택으로 분류했으면 market_relevant=false다. '+\
+                '정확히 뒷받침되는 주장만 남긴다. 연구 효과 및 공급사 전망의 조건을 반드시 보존한다.'
+        return self._invoke('audit' if audit else 'compose',self._composer,ReviewedDraftAnalysis,prompt,payload)
+
+    def audit(self,data,claims):
+        return self.compose(data,claims,audit=True)
 
     def close(self):
         client = getattr(self._llm, "root_client", None)

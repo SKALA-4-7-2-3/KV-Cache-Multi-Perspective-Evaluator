@@ -53,12 +53,15 @@ class DossierInputTests(unittest.TestCase):
         self.assertEqual(a.evidence,b.evidence)
 
     def test_broken_references_hashes_and_mixed_inputs_fail_closed(self):
-        for mode in ['missing_registry','bad_hash','cross_owner','unknown_observation','bad_version','duplicate_registry']:
+        for mode in ['missing_registry','bad_hash','cross_owner','unknown_observation','bad_version','duplicate_registry','bad_array','null_array','bad_relation']:
             docs=copy.deepcopy(bundle())
             if mode=='missing_registry':docs.pop(0)
             if mode=='bad_hash':docs[0][0]['snippet']+='changed'
             if mode=='cross_owner':docs[2]['evidence_ids']=[docs[0][1]['evidence_id']]
             if mode=='unknown_observation':docs[1]['metric_comparisons'][0]['observation_ids']=['missing']
             if mode=='bad_version':docs[2]['dossier_version']='2.0.0'
+            if mode=='bad_array':docs[1]['metric_comparisons']='invalid'
+            if mode=='null_array':docs[1]['integration_hypotheses']=None
+            if mode=='bad_relation':docs[1]['relationships']=[{'left_paper_id':'missing'}]
             if mode=='duplicate_registry':docs.append(copy.deepcopy(docs[0]))
             with self.subTest(mode=mode),self.assertRaises(InputError):self.parse(docs)

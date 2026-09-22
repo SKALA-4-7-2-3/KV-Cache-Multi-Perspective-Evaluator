@@ -11,6 +11,9 @@ class MarketScopeTests(unittest.TestCase):
         return review_claims({'A':c},[ClaimReview(claim_id='A',supported=True,reason='모델은 허용')])[0]
     def test_benchmark_is_not_product_availability(self):
         self.assertFalse(self.check('commercialization','We evaluate RDKV on five open-source LLMs and LongBench benchmarks.'))
+    def test_benchmark_is_not_official_integration(self):
+        self.assertFalse(self.check('ecosystem_support','CQ improves inference throughput relative to existing baselines.'))
+
     def test_formula_is_not_customer_value(self):
         self.assertFalse(self.check('business_value','RDKV computes bit allocation by a reverse water-filling solution.'))
     def test_memory_benefit_keeps_research_condition(self):

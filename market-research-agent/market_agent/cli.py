@@ -111,7 +111,7 @@ def check_reuse(output, key):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="기술 조사 JSON 입력 기반 시장조사 에이전트")
     parser.add_argument("--input", required=True, type=Path, nargs='+', action='extend',
-        help='paper_analysis JSON 1~2개 또는 기존 MD 한 개')
+        help='dossier·registry·comparison JSON 4개, paper_analysis JSON 1~2개 또는 MD 한 개')
     parser.add_argument('--as-of', type=date.fromisoformat, help='조사 기준일 YYYY-MM-DD (JSON 기본: 실행일)')
     parser.add_argument('--domain', help='조사 도메인 (JSON 기본: cloud_datacenter)')
     parser.add_argument('--approach', nargs='+', choices=['SW','HW'], help='새 논문은 JSON 문서 순서대로 SW/HW 지정')

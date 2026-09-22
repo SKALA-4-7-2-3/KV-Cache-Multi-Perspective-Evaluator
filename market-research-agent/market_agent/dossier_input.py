@@ -37,6 +37,11 @@ def normalize_bundle(dossiers,registry,comparison,options):
         if entry['locator'].get('document_sha256')!=owners[owner]['paper']['source_hash']:
             raise InputError('document_hash_mismatch')
         evidence[eid]=entry
+    for key in ['metric_comparisons','integration_hypotheses','differing_assumptions','relationships',
+                'common_assumptions','contradictions','matrix','unverified_items']:
+        items=comparison.get(key,[])
+        if not isinstance(items,list) or any(not isinstance(item,dict) for item in items):
+            raise InputError('invalid_comparison_array: '+key)
     observations={};claims={}
     for d in dossiers:
         for field,key,target in [('experiment_observations','observation_id',observations),('claims','claim_id',claims)]:
@@ -47,6 +52,8 @@ def normalize_bundle(dossiers,registry,comparison,options):
         if isinstance(value,list):
             for item in value:references(item,owner)
         elif isinstance(value,dict):
+            for field in ['left_paper_id','right_paper_id']:
+                if field in value and value[field] not in owners:raise InputError('unknown_paper_reference: '+field)
             local=value.get('paper_id',owner)
             if local and local not in owners:raise InputError('unknown_paper_reference')
             for key,item in value.items():

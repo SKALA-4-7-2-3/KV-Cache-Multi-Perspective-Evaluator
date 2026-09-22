@@ -88,9 +88,11 @@ def criterion_supported(claim):
         return bool(re.search(r'product|commercial|launch|releas|licen[cs]e|available|repository|github|제품|출시|라이선스',quote,re.I))
     if claim.criterion_id=='adoption':
         return bool(re.search(r'customer|production|deployed|adopted|uses? |using |고객|도입|운영',quote,re.I))
+    if claim.criterion_id=='ecosystem_support':
+        return bool(re.search(r'support|integrat|compatib|framework|library|runtime|interoperab|지원|통합',quote,re.I))
     if claim.criterion_id=='business_value':
         return bool(re.search(r'cost|price|efficien|latency|throughput|speedup|speed.up|footprint|'
-            r'reduc.{0,45}memory|memory.{0,45}(reduc|sav|capac)|energy|비용|메모리.{0,20}절약',quote,re.I))
+            r'reduc.{0,45}memory|memory.{0,45}(reduc|sav|capac|utiliz)|utilization|energy|비용|메모리.{0,20}절약',quote,re.I))
     return True
 
 

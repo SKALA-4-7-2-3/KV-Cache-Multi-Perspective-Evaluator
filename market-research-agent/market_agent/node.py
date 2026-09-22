@@ -66,6 +66,8 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
             e.content_status,e.content_reason=content_quality(e.excerpt,e.url,tech)
     initial_pool,_=validate_claims(data,[*recover_previous(previous),*(existing_claims or {}).values()],initial_evidence)
 
+    review_reserve=2 if hasattr(analyst,'audit') else 1
+
     def blank_draft():
         reason = '미확인: fixture 모드에는 실제 시장 근거가 없습니다' if mode=='fixture' else '이번 조사에서 선정 기술 자체를 판단할 직접 근거를 확인하지 못함'
         return DraftAnalysis(assessments=[DraftAssessment(tech_id=t,criterion_id=c,judgment=reason,
@@ -92,7 +94,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         if not reviewing:
             reviewing=eligible  # 이전 단계 전역 오류의 재시도
         try:
-            room=budget.remaining('llm')-1
+            room=budget.remaining('llm')-review_reserve
             if room <= 0 and state['claim_pool']:
                 return update
             answer=budget.call('llm',lambda:Extraction.model_validate(analyst.extract(data,reviewing,
@@ -125,11 +127,11 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         return update
 
     def can_repair(state,kind):
-        return auto_repair and not state['repairs'].get(kind) and not state['fatal'] and budget.remaining('llm')>0
+        return auto_repair and not state['repairs'].get(kind) and not state['fatal'] and budget.remaining('llm')>(1 if kind=='compose' and hasattr(analyst,'audit') else 0)
 
     def after_extract(state):
         # 유효 근거가 있으면 평가 작성 1회를 우선 확보한다.
-        room=budget.remaining('llm')-1
+        room=budget.remaining('llm')-review_reserve
         if room>0:
             if can_repair(state,'collect') and budget.remaining('search'):
                 return 'repair_collect'
@@ -141,7 +143,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         update={'history':state['history']+['compose']}
         draft=state.get('draft',blank_draft())
         current=[e for e in state['errors'] if e['stage'] not in {'compose','validate','llm_compose'}]
-        errors=[]
+        errors=list(state['composition_errors'])
         all_candidates=state['candidate_pool'] if state['repair_kind']=='compose' else state['claim_pool']
         input_pool=limit_claims(all_candidates)
         pool={k:c for k,c in input_pool.items() if k in initial_pool}
@@ -152,6 +154,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
                 try:
                     draft=budget.call('llm',lambda:DraftAnalysis.model_validate(analyst.compose(data,input_pool,
                         previous=state.get('draft'),issues=state['composition_errors'])))
+                    errors=[]  # 새 평가가 성공한 경우에만 이전 평가 오류를 해소한다.
                     update['model_successes']=state['model_successes']+1
                     update['compose_successes']=state['compose_successes']+1
                     pool,log,review_errors=review_claims(input_pool,draft.claim_reviews)
@@ -180,7 +183,25 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         return update
 
     def after_compose(state):
-        return 'repair_compose' if state['composition_errors'] and can_repair(state,'compose') else 'finish'
+        return 'repair_compose' if state['composition_errors'] and can_repair(state,'compose') else 'audit'
+
+    def audit(state):
+        if not hasattr(analyst,'audit') or not state['claim_pool']:
+            return {}
+        errors=list(state['errors'])
+        try:
+            draft=budget.call('llm',lambda:DraftAnalysis.model_validate(analyst.audit(data,state['claim_pool'])),max_attempts=1)
+            pool,log,review_errors=review_claims(state['claim_pool'],draft.claim_reviews)
+            analysis,link_errors=materialize(data,draft,pool)
+            analysis,validation_errors=validate_analysis(data,analysis,state['evidence'])
+            errors+=review_errors+link_errors+validation_errors
+            analysis=annotate(analysis,data,state['evidence'],state['queries'],errors,budget,True,reviewed=state['examined'])
+            return dict(claim_pool=pool,analysis=analysis,errors=errors,draft=draft,
+                claim_review_log={**state['claim_review_log'],**log},history=state['history']+['audit'],
+                model_successes=state['model_successes']+1)
+        except ProviderError as exc:
+            return dict(errors=errors+[dict(stage='llm_audit',code=exc.code,scope='global')],
+                fatal=exc.fatal,history=state['history']+['audit_failed'])
 
     def repair(kind):
         def action(state):
@@ -209,7 +230,7 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
         return {'result':result,'history':state['history']+['finish']}
 
     graph=StateGraph(RunState)
-    for name,action in [('collect',collect),('extract',extract),('compose',compose),('finish',finish)]:
+    for name,action in [('collect',collect),('extract',extract),('compose',compose),('audit',audit),('finish',finish)]:
         graph.add_node(name,action)
     for kind in ['collect','extract','compose']:
         graph.add_node('repair_'+kind,repair(kind))
@@ -217,7 +238,8 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     graph.add_edge(START,'collect')
     graph.add_edge('collect','extract')
     graph.add_conditional_edges('extract',after_extract,{'repair_extract':'repair_extract','repair_collect':'repair_collect','compose':'compose'})
-    graph.add_conditional_edges('compose',after_compose,{'repair_compose':'repair_compose','finish':'finish'})
+    graph.add_conditional_edges('compose',after_compose,{'repair_compose':'repair_compose','audit':'audit'})
+    graph.add_edge('audit','finish')
     graph.add_edge('finish',END)
     draft=previous_draft(previous,initial_pool,blank_draft())
     analysis,_=materialize(data,draft,initial_pool)

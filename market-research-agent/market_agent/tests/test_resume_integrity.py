@@ -87,6 +87,15 @@ class ResumeIntegrityTests(unittest.TestCase):
         with self.subTest(contract='execution_status'):
             self.assertEqual(second['result'].execution_status, 'partial')
 
+    def test_resume_preserves_composition_error_without_a_new_review(self):
+        progress={'errors':[{'stage':'compose','code':'missing_claim_review','tech_id':'HW-01',
+            'criterion_id':'business_value'}], 'composition_errors':[{'stage':'compose',
+            'code':'missing_claim_review','tech_id':'HW-01','criterion_id':'business_value'}]}
+        state=run_market(self.data,NoRemoteSources(),FixtureAnalyst(),round_number=1,
+            auto_repair=False,previous_progress=progress,mode='fixture')
+        self.assertIn('missing_claim_review',[e['code'] for e in state['result'].errors])
+        self.assertEqual(state['result'].execution_status,'partial')
+
     def test_resume_keeps_reviewed_source_ids_without_another_model_call(self):
         e = self.source
 

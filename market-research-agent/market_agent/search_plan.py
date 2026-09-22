@@ -1,5 +1,4 @@
 """항목 목적과 두 회차 한도에 맞춘 결정적 검색 계획."""
-import re
 from .schemas import CRITERIA, Question
 
 
@@ -16,8 +15,8 @@ SUFFIXES = {
 def initial_questions(data):
     questions = []
     for tech in data.technologies.values():
-        title = re.sub(r'https?://\S+', '', tech.paper).strip(' ()') or tech.name
-        query = f'"{title[:180]}" implementation license product deployment'
+        query = f'"{tech.name}" KV cache implementation product repository'
+        # 상위 PDF 제목이 중간에서 잘릴 수 있어 이름을 검색하고 논문 URL은 별도 조회한다.
         questions.append(Question(tech_id=tech.id, criterion_id='commercialization',
             criteria=['commercialization', 'adoption', 'ecosystem_support'], query=query,
             reason='선정 기술의 직접 구현·제품화 단서와 관련 제품의 연결 확인', source_type='논문·공식 저장소·공식 제품 문서'))
@@ -42,6 +41,9 @@ def repair_questions(data, rows, proposed, queries):
             if primary=='standardization':
                 suffix += ' vLLM compatibility' if tech.approach=='SW' else ' official CXL consortium'
             query = f'{family} {suffix}'
+            if primary=='standardization':
+                query=('site:docs.vllm.ai quantized KV cache support' if tech.approach=='SW' else
+                    'site:computeexpresslink.org CXL specification memory pooling')
             if query.casefold() in seen:
                 continue
             result.append(Question(tech_id=tech.id,criterion_id=primary,criteria=criteria,query=query,
