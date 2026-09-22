@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# OS / Editor
+.DS_Store
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# LaTeX compiler by-products
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.xdv
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.bcf
+*.run.xml
