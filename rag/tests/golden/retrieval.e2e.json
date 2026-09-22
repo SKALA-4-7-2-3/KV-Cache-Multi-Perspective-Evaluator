@@ -1,0 +1,16 @@
+{
+  "bge_index_profile": "655f2fe31d32595a2c7063dc6144f4da2a8390283cdfcb84ea0e53f56b5681e6",
+  "completed_without_oom": true,
+  "dossier_expectation_count": 30,
+  "dossier_expectations_path": "/home/stellacustodis/paper-review-agent/tests/golden/technical_dossier_expectations.json",
+  "dossier_expectations_sha256": "b23cd47c5c395a47fd4fb54d99532be5607f597d52d8ca2da918bf3b39fadafa",
+  "golden_sha256": "1fe57e7de14825504da00054f14d21f504a6dec690cd22035f4e913062fe1103",
+  "peak_rss_bytes": 1874685952,
+  "schema_version": "1.0.0",
+  "successful_paper_ids": [
+    "2605.08317-25836a41",
+    "2607.27187-d6a67efd"
+  ],
+  "technical_run_path": "/home/stellacustodis/paper-review-agent/outputs/technical-bge-e2e-20260922-v22/technical/run.json",
+  "technical_run_sha256": "8e24dbdafe8b3e081b5f44faabb902dbc576def1b3e2eef0fc90d7b9e688789c"
+}

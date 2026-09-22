@@ -1,0 +1,41 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# LaTeX compiler by-products. Final .tex and .pdf artifacts remain trackable.
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.xdv
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+
+# Local report QA artifacts.
+output/api-test/
+tmp/
+
+# Keep final report artifacts trackable even when the repository root ignores PDFs.
+!output/pdf/
+!output/pdf/*.pdf
+!output/tex/
+!output/tex/*.tex

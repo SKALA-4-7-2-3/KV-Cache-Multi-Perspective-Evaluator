@@ -1,0 +1,8 @@
+# Verified direct dependencies; transitive versions are constrained below.
+-c requirements.lock.txt
+langgraph==1.0.9
+langchain-core==1.0.1
+langchain-openai==1.0.1
+pydantic==2.12.3
+python-dotenv==1.2.1
+httpx==0.28.1

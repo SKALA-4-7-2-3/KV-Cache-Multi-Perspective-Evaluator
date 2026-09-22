@@ -1,0 +1,22 @@
+[
+  {
+    "arxiv_id": "2605.08317",
+    "path": "rag/papers/2605.08317.pdf",
+    "url": "https://arxiv.org/pdf/2605.08317",
+    "sha256": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+    "expected_sha256": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+    "matches_saved_research": true,
+    "bytes": 1104771,
+    "available": true
+  },
+  {
+    "arxiv_id": "2607.27187",
+    "path": "rag/papers/2607.27187.pdf",
+    "url": "https://arxiv.org/pdf/2607.27187",
+    "sha256": "d6a67efde2a1ed0e9fb38302708d83e1e43f2c237acd4826ec4daf1bd44e2326",
+    "expected_sha256": "d6a67efde2a1ed0e9fb38302708d83e1e43f2c237acd4826ec4daf1bd44e2326",
+    "matches_saved_research": true,
+    "bytes": 683838,
+    "available": true
+  }
+]

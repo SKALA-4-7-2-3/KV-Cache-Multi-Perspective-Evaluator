@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "sources": [
+    {
+      "arxiv_id": "2605.08317",
+      "expected_path": "inputs/2605.08317.pdf",
+      "page_count": 28,
+      "sha256": "25836a419005694122c571121030b89bd7ac634f74ac3b5d4c67bf0a19b10e3d",
+      "title": "RDKV: Rate-Distortion Bit Allocation for Joint Eviction and Quantization of the KV Cache"
+    },
+    {
+      "arxiv_id": "2607.27187",
+      "expected_path": "inputs/2607.27187.pdf",
+      "page_count": 12,
+      "sha256": "d6a67efde2a1ed0e9fb38302708d83e1e43f2c237acd4826ec4daf1bd44e2326",
+      "title": "A Photonic-CXL Memory Appliance for Scalable KV"
+    }
+  ]
+}
