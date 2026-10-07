@@ -98,6 +98,9 @@ class BudgetLedger:
             self._save()
             return json.loads(json.dumps(self.data))
 
+    def remaining_seconds(self):
+        return max(0.001,self.limits["seconds"]-self.prior_seconds-(time.monotonic()-self.started))
+
 
 def configure(ledger):
     global _ledger
@@ -127,11 +130,24 @@ class GovernedClient(httpx.Client):
         tokens = 0
         if kind == "llm":
             body = json.loads(request.content)
+            if path.endswith("/responses") and "max_output_tokens" not in body:
+                body["max_output_tokens"] = 16_384
+            if path.endswith("/chat/completions") and not any(
+                    key in body for key in ("max_completion_tokens","max_tokens")):
+                body["max_completion_tokens"] = 16_384
+            # The conservative reservation must also be an actual wire limit.
+            # Preserve authentication/timeout settings without ever logging them.
+            headers = {key:value for key,value in request.headers.items() if key.lower() != "content-length"}
+            request = httpx.Request(request.method,request.url,headers=headers,json=body,extensions=request.extensions)
             # UTF-8 byte length is a conservative bound for the selected BPE
             # models, available offline without downloading a tokenizer file.
             tokens = len(request.content) + int(
                 body.get("max_output_tokens", body.get("max_completion_tokens", body.get("max_tokens", 16_384))))
         call_id = self.ledger.reserve(kind, tokens, task_id=_task.get())
+        remaining = self.ledger.remaining_seconds()
+        original = request.extensions.get("timeout",{})
+        request.extensions["timeout"] = {key:min(value,remaining) if value is not None else remaining
+            for key,value in {"connect":remaining,"read":remaining,"write":remaining,"pool":remaining,**original}.items()}
         try:
             response = super().send(request, **kwargs)
             actual = None

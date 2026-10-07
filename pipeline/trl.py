@@ -48,7 +48,10 @@ def _eligible(state, tech):
 
 
 def _respond(model, instructions, prompt):
-    from openai import OpenAI
+    try:
+        from pipeline.governance import openai_client as OpenAI
+    except ModuleNotFoundError:
+        from openai import OpenAI
     with OpenAI(timeout=120, max_retries=0) as client:
         response = client.responses.parse(model=model, instructions=instructions, input=prompt,
             text_format=TRLDraft, temperature=0, max_output_tokens=6000, store=False)
@@ -72,6 +75,8 @@ def generate_trl_assessment(state, *, model, responder=None):
             "rubric": [{"level": level, "criterion": criterion, "required_evidence": required}
                        for level, (criterion, required) in TRL.items()],
             "technical_analysis": cell["items"], "evidence": list(evidence.values())}
+        if state.get("config", {}).get("trl_feedback"):
+            payload["review_feedback"] = state["config"]["trl_feedback"]
         draft = TRLDraft.model_validate(respond(INSTRUCTIONS, json.dumps(payload, ensure_ascii=False)))
         if len({check.level for check in draft.checks}) != len(draft.checks):
             raise ValueError(f"Duplicate TRL stages for {tech}")

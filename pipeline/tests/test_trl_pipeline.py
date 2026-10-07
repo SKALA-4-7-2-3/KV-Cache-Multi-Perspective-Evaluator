@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 from pipeline import ROOT
 from pipeline.__main__ import main
+from pipeline.tests.test_orchestration import portable_role
 from report_agent.parser import parse_report_input
 
 
@@ -24,6 +25,16 @@ class TRLPipelineTests(unittest.TestCase):
     @contextmanager
     def boundaries(self):
         parsed_reports = []
+
+        def plan(instructions, prompt, model):
+            payload = json.loads(prompt)
+            cells = payload["eligible_cells"]
+            roles = list(dict.fromkeys(cell["role"] for cell in cells))
+            return {"tasks": [{"role": role, "active_cells": [
+                {k: v for k, v in cell.items() if k != "role"}
+                for cell in cells if cell["role"] == role],
+                "reason": "OFFLINE TEST ONLY: select each missing perspective cell exactly once.",
+                "dependency_roles": []} for role in roles]}
 
         def draft(model, instructions, prompt):
             payload = json.loads(prompt)
@@ -49,34 +60,39 @@ class TRLPipelineTests(unittest.TestCase):
             self.assertTrue(attribution_first)
             parsed_reports.append(parse_report_input(
                 markdown, allow_unreviewed=draft, allow_attributed_draft=attribution_first))
-            # No model generation or PDF compilation occurs at this boundary.
-            return {"pdf_path": str(output_dir / "OFFLINE-TEST-PLACEHOLDER.pdf")}
+            # Hash-checkable offline bytes; no model generation or compilation.
+            output_dir.mkdir(parents=True, exist_ok=True)
+            tex, pdf = output_dir / "OFFLINE-TEST-PLACEHOLDER.tex", output_dir / "OFFLINE-TEST-PLACEHOLDER.pdf"
+            tex.write_text("% OFFLINE TEST ONLY: report boundary\n")
+            pdf.write_bytes(b"%PDF-OFFLINE-TEST-ONLY\n")
+            return {"tex_path": str(tex), "pdf_path": str(pdf)}
 
         with ExitStack() as stack:
             stack.enter_context(patch("dotenv.load_dotenv", return_value=False))
             stack.enter_context(patch.dict(os.environ, {
                 "OPENAI_API_KEY": "offline-test-placeholder", "TAVILY_API_KEY": "offline-test-placeholder"}))
             mocks = {
-                "domain": stack.enter_context(patch("pipeline.runtime.run_domain", return_value={
-                    "status": "unknown", "offline_test_only": True})),
-                "stakeholders": stack.enter_context(patch("pipeline.runtime.run_stakeholders", return_value={
-                    "execution_status": "unknown", "result": {"by_technology": {}},
-                    "evidence": {}, "offline_test_only": True})),
-                "market": stack.enter_context(patch("pipeline.runtime.run_market", return_value={
-                    "result": {"status": "unknown", "execution_status": "unknown", "assessments": []},
-                    "evidence": {}, "sources": {}, "offline_test_only": True})),
+                "planner": stack.enter_context(patch("pipeline.planner._respond", side_effect=plan)),
+                "domain": stack.enter_context(patch("pipeline.runtime.run_domain",
+                    return_value=portable_role("domain"))),
+                "stakeholders": stack.enter_context(patch("pipeline.runtime.run_stakeholders",
+                    return_value={**portable_role("stakeholders"), "execution_status": "unknown"})),
+                "market": stack.enter_context(patch("pipeline.runtime.run_market",
+                    return_value=portable_role("market"))),
                 "draft": stack.enter_context(patch("pipeline.trl._respond", side_effect=draft)),
                 "audit": stack.enter_context(patch("team_review.review.call_trl_grounding", side_effect=audit)),
                 "report": stack.enter_context(patch("pipeline.reporting.generate_report", side_effect=report)),
             }
             yield mocks, parsed_reports
 
-    def run_cli(self, output, *, resume=False):
+    def run_cli(self, output, *, resume=False, rerun=()):
         argv = ["pipeline", "--input", str(ROOT / "config/pipeline.json"),
                 "--output", str(output), "--model", "offline-test", "--as-of", "2026-10-07",
                 "--draft", "--stop-after", "report"]
         if resume:
             argv.append("--resume")
+        if rerun:
+            argv.extend(["--rerun", *rerun])
         with patch.object(sys, "argv", argv), redirect_stdout(StringIO()):
             self.assertEqual(main(), 0)
 
@@ -85,8 +101,22 @@ class TRLPipelineTests(unittest.TestCase):
             output = Path(directory)
             self.run_cli(output)
             manifest = json.loads((output / "run.json").read_text())
-            self.assertEqual(set(manifest["stages"]), {"domain", "stakeholders", "market", "trl", "review", "report"})
-            self.assertTrue(all(stage["status"] == "finished" for stage in manifest["stages"].values()))
+            self.assertEqual(manifest["engine"], "orchestrator-workers")
+            self.assertEqual(manifest["status"], "stopped")
+            self.assertEqual(manifest["stop_after"], "report")
+            state = json.loads((output / "state.result.json").read_text())
+            self.assertEqual(set(state["accepted_refs"]), {"domain", "stakeholders", "market"})
+            self.assertEqual(len(state["tasks"]), 3)
+            self.assertEqual(len(state["task_outcomes"]), 3)
+            self.assertTrue(all(outcome["status"] == "finished" for outcome in state["task_outcomes"].values()))
+            self.assertTrue((output / "plans/plan-1.json").exists())
+            self.assertTrue((output / "trl.output.json").exists())
+            self.assertTrue((output / "review.output.json").exists())
+            self.assertTrue((output / "report.output.json").exists())
+            self.assertNotIn("quality_ref", state)
+            self.assertEqual(mocks["planner"].call_count, 1)
+            self.assertEqual(mocks["domain"].call_count, 1)
+            self.assertTrue(mocks["domain"].call_args.kwargs["scoped"])
             self.assertEqual(mocks["draft"].call_count, 2)
             self.assertEqual(mocks["audit"].call_count, 1)
             self.assertEqual(len(parsed), 1)
@@ -111,6 +141,19 @@ class TRLPipelineTests(unittest.TestCase):
             self.assertEqual((output / "review.output.md").read_text(), first_markdown)
             reparsed = parse_report_input(first_markdown, allow_unreviewed=True, allow_attributed_draft=True)
             self.assertEqual(reparsed.trl_assessments["SW-01"]["level"], 4)
+
+    def test_explicit_report_rerun_preserves_research_and_trl_but_rebuilds_report(self):
+        with tempfile.TemporaryDirectory(prefix="trl-ow-rerun-") as directory, self.boundaries() as (mocks, parsed):
+            output = Path(directory)
+            self.run_cli(output)
+            for mock in mocks.values():
+                mock.reset_mock()
+            self.run_cli(output, resume=True, rerun=("report",))
+            for boundary in ("planner", "domain", "stakeholders", "market", "draft", "audit"):
+                self.assertEqual(mocks[boundary].call_count, 0, boundary)
+            self.assertEqual(mocks["report"].call_count, 1)
+            self.assertEqual(len(parsed), 2)
+            self.assertEqual(parsed[-1].trl_assessments["SW-01"]["level"], 4)
 
 
 if __name__ == "__main__":

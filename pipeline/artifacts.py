@@ -71,3 +71,8 @@ class ArtifactStore:
             with self._path("events.jsonl").open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"event":event, "timestamp":datetime.now(timezone.utc).isoformat(), **fields},
                                    ensure_ascii=False, default=str)+"\n")
+
+    def invalidate(self, stages):
+        for path in (self.root/"cache").glob("*.json"):
+            if any(path.stem == stage or path.stem.startswith(stage+"-") for stage in stages):
+                path.unlink()

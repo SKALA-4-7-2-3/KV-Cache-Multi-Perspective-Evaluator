@@ -1,4 +1,4 @@
-"""PDFs + natural-language request → saved/live RAG → four agents → report."""
+"""PDFs + request → saved/live RAG → scoped workers → reviewed report quality."""
 
 import argparse
 from datetime import datetime
@@ -6,8 +6,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
-import time
 
 from . import ROOT
 
@@ -37,9 +35,16 @@ def main():
     parser.add_argument("--as-of", default=datetime.now().date().isoformat())
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--draft", action="store_true", help="Render actual eight-cell results as an explicitly unreviewed draft")
-    parser.add_argument("--rerun", nargs="*", default=[], choices=["domain", "stakeholders", "market", "trl", "review", "report"],
+    parser.add_argument("--rerun", nargs="*", default=[], choices=["domain", "stakeholders", "market", "trl", "review", "report", "quality"],
                         help="With --resume, rerun selected stages while keeping other successful results")
-    parser.add_argument("--stop-after", choices=["prepare", "domain", "stakeholders", "market", "trl", "review", "report"], default="report")
+    parser.add_argument("--stop-after", choices=["prepare", "domain", "stakeholders", "market", "trl", "review", "report", "quality"], default="quality")
+    parser.add_argument("--report-model", help="Report writing model; defaults to --model")
+    parser.add_argument("--max-tokens", type=int, default=500_000, help="Post-RAG actual+unconfirmed+reserved token ceiling")
+    parser.add_argument("--max-model-calls", type=int, default=60, help="Post-RAG model HTTP attempt limit")
+    parser.add_argument("--max-search-calls", type=int, default=24, help="Post-RAG web search HTTP attempt limit")
+    parser.add_argument("--max-extract-calls", type=int, default=48, help="Post-RAG web extraction HTTP attempt limit")
+    parser.add_argument("--max-fetch-calls", type=int, default=48, help="Post-RAG other HTTP attempt limit")
+    parser.add_argument("--max-seconds", type=int, default=1800, help="Post-RAG elapsed-time admission and HTTP timeout limit")
     args = parser.parse_args()
     from dotenv import load_dotenv
     load_dotenv(args.env_file, override=True)
@@ -67,21 +72,32 @@ def main():
         previous["pipeline_input"].get(key) != pipeline_input[key] for key in ("pdfs", "rag_mode")
     ):
         raise ValueError("Resume PDF inputs or RAG mode differs; choose a new output directory")
+    # Persist the run identity before an optional live RAG can send a request.
+    prepared_request_hash = digest({"request":request,"input":pipeline_input,
+        "pdf_hashes":{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in pdfs if p.is_file()}})
+    if previous and previous.get("prepared_request_sha256") not in {None,prepared_request_hash}:
+        raise ValueError("Resume source bytes or request differs; choose a new output directory")
+    if previous is None:
+        from uuid import uuid4
+        save(manifest_path,{"run_id":"integration-"+uuid4().hex[:16],"status":"preparing",
+             "prepared_request_sha256":prepared_request_hash,"pipeline_input":pipeline_input})
+        save(output/"request.json",request)
     reuse_live = bool(previous and rag_mode == "live" and previous.get("research_executed"))
+    preparing_run = json.loads(manifest_path.read_text())
     research_source = resolve_research(sources=pdfs, instruction=request["original_request"],
         output_dir=output / "rag",
         saved_path=Path(previous["research_source"]) if reuse_live else saved_research,
-        run_rag=rag_mode == "live" and not reuse_live)
-    from .research_input import load_saved_research, to_domain_state
+        run_rag=rag_mode == "live" and not reuse_live, job_id=preparing_run["run_id"]+"-rag")
+    from .research_input import load_saved_research
     bundle = load_saved_research(research_source)
     identity = digest({"research": bundle["run"], "evidence": bundle["evidence"], "request": request,
                        "model": args.model, "as_of": args.as_of})
-    if previous:
+    if previous and previous.get("input_sha256"):
         if previous["input_sha256"] != identity:
             raise ValueError("Resume input/model differs; choose a new output directory")
         manifest = previous
     else:
-        manifest = {"run_id": "integration-" + re.sub(r"[^A-Za-z0-9_-]", "-", output.name),
+        manifest = {"run_id": preparing_run["run_id"], "prepared_request_sha256":prepared_request_hash,
                     "input_sha256": identity, "model": args.model, "as_of": args.as_of,
                     "research_source": str(research_source), "research_executed": rag_mode == "live",
                     "pipeline_input": pipeline_input,
@@ -99,72 +115,86 @@ def main():
         if not os.environ.get(name):
             raise RuntimeError(f"Missing configuration: {name}")
 
-    def stage(name, operation, *, stage_input=None, code_paths=()):
-        target = output / f"{name}.output.json"
-        code = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                for folder in code_paths for p in sorted(folder.rglob("*.py")) if ".venv" not in p.parts}
-        wrapper = ROOT / "pipeline" / ({"review": "review_bridge.py", "report": "reporting.py", "trl": "trl.py"}.get(name, "runtime.py"))
-        code[str(wrapper.relative_to(ROOT))] = hashlib.sha256(wrapper.read_bytes()).hexdigest()
-        stamp = digest({"input": stage_input, "code": code})
-        entry = manifest["stages"].get(name, {})
-        if args.resume and name not in args.rerun and target.exists() and entry.get("status") == "finished" and entry.get("stage_sha256") == stamp:
-            print(f"{name}: reusing saved output", flush=True)
-            return json.loads(target.read_text())
-        print(f"{name}: starting", flush=True)
-        started = time.monotonic()
-        manifest["stages"][name] = {"status": "running", "stage_sha256": stamp}
-        save(manifest_path, manifest)
-        try:
-            result = operation()
-            save(target, result)
-            manifest["stages"][name].update(status="finished", seconds=round(time.monotonic() - started, 2))
-            print(f"{name}: saved ({manifest['stages'][name]['seconds']}s)", flush=True)
-            return result
-        except Exception as exc:
-            message = re.sub(r"(?:sk-|tvly-)[A-Za-z0-9_-]+", "[redacted]", str(exc))
-            manifest["stages"][name].update(status="failed", error=f"{type(exc).__name__}: {message}")
-            print(f"{name}: {type(exc).__name__}: {message}", flush=True)
-            raise
-        finally:
-            save(manifest_path, manifest)
-
-    from .runtime import run_domain, run_stakeholders, run_market
-    results = {}
-    domain_input = to_domain_state(bundle, request, run_id=manifest["run_id"], as_of=args.as_of)
-    save(output / "domain.input.json", domain_input)
-    results["domain"] = stage("domain", lambda: run_domain(domain_input, model=args.model),
-                               stage_input=domain_input, code_paths=[ROOT / "agent/domain/src"])
-    if args.stop_after == "domain": return 0
-    results["stakeholders"] = stage("stakeholders", lambda: run_stakeholders(bundle["papers"], request,
-        run_id=manifest["run_id"], as_of=args.as_of, model=args.model),
-        stage_input=[bundle["papers"], request], code_paths=[ROOT / "agent/stakeholder/stakeholder_agent"])
-    if args.stop_after == "stakeholders": return 0
-    results["market"] = stage("market", lambda: run_market(bundle["papers"], request, as_of=args.as_of, model=args.model),
-        stage_input=[bundle["papers"], request], code_paths=[ROOT / "agent/market/market_agent"])
-    if args.stop_after == "market": return 0
-    from .review_bridge import build_review_state, run_review
-    review_input = build_review_state(bundle, request, results, run_id=manifest["run_id"], as_of=args.as_of)
-    from .trl import generate_trl_assessment
-    review_input["assessments"]["technical"] = stage("trl",
-        lambda: generate_trl_assessment(review_input, model=args.model),
-        stage_input=review_input, code_paths=[ROOT / "agent/review/team_review"])
-    save(output / "review.input.json", review_input)
-    if args.stop_after == "trl": return 0
-    review = stage("review", lambda: run_review(review_input, model=args.model, draft=args.draft),
-        stage_input={"state": review_input, "draft": args.draft}, code_paths=[ROOT / "agent/review/team_review"])
-    markdown = review["report_input_md"]
-    (output / "review.output.md").write_text(markdown)
-    if args.stop_after == "review": return 0
-    from .reporting import generate_report
-    artifacts = stage("report", lambda: generate_report(markdown, output, model=args.model,
-        draft=args.draft, attribution_first=True),
-        stage_input={"markdown": markdown, "draft": args.draft, "attribution_first": True},
-        code_paths=[ROOT / "report/src"])
-    manifest["status"] = "annotated_draft_generated"
-    manifest["artifacts"] = artifacts
-    save(manifest_path, manifest)
-    print(f"report: {artifacts['pdf_path']}", flush=True)
-    return 0
+    from .governance import BudgetLedger, configure
+    from .graph import PipelineContext, build_graph, initial_state
+    from .checkpoint import SQLiteCheckpoint
+    ledger = BudgetLedger(output, limits={"tokens":args.max_tokens,"llm":args.max_model_calls,
+        "search":args.max_search_calls,"extract":args.max_extract_calls,"fetch":args.max_fetch_calls,
+        "seconds":args.max_seconds})
+    configure(ledger)
+    context = PipelineContext(output,bundle,request,manifest["run_id"],args.as_of,args.model,
+        draft=args.draft,stop_after=args.stop_after,report_model=args.report_model)
+    report_settings = {"model":args.report_model or args.model,"draft":args.draft}
+    old_settings = manifest.get("report_settings",report_settings)
+    if old_settings["model"] != report_settings["model"]: args.rerun.append("report")
+    if old_settings["draft"] != report_settings["draft"]: args.rerun.append("review")
+    manifest["report_settings"] = report_settings
+    order = ["trl","review","report","quality"]
+    invalidated = set()
+    for name in args.rerun:
+        if name in order: invalidated.update(order[order.index(name):])
+    context.store.invalidate(invalidated)
+    checkpoint = SQLiteCheckpoint(output / "checkpoint.sqlite")
+    graph = build_graph(context,checkpoint)
+    configuration = {"configurable":{"thread_id":manifest["run_id"]},"max_concurrency":3,
+        "recursion_limit":128,"run_name":"KV-Cache Orchestrator–Workers",
+        "tags":["kv-cache","orchestrator-workers"],"metadata":{
+            "evaluation_run_id":manifest["run_id"],"input_sha256":identity,"code_sha256":context.code_hash}}
+    snapshot = graph.get_state(configuration)
+    old_code = manifest.get("orchestration_code_sha256")
+    manifest["orchestration_code_sha256"] = context.code_hash
+    manifest["engine"] = "orchestrator-workers"
+    manifest["status"] = "running"
+    manifest["budget_limits"] = ledger.limits
+    manifest["budget_scope"] = "Downstream API calls after saved/live RAG loading; live RAG subprocess excluded"
+    save(manifest_path,manifest)
+    if previous and args.resume and snapshot.values and old_code == context.code_hash and not args.rerun:
+        if snapshot.next:
+            invocation = None
+        else:
+            # Hash-check every accepted output and the final files before reuse.
+            for ref in snapshot.values.get("accepted_refs",{}).values(): context.store.get(ref)
+            saved_report = snapshot.values.get("report_ref")
+            if saved_report:
+                from hashlib import sha256
+                saved_report = context.store.get(saved_report)
+                for kind in ("pdf","tex"):
+                    path = Path(saved_report[f"{kind}_path"])
+                    if not path.exists() or sha256(path.read_bytes()).hexdigest() != saved_report.get(f"{kind}_sha256"):
+                        raise ValueError("Final report artifact changed; rerun report and quality")
+            if snapshot.values.get("phase") == "stopped" and args.stop_after != previous.get("stop_after"):
+                invocation = initial_state(context,accepted_refs=snapshot.values.get("accepted_refs"),
+                                           revision=snapshot.values.get("plan_revision",0))
+            else:
+                invocation = "complete"
+    else:
+        prior_refs = snapshot.values.get("accepted_refs",{}) if snapshot.values and old_code == context.code_hash else {}
+        from .contracts import CATALOG, all_cells
+        selected = [r for r in args.rerun if r in CATALOG]
+        pending = all_cells(selected) if selected else None
+        invocation = initial_state(context,accepted_refs=prior_refs,pending_cells=pending,
+                                   revision=snapshot.values.get("plan_revision",0))
+    try:
+        result = snapshot.values if invocation == "complete" else graph.invoke(invocation,configuration)
+        context.store.put("state.final.json",result)
+        manifest.update(status=result["phase"],termination_reason=result.get("termination_reason"),
+            state_ref=context.store.put("state.result.json",result),stop_after=args.stop_after)
+        if result.get("report_ref"):
+            manifest["artifacts"] = context.store.get(result["report_ref"])
+            print(f"report: {manifest['artifacts']['pdf_path']}",flush=True)
+        if result.get("quality_ref"):
+            manifest["quality"] = context.store.get(result["quality_ref"])
+            print(f"quality: {result['phase']}",flush=True)
+        return 0 if result["phase"] in {"stopped","content_quality_pass"} else 2
+    except Exception as exc:
+        from .graph import _error
+        manifest.update(status="execution_failed",error=_error(exc))
+        raise
+    finally:
+        manifest["usage"] = ledger.snapshot()
+        save(manifest_path,manifest)
+        configure(None)
+        checkpoint.close()
 
 
 if __name__ == "__main__":

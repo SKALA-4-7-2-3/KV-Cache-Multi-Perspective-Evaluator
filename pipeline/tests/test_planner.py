@@ -33,5 +33,30 @@ class PlannerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             merge_outcomes(a, {"key":{**a["key"],"status":"failed"}})
 
+    def test_invented_role_dependency_receives_one_bounded_contract_repair(self):
+        import json
+        from pipeline.planner import create_plan
+        cell = {"role": "market", "technology_id": "HW-01", "criterion_id": "standardization"}
+        calls = []
+        def answer(instructions, prompt, model):
+            calls.append(json.loads(prompt))
+            return {"tasks": [{"role":"market", "active_cells":[{"technology_id":"HW-01","criterion_id":"standardization"}],
+                "reason":"Repair requested scope", "dependency_roles":["domain"] if len(calls)==1 else []}]}
+        tasks = create_plan([cell],run_id="test",revision=1,model="offline",responder=answer)
+        self.assertEqual(len(calls),2)
+        self.assertIn("dependency_roles must be empty",calls[1]["contract_error"])
+        self.assertEqual(tasks[0]["dependency_ids"],[])
+
+    def test_repeated_invalid_plan_stops_after_two_model_calls(self):
+        from pipeline.planner import create_plan
+        calls = []
+        def answer(*args):
+            calls.append(1)
+            return {"tasks":[]}
+        with self.assertRaises(ValueError):
+            create_plan([{"role":"market","technology_id":"HW-01","criterion_id":"standardization"}],
+                        run_id="test",revision=1,model="offline",responder=answer)
+        self.assertEqual(len(calls),2)
+
 
 if __name__ == "__main__": unittest.main()
