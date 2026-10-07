@@ -35,7 +35,10 @@ def trl_evidence_is_eligible(item, documents, tech, policy="paper_only") -> bool
 
 def call_trl_grounding(payload, *, model):
     """모델 초안의 단계 조건·이유를 인용문에 대조한다. 최종 숫자는 review_node만 계산한다."""
-    from openai import OpenAI
+    try:
+        from pipeline.governance import openai_client as OpenAI
+    except ModuleNotFoundError:
+        from openai import OpenAI
     instructions = (
         "당신은 TRL 단계 초안의 의미 검증기다. 최종 TRL 숫자를 계산하지 않는다. "
         "각 items의 status와 reason 전체를 criterion 및 required_evidence에 따라 해당 항목의 "

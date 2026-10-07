@@ -72,8 +72,15 @@ class OpenAIModel:
                  timeout: float = 60):
         if not api_key.strip():
             raise ProviderError("모델 API 키가 설정되지 않았습니다.")
-        self._client = ChatOpenAI(model=model, api_key=api_key, base_url=base_url,
-                                  timeout=timeout, max_retries=0)
+        kwargs=dict(model=model, api_key=api_key, base_url=base_url,
+                    timeout=timeout, max_retries=0)
+        try:
+            from pipeline import governance
+            if governance._ledger is not None:
+                kwargs["http_client"] = governance.http_client(timeout=timeout)
+        except ImportError:
+            pass
+        self._client = ChatOpenAI(**kwargs)
 
     def generate(self, schema: type[_T], system: str, payload: dict) -> _T:
         try:
@@ -498,7 +505,7 @@ class TavilyWeb:
             raise ProviderError("검색어와 결과 개수를 확인해 주세요.")
         try:
             with (
-                httpx.Client(timeout=self._timeout, follow_redirects=False, trust_env=False) as client,
+                _http_client(timeout=self._timeout, follow_redirects=False, trust_env=False) as client,
                 client.stream("POST", "https://api.tavily.com/search",
                               headers={"Authorization": f"Bearer {self._api_key}"},
                               json={"query": query, "max_results": max_results,
@@ -528,7 +535,7 @@ class TavilyWeb:
     def fetch(self, url: str) -> SourcePage:
         target = url
         try:
-            with httpx.Client(timeout=self._timeout, follow_redirects=False, trust_env=False,
+            with _http_client(timeout=self._timeout, follow_redirects=False, trust_env=False,
                               headers={"User-Agent": "KV-Stakeholder-Research/0.1",
                                        "Accept": "text/html, text/plain, application/xhtml+xml"}) as client:
                 for hop in range(MAX_REDIRECTS + 1):
@@ -576,7 +583,7 @@ class TavilyExtractWeb(TavilyWeb):
         _public_url(url)
         try:
             with (
-                httpx.Client(timeout=self._timeout, follow_redirects=False, trust_env=False) as client,
+                _http_client(timeout=self._timeout, follow_redirects=False, trust_env=False) as client,
                 client.stream("POST", "https://api.tavily.com/extract",
                               headers={"Authorization": f"Bearer {self._api_key}"},
                               json={"urls": [url], "extract_depth": "basic", "format": "markdown",
@@ -599,3 +606,14 @@ class TavilyExtractWeb(TavilyWeb):
             raise
         except (httpx.HTTPError, ValueError):
             raise ProviderError("외부 원문 추출 요청에 실패했습니다.") from None
+def _http_client(**kwargs):
+    # Standalone provider tests replace this constructor with a mock transport.
+    if not isinstance(httpx.Client, type):
+        return httpx.Client(**kwargs)
+    try:
+        from pipeline import governance
+        if governance._ledger is not None:
+            return governance.http_client(**kwargs)
+    except ImportError:
+        pass
+    return httpx.Client(**kwargs)

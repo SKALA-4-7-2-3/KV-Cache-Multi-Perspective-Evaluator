@@ -161,12 +161,41 @@ class TechnologyDomainAssessment(StrictModel):
         return self
 
 
+class ScopedTechnologyDomainAssessment(StrictModel):
+    technology_id: str = Field(min_length=1)
+    technology_name: str = Field(min_length=1)
+    status: RoleStatus
+    criteria: list[CriterionAssessment] = Field(min_length=1)
+    overall_summary: str = Field(min_length=1)
+    key_tradeoffs: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def unique_criteria(self) -> "ScopedTechnologyDomainAssessment":
+        ids = [item.criterion_id for item in self.criteria]
+        if len(ids) != len(set(ids)):
+            raise ValueError(f"{self.technology_id}: duplicate criterion_id")
+        return self
+
+
 class DomainAgentOutput(StrictModel):
     role: Literal["domain"] = "domain"
     round: int = Field(default=0, ge=0)
     status: RoleStatus
     domain_name: str = Field(min_length=1)
     assessments: list[TechnologyDomainAssessment]
+    cross_technology_tradeoffs: list[str] = Field(default_factory=list)
+    unresolved_questions: list[str] = Field(default_factory=list)
+    disclaimer: str = Field(min_length=1)
+
+
+class ScopedDomainAgentOutput(StrictModel):
+    """Partial worker result. The caller validates the exact requested cells."""
+
+    role: Literal["domain"] = "domain"
+    round: int = Field(default=0, ge=0)
+    status: RoleStatus
+    domain_name: str = Field(min_length=1)
+    assessments: list[ScopedTechnologyDomainAssessment]
     cross_technology_tradeoffs: list[str] = Field(default_factory=list)
     unresolved_questions: list[str] = Field(default_factory=list)
     disclaimer: str = Field(min_length=1)
@@ -183,3 +212,4 @@ class DomainStateInput(StrictModel):
     evidence: dict[str, Any]
     assessments: dict[str, Any]
     review: dict[str, Any] = Field(default_factory=dict)
+    worker_scope: dict[str, Any] = Field(default_factory=dict)

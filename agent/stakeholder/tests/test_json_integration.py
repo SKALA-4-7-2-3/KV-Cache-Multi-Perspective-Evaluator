@@ -71,6 +71,25 @@ def test_api_accepts_reversed_two_papers_and_separate_context(payload):
     assert set(output["result"]["by_technology"]) == {"SW-01", "HW-01"}
 
 
+def test_optional_scope_reaches_every_model_stage_and_excludes_other_technology(payload):
+    class RecordingModel(DemoModel):
+        def __init__(self):
+            self.technology_sets = []
+            self.contexts = []
+        def generate(self, schema, system, payload):
+            self.technology_sets.append({item["id"] for item in payload["technologies"]})
+            self.contexts.append(payload["analysis_context"]["additional_context"])
+            return super().generate(schema, system, payload)
+    model = RecordingModel()
+    output = run_stakeholder(payload, mode="fixture", model=model, web=DemoWeb(),
+        scope={"technology_ids": ["HW-01"], "feedback": ["운영 영향 근거를 다시 확인"]})
+    assert model.technology_sets, [error.get("message") for error in output["errors"]]
+    assert all(ids == {"HW-01"} for ids in model.technology_sets)
+    assert all("운영 영향 근거를 다시 확인" in context for context in model.contexts)
+    assert not output["result"]["by_technology"]["SW-01"]["claims"]
+    assert output["result"]["by_technology"]["HW-01"]["claims"]
+
+
 def test_missing_request_returns_json_without_calling_providers(payload):
     class NeverModel:
         def generate(self, **kwargs):

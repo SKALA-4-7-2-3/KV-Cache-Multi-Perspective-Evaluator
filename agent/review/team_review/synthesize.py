@@ -248,7 +248,10 @@ def validate_opinions(value, payload):
 
 
 def call_openai(payload, *, model=DEFAULT_MODEL):
-    from openai import OpenAI
+    try:
+        from pipeline.governance import openai_client as OpenAI
+    except ModuleNotFoundError:
+        from openai import OpenAI
     # .env 로딩은 CLI/호출자 책임. 이 함수는 비밀값·응답 원문을 로그에 남기지 않는다.
     with OpenAI(timeout=120, max_retries=0) as client:
         response = client.responses.parse(
