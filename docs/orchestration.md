@@ -229,6 +229,8 @@ TRL·Review·Report·Quality의 완료 캐시는 전체 저장소 hash 대신 **
 
 ## 관측성과 검증 범위
 
+현재 브랜치의 공개 TRL 사유·서지 메타데이터·구간 수정 구현과 Report 8의 API 접근 실패는 [최신 검증 기록](validation-20261007-quality-fix.md)에 정리했다. 단계별 구조·역할·수정 분기는 [모델 구조 설명](model-architecture.md)을 참고한다.
+
 로컬에서 계획·실행 수·scope·재사용·terminal join·quality route는 `events.jsonl`, API 사용량은 `usage.json`, 종료·모델·입력·코드 identity는 `run.json`에서 확인합니다. 결과의 내용 품질, 계획 대비 실제 worker 경로, 운영 비용·시간을 서로 다른 증거로 확인합니다.
 
 LangGraph의 run name·tags·metadata를 유지하며 실제 `judge_model`과 `report_model`을 metadata에 기록합니다. LangSmith 설정이 있는 환경에서 trace를 수집할 수 있습니다. **현재 키 미설정으로 실제 동적 trace와 PNG는 미검증**입니다. 제출용 trace는 같은 run의 구조화 plan, 실제 Send scope, terminal join, Quality와 repair loop가 보이도록 수집하고 실행 순서가 드러나는 이름으로 저장해야 합니다. 정적 구조 그림이나 오프라인 fixture를 실제 API trace로 표시하지 않습니다.

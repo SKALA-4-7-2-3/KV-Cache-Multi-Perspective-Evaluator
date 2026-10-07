@@ -1,0 +1,403 @@
+{
+  "schema_version": "development-validation-v1",
+  "date": "2026-10-07",
+  "branch": "codex/report-quality-and-model-visualization",
+  "implementation_commit": "66adb09740b784feaba650dbe3724bf6bda0b74c",
+  "overall_status": "implementation_verified_api_execution_incomplete",
+  "implementation": [
+    "public_internal_trl_reason_view",
+    "canonical_tex_and_pdf_bibliography_metadata",
+    "physical_quote_bound_governed_trl_registry",
+    "explicit_opposing_proposition_contract",
+    "all_feedback_anchored_scoped_report_patches"
+  ],
+  "regression": {
+    "passed": 470,
+    "failed": 0,
+    "seconds": 13.49,
+    "command": "REPORT_FONT_DIR=\"$PWD/outputs/trl-validation-20261007/fonts\" TECTONIC_BIN=/Applications/ChatGPT.app/Contents/Resources/tectonic/tectonic TECTONIC_CACHE_DIR=/private/tmp/kv-trl-tectonic-cache uv run --frozen --with pytest==8.4.2 python -m pytest pipeline/tests agent/domain/tests agent/market/market_agent/tests agent/review/team_review/tests/test_trl.py agent/review/team_review/tests/test_report_requirements.py agent/review/team_review/tests/test_langgraph.py report/tests -q --import-mode=importlib",
+    "whole_repository_suite": false,
+    "existing_stakeholder_baseline_failures": 8
+  },
+  "independent_review": {
+    "findings_reproduced_and_fixed": true,
+    "focused_quality_tests": 67,
+    "focused_report_tests": 63,
+    "focused_reporting_tests": 20,
+    "blocking_findings_remaining": []
+  },
+  "actual_execution": {
+    "run_id": "integration-fcb4b36916fd49e6",
+    "research_mode": "saved",
+    "research_executed": false,
+    "attempted_report_revision": 8,
+    "report_model": "gpt-4.1",
+    "judge_model": "gpt-4.1",
+    "status": "execution_failed",
+    "error_type": "GenerationError caused by OpenAI NotFoundError",
+    "http_status": 404,
+    "error_code": "model_not_found",
+    "new_tex_present": false,
+    "new_pdf_present": false,
+    "quality_8_executed": false,
+    "error_record": "outputs/ow-validation-20261007/reports/revision-8/report.error.json",
+    "model_list_diagnostic": {
+      "ids": [],
+      "not_content_assessment": true
+    },
+    "minimum_model_probe": {
+      "kind": "minimal_model_access_probe",
+      "model": "gpt-4.1-mini",
+      "input": "Reply with OK.",
+      "not_report_validation": true,
+      "status": "unavailable",
+      "error_type": "NotFoundError",
+      "http_status": 404,
+      "error_code": "model_not_found"
+    }
+  },
+  "resume_state": {
+    "pending": [
+      "report"
+    ],
+    "phase": "report_repair",
+    "quality_attempt": 7,
+    "completed_content_assessments": 4,
+    "counters_reset": false,
+    "previous_verdicts_rewritten": false,
+    "feedback_requests": 16,
+    "scoped_blocks": 10,
+    "metadata_routing_count": 19,
+    "verified_original_source_cache_count": 22,
+    "normal_automatic_completed_content_cap": 3,
+    "explicit_development_reopenings_total": 2
+  },
+  "prior_report_preserved": {
+    "revision": 7,
+    "pages": 6,
+    "hashes": {
+      "tex": "79737b88b46fe57bc9eb7f638ea696949fd4dd6fcd2120eef6817882e3d738d4",
+      "pdf": "f56779ffa113b213f14b1fbc1589addb473a142c5c084e5e309fd36d6e6cb907"
+    },
+    "prior_quality_score": 84.0,
+    "is_current_code_quality_result": false,
+    "content_submission_ready": false,
+    "unresolved_source_review": "outputs/ow-validation-20261007/manual-source-review-revision-7.json"
+  },
+  "cumulative_usage": {
+    "limits": {
+      "llm": 800,
+      "search": 72,
+      "extract": 144,
+      "fetch": 90,
+      "tokens": 64000000,
+      "seconds": 14400
+    },
+    "counts": {
+      "llm": 574,
+      "search": 49,
+      "extract": 116,
+      "fetch": 0
+    },
+    "used_tokens": 29857761,
+    "unconfirmed_tokens": 4442197,
+    "elapsed_seconds": 8725.409,
+    "budget_extensions": [
+      {
+        "before": {
+          "llm": 160,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 3000000,
+          "seconds": 3600
+        },
+        "after": {
+          "llm": 160,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 8000000,
+          "seconds": 3600
+        },
+        "at": "2026-10-07T04:30:07.165922+00:00",
+        "used_tokens": 1132771,
+        "unconfirmed_tokens": 112326,
+        "counts": {
+          "llm": 33,
+          "search": 19,
+          "extract": 48,
+          "fetch": 0
+        },
+        "elapsed_seconds": 305.215
+      },
+      {
+        "before": {
+          "llm": 160,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 8000000,
+          "seconds": 3600
+        },
+        "after": {
+          "llm": 256,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 12000000,
+          "seconds": 5400
+        },
+        "at": "2026-10-07T05:06:26.962370+00:00",
+        "used_tokens": 5767947,
+        "unconfirmed_tokens": 1022701,
+        "counts": {
+          "llm": 151,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 1279.386
+      },
+      {
+        "before": {
+          "llm": 256,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 12000000,
+          "seconds": 5400
+        },
+        "after": {
+          "llm": 320,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 24000000,
+          "seconds": 7200
+        },
+        "at": "2026-10-07T05:33:22.205480+00:00",
+        "used_tokens": 9087218,
+        "unconfirmed_tokens": 1058330,
+        "counts": {
+          "llm": 170,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 1923.144
+      },
+      {
+        "before": {
+          "llm": 320,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 24000000,
+          "seconds": 7200
+        },
+        "after": {
+          "llm": 480,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 7200
+        },
+        "at": "2026-10-07T06:50:29.976980+00:00",
+        "used_tokens": 13935515,
+        "unconfirmed_tokens": 2557290,
+        "counts": {
+          "llm": 261,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 3800.672
+      },
+      {
+        "before": {
+          "llm": 480,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 7200
+        },
+        "after": {
+          "llm": 560,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 9000
+        },
+        "at": "2026-10-07T08:46:50.602852+00:00",
+        "used_tokens": 24388261,
+        "unconfirmed_tokens": 2868746,
+        "counts": {
+          "llm": 452,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 7200.101
+      },
+      {
+        "before": {
+          "llm": 560,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 9000
+        },
+        "after": {
+          "llm": 640,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 10800
+        },
+        "at": "2026-10-07T09:06:06.406365+00:00",
+        "used_tokens": 27371173,
+        "unconfirmed_tokens": 2868746,
+        "counts": {
+          "llm": 527,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 8021.225
+      },
+      {
+        "before": {
+          "llm": 640,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 10800
+        },
+        "after": {
+          "llm": 800,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 64000000,
+          "seconds": 14400
+        },
+        "at": "2026-10-07T09:39:19.140516+00:00",
+        "used_tokens": 29857761,
+        "unconfirmed_tokens": 2868746,
+        "counts": {
+          "llm": 565,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 8720.26
+      }
+    ]
+  },
+  "usage_note": "All prior development failures, revisions and resumes included. Not fresh-run performance or invoice cost. Model listing diagnosis is outside the content-call ledger; both model execution/probe failures are included.",
+  "visualization": {
+    "sha256": "e530a59b7713a44fd58a56c77424e965c2c359003524818af1b311b014554d82",
+    "code_mapping": "docs/model-architecture.md",
+    "stages": 9,
+    "browser_widths": [
+      320,
+      736
+    ],
+    "js_errors": 0,
+    "horizontal_overflow": false,
+    "text_clipping": false,
+    "stage_controls_verified": true,
+    "actual_execution_trace": false
+  },
+  "unverified": [
+    "new_pdf_content_and_layout",
+    "quality_8_content_result",
+    "live_retrieval_embedding_hit_rate_mrr",
+    "judge_calibration",
+    "actual_langsmith_trace"
+  ],
+  "next_required": "Verify OpenAI project model access/key, probe the selected model, then explicitly migrate defaults and runtime compatibility. A changed base model requires a new run identity; prior failures, counters and cumulative usage remain preserved. Generate and inspect a real PDF and independent Quality before claiming completion.",
+  "model_replacement_request": {
+    "status": "no_verified_accessible_model",
+    "default_changed": false,
+    "additional_candidates": [
+      {
+        "model": "gpt-6-sol",
+        "kind": "minimal_model_access_probe",
+        "not_content_assessment": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      },
+      {
+        "model": "gpt-5.6-sol",
+        "kind": "minimal_model_access_probe",
+        "not_content_assessment": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      },
+      {
+        "model": "gpt-5.4",
+        "kind": "minimal_model_access_probe",
+        "not_content_assessment": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      },
+      {
+        "model": "gpt-4.1-2025-04-14",
+        "kind": "minimal_model_access_probe",
+        "not_content_assessment": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      },
+      {
+        "model": "gpt-5",
+        "kind": "minimal_model_access_probe",
+        "not_content_assessment": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      },
+      {
+        "model": "gpt-5-mini",
+        "kind": "minimal_model_access_probe",
+        "not_content_assessment": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      },
+      {
+        "model": "gpt-4o",
+        "kind": "minimal_model_access_probe",
+        "not_content_assessment": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      }
+    ],
+    "selected_env_exists": true,
+    "authorized_workspace_openai_keys_equal": true,
+    "endpoint_org_project_overrides_present": false,
+    "configured_nonempty_alternative_provider_keys": false,
+    "previous_model_trials_count": 2,
+    "total_failed_candidates": 9,
+    "required": "Verify OpenAI project model permissions or provide an accessible project key; do not claim an untested replacement works."
+  }
+}
