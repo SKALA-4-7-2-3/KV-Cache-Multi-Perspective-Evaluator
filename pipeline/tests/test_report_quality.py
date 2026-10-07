@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from pipeline.report_quality import (evaluate_report, canonical_evidence, _audit, JudgeContractError,
-                                     _judge_prompt, _provider, JUDGE_INSTRUCTIONS)
+                                     _judge_prompt, _provider, _normalize_provider_answer, JUDGE_INSTRUCTIONS)
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "report/tests/fixtures"
@@ -419,8 +419,8 @@ class ReportQualityTests(unittest.TestCase):
                 calls.append(kwargs)
                 answer = {"blocks": {unit["block_id"]: {"non_claim_reason": "", "claims": [{
                     "text": "OFFLINE assertion", "kind": "fact",
-                    "technology_ids": ["SW-01"], "citation_keys": ["SW01_RDKV"], "core": True}]}
-                    for unit in units}}
+                    "technology_ids": ["SW-01"], "citation_keys": [data["citation_numbers"][str(index)]], "core": True}]}
+                    for index, unit in enumerate(units, 1)}}
                 return SimpleNamespace(status="completed", output_text=json.dumps(answer))
         with patch("pipeline.governance.openai_client", return_value=Client()):
             answer = _provider("offline-model", phase="atomize", data=data)(JUDGE_INSTRUCTIONS, _judge_prompt("atomize", data))
@@ -440,7 +440,8 @@ class ReportQualityTests(unittest.TestCase):
             properties = claim["properties"]
             self.assertNotIn("report_quote", properties)
             self.assertEqual(properties["technology_ids"]["items"]["enum"], ["SW-01", "HW-01"])
-            self.assertEqual(properties["citation_keys"]["items"]["$ref"], "#/$defs/citation_key")
+            number = str(units.index(unit) + 1)
+            self.assertEqual(properties["citation_keys"]["items"]["enum"], [data["citation_numbers"][number]])
             self.assertEqual(set(schema["$defs"]["citation_key"]["enum"]), set(data["citation_numbers"].values()))
         self.assertEqual([row["block_id"] for row in answer["blocks"]], [unit["block_id"] for unit in units])
         self.assertEqual([row["claims"][0]["report_quote"] for row in answer["blocks"]],
@@ -540,6 +541,73 @@ class ReportQualityTests(unittest.TestCase):
             with self.subTest(phase=phase), patch("pipeline.governance.openai_client", return_value=Client()):
                 with self.assertRaises(JudgeContractError):
                     _provider("offline-model", phase=phase, data=data)(JUDGE_INSTRUCTIONS, _judge_prompt(phase, data))
+
+    def test_literal_spaced_citations_are_distributed_without_dropping_or_borrowing(self):
+        data = {"blocks": [{"block_id": "unit", "text": "실제 인용 [1,        8,9].\n", "page": 1}],
+                "citation_numbers": {"1": "SW01_RDKV", "8": "FABRIC", "9": "BLOG", "10": "OTHER"}}
+        def claim(keys):
+            return {"text": "offline assertion", "kind": "fact", "technology_ids": ["SW-01"],
+                    "citation_keys": keys, "core": True}
+        good = {"blocks": {"unit": {"non_claim_reason": "", "claims": [claim(["SW01_RDKV"]), claim(["FABRIC", "BLOG"])]}}}
+        answer = _normalize_provider_answer("atomize", json.dumps(good), data)
+        self.assertEqual(answer["blocks"][0]["claims"][0]["citation_keys"], ["SW01_RDKV"])
+        for wrong in ([claim(["BLOG"])], [claim(["SW01_RDKV", "FABRIC", "BLOG", "OTHER"])]):
+            with self.assertRaises(JudgeContractError):
+                _normalize_provider_answer("atomize", json.dumps({"blocks": {"unit": {"non_claim_reason": "", "claims": wrong}}}), data)
+
+    def test_invalid_judgment_gets_one_correction_with_immutable_original_inputs(self):
+        attempts = []
+        def responder(instructions, prompt):
+            data = payload(prompt)
+            if data["phase"] == "atomize":
+                attempts.append(data)
+                if len(attempts) == 1:
+                    return {"blocks": []}
+            return self.responder(instructions, prompt)
+        result = self.evaluate(responder)
+        self.assertEqual(result["route"], "passed")
+        self.assertEqual(result["judge_calls"], 4)
+        self.assertEqual(attempts[0]["blocks"], attempts[1]["blocks"])
+        self.assertEqual(attempts[0]["citation_numbers"], attempts[1]["citation_numbers"])
+        self.assertIn("contract_feedback", attempts[1])
+        result = self.evaluate(lambda *args: {"blocks": []})
+        self.assertEqual(result["route"], "review_required")
+        self.assertEqual(result["judge_calls"], 2)
+
+    def test_verified_raw_cache_revalidates_without_replaying_completed_provider_calls(self):
+        def provider(model, *, phase, data):
+            def respond(instructions, prompt):
+                answer = self.responder(instructions, _judge_prompt(phase, data))
+                if phase == "atomize":
+                    raw = {"blocks": {row["block_id"]: {"non_claim_reason": row["non_claim_reason"],
+                        "claims": [{key: value for key, value in claim.items() if key != "report_quote"} for claim in row["claims"]]}
+                        for row in answer["blocks"]}}
+                elif phase == "audit":
+                    raw = {"checks": {row["claim_id"]: {**{key: value for key, value in row.items()
+                        if key not in {"claim_id", "supporting_quotes", "evidence_ids"}},
+                        "references": [{"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]]}
+                        for row in answer["checks"]}}
+                else:
+                    raw = answer
+                respond.raw_response = json.dumps(raw)
+                return _normalize_provider_answer(phase, respond.raw_response, data)
+            return respond
+        def execute():
+            with patch("pipeline.report_quality.extract_pdf", return_value=(1, self.blocks)):
+                return evaluate_report(tex_path=self.tex, pdf_path=self.pdf, review_input=canonical(),
+                    report_markdown=self.markdown, model="offline-judge", output_dir=self.output)
+        with patch("pipeline.report_quality._provider", side_effect=provider):
+            first, second = execute(), execute()
+            self.assertEqual((first["route"], second["route"]), ("passed", "passed"))
+            self.assertEqual((first["judge_calls"], second["judge_calls"]), (3, 1))
+            self.assertEqual(second["cache_hits"], 2)
+            self.assertEqual(len(self.calls), 4)
+            cached = next((self.output / "quality-responses").glob("*.json"))
+            envelope = json.loads(cached.read_text()); envelope["raw"] = "tampered"
+            cached.write_text(json.dumps(envelope))
+            third = execute()
+            self.assertEqual(third["route"], "passed")
+            self.assertEqual(third["judge_calls"], 2)
 
 
 if __name__ == "__main__":

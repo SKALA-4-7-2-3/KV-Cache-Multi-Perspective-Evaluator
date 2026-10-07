@@ -39,6 +39,56 @@ class JudgeContractError(ValueError):
     pass
 
 
+class JudgeResponseCache:
+    """Persist verified raw responses; callers must revalidate every cache hit."""
+
+    _VERSION = 1
+
+    def __init__(self, output_dir):
+        self.directory = Path(output_dir) / "quality-responses"
+
+    @staticmethod
+    def _request_key(request: dict) -> str:
+        canonical = json.dumps(request, ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":"), allow_nan=False)
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+    def load(self, request: dict) -> str | None:
+        key = self._request_key(request)
+        try:
+            envelope = json.loads((self.directory / f"{key}.json").read_text(encoding="utf-8"))
+            if (not isinstance(envelope, dict) or envelope.get("key") != key
+                    or type(envelope.get("version")) is not int
+                    or envelope["version"] != self._VERSION
+                    or not isinstance(envelope.get("raw"), str)
+                    or envelope.get("raw_sha256") != sha256(envelope["raw"].encode("utf-8")).hexdigest()):
+                return None
+            return envelope["raw"]
+        except (OSError, UnicodeError, ValueError, TypeError):
+            return None
+
+    def save(self, request: dict, raw: str) -> None:
+        from tempfile import NamedTemporaryFile
+
+        if not isinstance(raw, str):
+            raise TypeError("Judge cache accepts raw text only")
+        key = self._request_key(request)
+        envelope = {"key": key, "version": self._VERSION, "raw": raw,
+                    "raw_sha256": sha256(raw.encode("utf-8")).hexdigest()}
+        self.directory.mkdir(parents=True, exist_ok=True)
+        temporary = None
+        try:
+            with NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.directory,
+                    prefix=f".{key}.", suffix=".tmp", delete=False) as stream:
+                temporary = Path(stream.name)
+                json.dump(envelope, stream, ensure_ascii=False, sort_keys=True)
+                stream.write("\n")
+            temporary.replace(self.directory / f"{key}.json")
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
+
 def _json(value) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -175,6 +225,9 @@ independent reproductions and actual adoption. A source that does not discuss
 adoption cannot prove that adoption never exists. Adjacent technologies do not
 prove the assessed implementation's results. Public-information team TRL is
 not an official certification. No absolute winner, recommendation or ranking.
+Rendered report/page context is the candidate under review, never source evidence.
+Only the registered original evidence excerpts or quote_spans can support a claim.
+Navigation links or source titles alone cannot support their alleged content.
 Return a JSON object only, following the requested phase schema.
 """
 
@@ -247,6 +300,14 @@ human approval or substitute technical ranking for report quality.""",
 }
 
 
+def _literal_citations(unit: dict, numbers: dict) -> set[str]:
+    groups = re.findall(r"\[(\d+(?:\s*,\s*\d+)*)\]", unit["text"])
+    identifiers = {number.strip() for group in groups for number in group.split(",")}
+    if not identifiers <= set(numbers):
+        raise JudgeContractError("Rendered numeric citation has no registered bibliography entry")
+    return {numbers[number] for number in identifiers}
+
+
 def _atomize_schema(data: dict) -> dict:
     units = data.get("blocks", [])
     keys = sorted(set(data.get("citation_numbers", {}).values()))
@@ -254,10 +315,11 @@ def _atomize_schema(data: dict) -> dict:
         raise JudgeContractError("Strict atomization requires unique units and registered citation keys")
     blocks = {}
     for unit in units:
+        literal = _literal_citations(unit, data.get("citation_numbers", {}))
         properties = {"text": {"type": "string"},
             "kind": {"type": "string", "enum": ["author_report", "fact", "inference", "gap"]},
             "technology_ids": {"type": "array", "items": {"type": "string", "enum": ["SW-01", "HW-01"]}},
-            "citation_keys": {"type": "array", "items": {"$ref": "#/$defs/citation_key"}},
+            "citation_keys": {"type": "array", "items": {"type": "string", "enum": sorted(literal)} if literal else {"$ref": "#/$defs/citation_key"}},
             "core": {"type": "boolean"}}
         claim = {"type": "object", "properties": properties, "required": list(properties),
                  "additionalProperties": False}
@@ -286,7 +348,8 @@ def _audit_payload(data: dict) -> dict:
                   "text": excerpt[start:start + 800]}
                  for index, start in enumerate(range(0, len(excerpt), 800))]
         sources.append({**{key: value for key, value in source.items() if key != "excerpt"}, "quote_spans": spans})
-    return {**data, "evidence": sources}
+    return {**{key: value for key, value in data.items() if key != "page_context"},
+            "rendered_report_context": data.get("page_context", []), "evidence": sources}
 
 
 def _audit_schema(data: dict) -> dict:
@@ -318,6 +381,8 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "to that unit's exact whole original line, including whitespace and line breaks. "
                    "Use SW-01/HW-01 technology IDs and registered citation keys from the schema. "
                    "A unit must contain at least one claim OR a nonempty specific non-claim explanation. "
+                   "When a factual unit explicitly displays numeric citations, distribute ALL and ONLY those "
+                   "registered keys among its claims; never drop an actual numbered citation. "
                    "Every key is required; the JSON schema defines the response structure.")
     elif phase == "audit":
         prompt += ("\nFor this strict audit request, checks must be an object keyed by EVERY fixed claim ID. "
@@ -327,7 +392,69 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "to support the verdict and each actual citation/technology owner. The controller binds real "
                    "supporting_quotes and evidence_ids from these references. Do not write quote strings or "
                    "combine spans yourself. The JSON schema defines the response structure.")
+    if data.get("contract_feedback"):
+        prompt += ("\nThe previous untrusted judgment failed the controller contract. Correct that JSON once "
+                   "using the same immutable report units/claims, technology/citation identities and all original "
+                   "evidence. Do not change audited claims or invent support to make the contract pass. "
+                   "If originals do not support the claim, return an honest unsupported/uncertain verdict.")
     return prompt
+
+
+def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
+    if phase == "atomize":
+        try:
+            answer = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise JudgeContractError("Structured atomization is not JSON") from exc
+        rows = answer.get("blocks") if isinstance(answer, dict) else None
+        units = (data or {}).get("blocks", [])
+        if not isinstance(rows, dict) or set(rows) != {unit["block_id"] for unit in units}:
+            raise JudgeContractError("Structured atomization omitted or invented a line-unit ID")
+        normalized = []
+        for unit in units:
+            row = rows[unit["block_id"]]
+            if (not isinstance(row, dict) or not isinstance(row.get("claims"), list)
+                    or any(not isinstance(claim, dict) or "report_quote" in claim
+                           for claim in row["claims"])):
+                raise JudgeContractError("Structured atomization changed its anchored original line")
+            literal = _literal_citations(unit, (data or {}).get("citation_numbers", {}))
+            if literal and row["claims"]:
+                groups = [claim.get("citation_keys") for claim in row["claims"]]
+                if (any(not isinstance(keys, list) or any(not isinstance(key, str) for key in keys) for keys in groups)
+                        or set(key for keys in groups for key in keys) != literal):
+                    raise JudgeContractError("Atomic unit did not preserve all and only its literal numbered citations: " + unit["block_id"] + " requires " + ", ".join(sorted(literal)))
+            normalized.append({**row, "block_id": unit["block_id"], "claims": [
+                {**claim, "report_quote": unit["text"]} for claim in row["claims"]]})
+        return {"blocks": normalized}
+    if phase == "audit":
+        try:
+            answer = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise JudgeContractError("Structured original audit is not JSON") from exc
+        rows = answer.get("checks") if isinstance(answer, dict) else None
+        claims = (data or {}).get("claims", [])
+        if not isinstance(rows, dict) or set(rows) != {claim["claim_id"] for claim in claims}:
+            raise JudgeContractError("Structured audit omitted or invented a claim ID")
+        sources = {source["evidence_id"]: source for source in _audit_payload(data or {})["evidence"]}
+        normalized = []
+        for claim in claims:
+            row = rows[claim["claim_id"]]
+            if not isinstance(row, dict) or not isinstance(row.get("references"), list):
+                raise JudgeContractError("Structured audit has no original references")
+            quotes = []
+            for reference in row["references"]:
+                identifier = reference.get("evidence_id") if isinstance(reference, dict) else None
+                index = reference.get("span_index") if isinstance(reference, dict) else None
+                if (not isinstance(identifier, str) or identifier not in sources or type(index) is not int
+                        or not 0 <= index < len(sources[identifier]["quote_spans"])):
+                    raise JudgeContractError("Structured audit has an unregistered original source/span reference")
+                span = sources[identifier]["quote_spans"][index]
+                quotes.append({"evidence_id": identifier, "quote": span["text"]})
+            normalized.append({**{key: value for key, value in row.items() if key != "references"},
+                "claim_id": claim["claim_id"], "evidence_ids": list(dict.fromkeys(quote["evidence_id"] for quote in quotes)),
+                "supporting_quotes": quotes})
+        return {"checks": normalized}
+    return raw
 
 
 def _provider(model: str, *, phase: str | None = None, data: dict | None = None) -> Responder:
@@ -350,54 +477,8 @@ def _provider(model: str, *, phase: str | None = None, data: dict | None = None)
             raise JudgeContractError("Judge response did not complete")
         if not response.output_text:
             raise JudgeContractError("Judge returned no parsed text")
-        if phase == "atomize":
-            try:
-                answer = json.loads(response.output_text)
-            except json.JSONDecodeError as exc:
-                raise JudgeContractError("Structured atomization is not JSON") from exc
-            rows = answer.get("blocks") if isinstance(answer, dict) else None
-            units = (data or {}).get("blocks", [])
-            if not isinstance(rows, dict) or set(rows) != {unit["block_id"] for unit in units}:
-                raise JudgeContractError("Structured atomization omitted or invented a line-unit ID")
-            normalized = []
-            for unit in units:
-                row = rows[unit["block_id"]]
-                if (not isinstance(row, dict) or not isinstance(row.get("claims"), list)
-                        or any(not isinstance(claim, dict) or "report_quote" in claim
-                               for claim in row["claims"])):
-                    raise JudgeContractError("Structured atomization changed its anchored original line")
-                normalized.append({**row, "block_id": unit["block_id"], "claims": [
-                    {**claim, "report_quote": unit["text"]} for claim in row["claims"]]})
-            return {"blocks": normalized}
-        if phase == "audit":
-            try:
-                answer = json.loads(response.output_text)
-            except json.JSONDecodeError as exc:
-                raise JudgeContractError("Structured original audit is not JSON") from exc
-            rows = answer.get("checks") if isinstance(answer, dict) else None
-            claims = (data or {}).get("claims", [])
-            if not isinstance(rows, dict) or set(rows) != {claim["claim_id"] for claim in claims}:
-                raise JudgeContractError("Structured audit omitted or invented a claim ID")
-            sources = {source["evidence_id"]: source for source in _audit_payload(data or {})["evidence"]}
-            normalized = []
-            for claim in claims:
-                row = rows[claim["claim_id"]]
-                if not isinstance(row, dict) or not isinstance(row.get("references"), list):
-                    raise JudgeContractError("Structured audit has no original references")
-                quotes = []
-                for reference in row["references"]:
-                    identifier = reference.get("evidence_id") if isinstance(reference, dict) else None
-                    index = reference.get("span_index") if isinstance(reference, dict) else None
-                    if (not isinstance(identifier, str) or identifier not in sources or type(index) is not int
-                            or not 0 <= index < len(sources[identifier]["quote_spans"])):
-                        raise JudgeContractError("Structured audit has an unregistered original source/span reference")
-                    span = sources[identifier]["quote_spans"][index]
-                    quotes.append({"evidence_id": identifier, "quote": span["text"]})
-                normalized.append({**{key: value for key, value in row.items() if key != "references"},
-                    "claim_id": claim["claim_id"], "evidence_ids": list(dict.fromkeys(quote["evidence_id"] for quote in quotes)),
-                    "supporting_quotes": quotes})
-            return {"checks": normalized}
-        return response.output_text
+        respond.raw_response = response.output_text
+        return _normalize_provider_answer(phase, response.output_text, data)
     return respond
 
 
@@ -695,6 +776,8 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         return result
 
     def ask(phase, data):
+        nonlocal last_raw
+        last_raw = None
         if result["judge_calls"] >= max_judge_calls:
             raise JudgeContractError("Judge call limit reached before all checks completed")
         result["judge_calls"] += 1
@@ -711,10 +794,49 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         input_plan["calls"].append(entry)
         input_plan["planned_input_utf8_bytes"] += entry["input_utf8_bytes"] + entry["instructions_utf8_bytes"]
         plan_path.write_text(json.dumps(input_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        answer = _ask(responder or _provider(model, phase=phase, data=data), phase, data)
+        selected_responder = responder or _provider(model, phase=phase, data=data)
+        try:
+            answer = _ask(selected_responder, phase, data)
+        finally:
+            last_raw = getattr(selected_responder, "raw_response", None)
         (output / f"quality.judge-{attempt}-{result['judge_calls']}.{phase}.json").write_text(
             json.dumps(answer, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return answer
+
+    cache, last_raw = JudgeResponseCache(output), None
+
+    def verified(phase, data, validate):
+        schema = _atomize_schema(data) if phase == "atomize" else _audit_schema(data)
+        request = {"version": 1, "phase": phase, "model": model,
+                   "instructions": JUDGE_INSTRUCTIONS, "prompt": _provider_prompt(phase, data), "schema": schema}
+        raw = cache.load(request) if responder is None else None
+        if raw is not None:
+            try:
+                answer = _normalize_provider_answer(phase, raw, data)
+                value = validate(answer)
+                result["cache_hits"] = result.get("cache_hits", 0) + 1
+                input_plan.setdefault("cache_hits", []).append({"phase": phase, "request_sha256": _hash(request)})
+                plan_path.write_text(json.dumps(input_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                return answer, value
+            except (JudgeContractError, ValueError, TypeError, KeyError):
+                pass  # A cache hit is never an exemption from the current contract.
+        current = data
+        for repair in range(2):
+            answer = None
+            try:
+                answer = ask(phase, current)
+                value = validate(answer)
+                if responder is None and isinstance(last_raw, str):
+                    cache.save({**request, "prompt": _provider_prompt(phase, current)}, last_raw)
+                return answer, value
+            except JudgeContractError as exc:
+                if repair or result["judge_calls"] >= max_judge_calls:
+                    raise
+                previous = last_raw if isinstance(last_raw, str) else answer
+                current = {**data, "contract_feedback": str(exc), "previous_untrusted_judgment": previous}
+                (output / f"quality.invalid-{attempt}-{result['judge_calls']}.{phase}.json").write_text(
+                    json.dumps({"error": str(exc), "previous_untrusted_judgment": previous}, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
 
     try:
         tex_bytes, pdf_bytes = tex.read_bytes(), pdf.read_bytes()
@@ -775,8 +897,9 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         claims, unit_dispositions = [], []
         for chunk in block_chunks:
             context = [block for block in blocks if block["page"] in {unit["page"] for unit in chunk}]
-            atomized = ask("atomize", {"blocks": chunk, "page_context": context, "citation_numbers": citation_numbers})
-            claims += _atomize(atomized, chunk, parsed.allowed_citation_keys)
+            atomized, extracted = verified("atomize", {"blocks": chunk, "page_context": context, "citation_numbers": citation_numbers},
+                                          lambda answer: _atomize(answer, chunk, parsed.allowed_citation_keys))
+            claims += extracted
             unit_dispositions += atomized["blocks"]
             result["checked_units"]["checked"] += len(chunk)
         if not claims:
@@ -788,8 +911,9 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         for group in groups:
             chunk = group["claims"]
             context = [block for block in blocks if block["page"] in {claim["page"] for claim in chunk}]
-            answer = ask("audit", {**group, "page_context": context, "documents": review_input.get("documents", {})})
-            checks += _audit(answer, chunk, group["evidence"], review_input.get("documents", {}))
+            _, audited = verified("audit", {**group, "page_context": context, "documents": review_input.get("documents", {})},
+                lambda answer: _audit(answer, chunk, group["evidence"], review_input.get("documents", {})))
+            checks += audited
         ledger = {"claims": claims, "checks": checks, "blocks": blocks, "units": units, "unit_dispositions": unit_dispositions}
         ledger_bytes = (json.dumps(ledger, ensure_ascii=False, indent=2) + "\n").encode()
         result["hashes"]["claims"] = sha256(ledger_bytes).hexdigest()
