@@ -163,6 +163,9 @@ def validate_latex(latex: str, parsed: ParsedReportInput) -> ValidationResult:
     issues: list[str] = []
     issues.extend(_trl_issues(latex, parsed))
     issues.extend(_market_issues(latex, parsed))
+    visible_source = re.sub(r"(?<!\\)%[^\n]*", "", latex)
+    if re.search(r"\d(?:\.\d+)?(?:[KMGT]|만|억)?[ \t]*~[ \t]*\d", visible_source):
+        issues.append("숫자 범위의 ~는 PDF에서 공백으로 표시됩니다. 숫자·단위를 보존하고 -- 또는 '부터 …까지'로 범위를 명시하세요.")
 
     if "```" in latex:
         issues.append("코드 펜스가 남아 있습니다.")

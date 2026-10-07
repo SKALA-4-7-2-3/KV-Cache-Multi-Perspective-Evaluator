@@ -24,6 +24,7 @@ kotex, fontspec, indentfirst를 사용하고 parindent=1em으로 절·하위절 
 SUMMARY에는 '본 보고서는', '본 평가는' 등 보고서의 목적·구성·평가 대상을 소개하는 도입 문단을 쓰지 않는다.
 SUMMARY는 핵심 평가 결과와 적용 조건으로 바로 시작하며 짧은 두 문단 이내로 작성한다.
 SUMMARY와 REFERENCE를 포함한 전체 PDF는 10쪽 이내로 작성한다. 사실·조건·인용·TRL 표시를 보존하며 중복 설명을 줄인다.
+숫자 범위는 128K--256K처럼 -- 또는 '부터 …까지'로 표기한다. raw TeX ~는 공백으로 렌더링되므로 숫자 범위에 사용하지 않는다.
 본문 전체에서 하나의 문단은 하나의 평가 주제를 전개한다. 인용이나 출처가 바뀔 때마다 문단을 나누지 않는다.
 편집 요청에서는 기존 문단 경계를 보존하지 않는다. 관련된 여러 출처의 문장을 하나의 논지로 재구성한다.
 서로 연결되는 관찰·운영 의미·조건을 보통 3-5문장 안팎의 한 문단으로 묶되, 논점이 달라지면 문단을 바꾼다.
@@ -260,6 +261,7 @@ def build_repair_prompt(parsed: ParsedReportInput, candidate: str, issues: list[
 
 citation key의 밑줄을 escape하지 않는다. 본문 `\\cite` 키 집합과 REFERENCE의
 `\\bibitem` 키 집합을 정확히 일치시킨다.
+숫자 범위의 raw TeX ~는 PDF에서 공백이 된다. 원래 숫자·단위를 보존하고 -- 또는 '부터 …까지'로 범위를 명시한다.
 
 [반드시 유지할 LaTeX 제목 골격]
 {LATEX_HEADING_SKELETON}

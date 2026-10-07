@@ -432,7 +432,11 @@ class ReportQualityTests(unittest.TestCase):
         self.assertEqual(set(blocks["required"]), {unit["block_id"] for unit in units})
         self.assertIs(blocks["additionalProperties"], False)
         for unit in units:
-            claim = blocks["properties"][unit["block_id"]]["properties"]["claims"]["items"]
+            branches = blocks["properties"][unit["block_id"]]["anyOf"]
+            self.assertEqual(branches[0]["properties"]["claims"]["minItems"], 1)
+            self.assertEqual(branches[1]["properties"]["claims"]["maxItems"], 0)
+            self.assertEqual(branches[1]["properties"]["non_claim_reason"]["minLength"], 1)
+            claim = branches[0]["properties"]["claims"]["items"]
             properties = claim["properties"]
             self.assertNotIn("report_quote", properties)
             self.assertEqual(properties["technology_ids"]["items"]["enum"], ["SW-01", "HW-01"])

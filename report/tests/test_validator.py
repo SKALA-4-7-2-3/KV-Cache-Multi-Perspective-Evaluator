@@ -22,6 +22,17 @@ class ValidatorTests(unittest.TestCase):
             any("허용되지 않은 citation_key" in issue for issue in result.issues)
         )
 
+    def test_numeric_tilde_ranges_fail_but_spaces_and_visible_ranges_pass(self) -> None:
+        parsed = parse_report_input(sample_input())
+        for value in ("128K~256K", "31~55\\%", "2025~2026", "144만~190만", "9.8억~2.1억"):
+            with self.subTest(value=value):
+                latex = valid_latex().replace(r"\end{document}", value + r"\end{document}")
+                self.assertTrue(any("숫자 범위" in issue for issue in validate_latex(latex, parsed).issues))
+        for value in ("128K--256K", "31부터 55까지", "A100~GPU", r"\textasciitilde{}", "% 128K~256K\n"):
+            with self.subTest(value=value):
+                latex = valid_latex().replace(r"\end{document}", value + r"\end{document}")
+                self.assertTrue(validate_latex(latex, parsed).valid)
+
     def test_local_asset_path_fails(self) -> None:
         parsed = parse_report_input(sample_input())
         latex = valid_latex().replace(

@@ -259,11 +259,17 @@ def _atomize_schema(data: dict) -> dict:
             "technology_ids": {"type": "array", "items": {"type": "string", "enum": ["SW-01", "HW-01"]}},
             "citation_keys": {"type": "array", "items": {"$ref": "#/$defs/citation_key"}},
             "core": {"type": "boolean"}}
-        blocks[unit["block_id"]] = {"type": "object", "additionalProperties": False,
-            "required": ["non_claim_reason", "claims"], "properties": {
-                "non_claim_reason": {"type": "string"}, "claims": {"type": "array", "items": {
-                    "type": "object", "properties": properties, "required": list(properties),
-                    "additionalProperties": False}}}}
+        claim = {"type": "object", "properties": properties, "required": list(properties),
+                 "additionalProperties": False}
+        blocks[unit["block_id"]] = {"anyOf": [
+            {"type": "object", "additionalProperties": False,
+             "required": ["non_claim_reason", "claims"], "properties": {
+                 "non_claim_reason": {"type": "string", "enum": [""]},
+                 "claims": {"type": "array", "minItems": 1, "items": claim}}},
+            {"type": "object", "additionalProperties": False,
+             "required": ["non_claim_reason", "claims"], "properties": {
+                 "non_claim_reason": {"type": "string", "minLength": 1},
+                 "claims": {"type": "array", "maxItems": 0, "items": claim}}}]}
     return {"type": "object", "additionalProperties": False, "required": ["blocks"],
         "properties": {"blocks": {"type": "object", "properties": blocks,
                                   "required": list(blocks), "additionalProperties": False}},
@@ -311,6 +317,7 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "canonical line-unit ID. Do not return report_quote: the controller binds each claim "
                    "to that unit's exact whole original line, including whitespace and line breaks. "
                    "Use SW-01/HW-01 technology IDs and registered citation keys from the schema. "
+                   "A unit must contain at least one claim OR a nonempty specific non-claim explanation. "
                    "Every key is required; the JSON schema defines the response structure.")
     elif phase == "audit":
         prompt += ("\nFor this strict audit request, checks must be an object keyed by EVERY fixed claim ID. "
