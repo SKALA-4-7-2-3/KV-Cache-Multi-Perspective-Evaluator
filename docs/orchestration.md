@@ -158,7 +158,7 @@ uv run --frozen python -m pipeline --run-rag \
 
 **governance는 saved/live RAG 결과를 확보한 다음 생성되며, 후속 API만 계측합니다.** live RAG는 별도 환경의 subprocess이므로 이 ledger의 호출·토큰·시간에 포함되지 않습니다. RAG 설정과 한도는 별도로 확인해야 합니다.
 
-후속 한도는 기본 모델 시도 60회, 검색 24회, extract/fetch 각 48회, 토큰 500,000, 시간 1,800초입니다. 이 값은 코드 기본값이며 실제 사용량이 아닙니다. CLI는 `--max-model-calls`, `--max-search-calls`, `--max-extract-calls`, `--max-fetch-calls`, `--max-tokens`, `--max-seconds`를 지원합니다. 각 역할의 내부 한도와 후속 공통 한도가 함께 적용됩니다.
+후속 한도는 기본 모델 시도 160회, 검색 24회, extract/fetch 각 48회, 토큰 5,000,000, 시간 1,800초입니다. 이 값은 코드 기본값이며 실제 사용량이 아닙니다. CLI는 `--max-model-calls`, `--max-search-calls`, `--max-extract-calls`, `--max-fetch-calls`, `--max-tokens`, `--max-seconds`를 지원합니다. 각 역할의 내부 한도와 후속 공통 한도가 함께 적용됩니다.
 
 [governance](../pipeline/governance.py)는 HTTP 전송 전에 호출 수와 보수적 토큰 예약을 잡습니다. 실제 usage를 받으면 반영하고 실패·응답 미확인 시 예약을 무단으로 반환하지 않습니다. 출력 한도가 없는 생성 요청에는 wire limit을 넣고, HTTP timeout은 남은 시간으로 제한합니다. 시간 검사는 후속 요청의 시작과 timeout 경계에 적용되며 RAG subprocess·로컬 PDF 컴파일·모든 계산을 선점 중단하는 전체 실행 deadline은 아닙니다.
 

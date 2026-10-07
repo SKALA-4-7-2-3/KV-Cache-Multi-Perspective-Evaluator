@@ -134,7 +134,7 @@ uv run --frozen python -m pipeline \
 
 저장된 한도를 늘려 재개하려면 `--resume --extend-budget`과 함께 모든 한도 옵션을 기존 값 이상으로 지정합니다. 한 항목이라도 기존 값보다 낮으면 재개를 거부합니다. 변경 전후 한도와 당시 사용량은 `usage.json`의 `budget_extensions`에 남습니다.
 
-통합 CLI의 `--max-judge-calls` 기본값은 **Quality 평가 시도마다 64회**이며, 독립 `evaluate_report` 함수의 기본값은 36회입니다. 이 한도는 전체 모델 예산에 추가되는 호출권이 아닙니다. Judge 호출도 후속 공통 `--max-model-calls` 한도(기본 60회)에 포함되므로 공통 예산이 먼저 소진될 수 있습니다.
+통합 CLI의 `--max-judge-calls` 기본값은 **Quality 평가 시도마다 64회**이며, 독립 `evaluate_report` 함수의 기본값은 36회입니다. 이 한도는 전체 모델 예산에 추가되는 호출권이 아닙니다. Judge 호출도 후속 공통 `--max-model-calls` 한도(기본 160회)에 포함되므로 공통 예산이 먼저 소진될 수 있습니다.
 
 ## Outputs and Verification Status
 
