@@ -7,27 +7,45 @@
 | 로그인·CLI | Codex CLI **0.153.2**, `Logged in using ChatGPT` 확인. 기존 로그인 사용, API 인증 변환 없음. |
 | 실제 구조화 응답 | 명시 모델 **`gpt-6-astra`**에서 Responses와 Chat 각각 성공. 각 input **13,472**·output **15**, 두 호출 합계 **26,974 tokens / unconfirmed 0**. |
 | 로컬 계약 검사 | Codex 어댑터 23개·기존 예산 관리 4개, **27개 통과**. 외부 모델 호출 없는 subprocess fixture 검사. |
-| 현재 실제 실행 | `outputs/codex-submission-20261007` / `integration-a6c1fd70f71744e4`. 기존 실제 **8쪽 PDF**를 재사용하여 Quality만 재실행 중이다. 직전 원문 대조는 300초 timeout·exit 2·`judge_timeout`이었다. **최종 점수·H1–H7·내용 승인 미확정**. |
+| 마지막 실제 실행 | `outputs/codex-submission-20261007` / `integration-a6c1fd70f71744e4`. 기존 실제 **8쪽 PDF**를 재사용한 Quality 2 실행이 **300.665초 timeout·exit 2·`judge_timeout`**으로 종료했다. **점수 null·H1–H7 unverified·content_approved=false**. 새 Writer 호출은 없다. |
 | 최신 TRL·시장 | Review 팀 추정 **RDKV 6·Photonic-CXL 3 / low**. 공식 인증이 아님. 시장 **12셀 중 conditional 2·provisional 10**은 분석 완전성이며 검증된 상용 도입 건수가 아님. |
 | 과거 준비 산출물 | 9쪽 근거 편집 PDF와 실제 offline 제어 trace PNG 2개. 합성 모델·Quality 경계이며 현재 제출 상태는 `review_required`. |
 
-## 마감 검증의 실제 범위
+## 마지막 실제 검증과 제출 범위
 
-사용자 제출 마감 **00:00 KST**에 맞춰 마지막 검증은 **23:48 KST까지** 수행한 뒤 실제 상태를 담아 LangSmith 캡처·ZIP을 정리한다. 현재는 묶음 전송 형식을 적용하여 **Quality만** 실제 재실행 중이다. 검증된 atomize 응답 **19개는 cache 재사용**이고 원문 대조부터 새 모델 호출을 수행한다. 기존 실제 8쪽 PDF의 SHA-256은 `0680d701795bde4600b917e5351d901e5517587f4cb6e9bea95b851314a51995`이며 새 Report 호출 없이 재사용한다. 따라서 이번 trace는 새로운 전체 파이프라인 실행이나 새 Report 생성이라고 표시하지 않고 기존 Report artifact·PDF hash와 연결한다.
+사용자의 **00:00 KST** 제출 마감에 맞춰 마지막 실제 검증을 **23:29 KST에 종료**했다. 추가 모델 호출은 하지 않는다. 마지막 명령은 `--resume --rerun quality --stop-after quality --max-quality-attempts 1`로 기존 Report/PDF를 재사용하여 Quality만 실행했다. 새로운 전체 파이프라인·새 Writer 실행이 아니다.
 
-마지막 명령에는 `--resume --rerun quality --stop-after quality --max-quality-attempts 1`을 사용한다. 완료된 Quality 평가 상한은 1회이고 기본 재현 예시의 3회와 구분한다. 현재 모델·원문·482개 주장·전체 연결·판정 사유·중복/누락 검사·평가 기준은 유지한다.
+| 마지막 Quality 2 실측 | 결과 |
+| --- | --- |
+| 종료 | **exit 2**, 원문 대조 **300.665초**, `judge_timeout`, route **review_required**. |
+| 모델 | `gpt-6-astra`, Codex ChatGPT 로그인 경로. 새 Writer 호출 없음. |
+| 주장 추출 | 텍스트 단위 **345/345**, 검증된 atomize 응답 **19개 cache 재사용**. 추출 주장 **482개**. 재사용을 새 모델 호출로 세지 않는다. |
+| 독립 평가 범위 | 주장 원문 감사 **0/482**, 최종 PDF block 검사 **0/8**. 시장 12셀의 Quality 평가 미수행. 인용 없는 사실 후보 **10개**는 미판정이며 부정확한 사실 10건으로 확정하지 않는다. |
+| 점수·gate | 축별 점수 **{}**, weighted score **null**, **H1–H7 unverified**. compiled·page_limit·structure_citations_trl·rendered_trl은 pass지만 all_checks_completed는 codex_timeout으로 fail. **content_approved=false**. |
+| 이번 실제 호출·usage | 원문 대조 **1회 timeout**, 실제 tokens **0**, 미확인 예약 **424,936 tokens**. usage 미확인 때문에 실제 소비가 0이었다고 추정하지 않는다. |
+| 전체 누적 usage | **LLM 150·search 31·extract 64·fetch 0**, 실제 **5,901,365 tokens**·미확인 예약 **7,164,291 tokens**, active time **6,093.928초**. Codex CLI usage이며 SDK 계수·금액으로 변환하지 않는다. |
+| PDF | **8쪽**, SHA-256 `0680d701795bde4600b917e5351d901e5517587f4cb6e9bea95b851314a51995`. 기존 전체 8쪽 시각 확인 이후 PDF가 바뀌지 않았다. 참고문헌 **31개**, source coverage **remaining 0**, 서지 증빙 3건 반영. |
+| Canonical 원문 hash | `16532a927de92d4d4f29947cba37495272bb42ac17e64a90450e04721747899e` — 등록 원문 identity를 유지했다. |
+| 마지막 원격 trace | [Quality 2 timeout trace](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/4f8ab728-7e86-4ff8-bf52-64a893c4f93c?poll=true), ID `4f8ab728-7e86-4ff8-bf52-64a893c4f93c`, 예상·저장·확인 **5/5 노드**. 원격 저장은 Quality 통과와 구별한다. |
+| 구현 코드 | [d3f4e6342c137cc62d67341ca526c78db7b15f7d](https://github.com/SKALA-4-7-2-3/KV-Cache-Multi-Perspective-Evaluator/commit/d3f4e6342c137cc62d67341ca526c78db7b15f7d) 원격 push 확인. 최종 제출 문서 commit은 패키징 기록으로 연결한다. |
 
-마지막 로컬 회귀는 **371 passed / 10.39초**, Pydantic deprecation 경고 2개다. 묶음 전송 형식까지 포함하고 이후 추가한 Quality 상한 CLI 옵션의 전체 회귀는 별도 범위다. 상한 0의 거부를 별도로 확인했다. 이전 346개는 과거 검사로 보존한다.
+로컬 회귀는 **371 passed / 10.39초**, Pydantic deprecation 경고 2개다. 묶음 전송 형식까지 포함하며 이후 Quality 상한 CLI 옵션의 0값 거부와 실제 manifest 적용은 별도로 확인했다. 전송 형식의 482개 주장·원문 window·사유 보존과 전체 연결·중복/누락 검사는 로컬에서 확인했지만 **실제 원문 대조의 timeout은 지속됐다**. 성능 문제가 해결됐거나 corpus 감사가 완료됐다고 표시하지 않는다.
 
-마감 시 **`pack_ready_materials`**(실제 파일·hash·비밀 제외·원격 trace 확인을 갖춘 자료 패키징)와 **`content_approved`**(완료된 Quality의 점수·필수 gate에 따른 내용 승인)를 분리한다. 평가가 미완료면 실제 오류·미검증 한계를 첨부하며 점수·pass를 만들지 않는다. 두 상태의 최종 값과 파일·trace·ZIP 실측은 후속 기록으로 확정한다.
+**content_approved=false**는 확정했다. 자료 패키징 상태 **pack_ready_materials**와 내용 승인은 별도 필드다. 개별 필수 자료 3종과 총 7개 파일의 실제 hash·비밀 제외를 확인했다. 자료 준비 상태는 `submission.json`, ZIP SHA·크기·게시와 파일 실측값은 외부 **`submission.receipt.json`**으로 확인한다. 자료 패키지에는 실제 PDF·마지막 Quality trace·미검증 범위를 포함하며 품질 승인과 구별한다.
 
-## 최신 실제 Report·Quality 진행
+### 마지막 실제 LangSmith 캡처
+
+`tracing-1.png`와 `tracing-2.png`는 위의 같은 종료 trace `4f8ab728-7e86-4ff8-bf52-64a893c4f93c`에서 직접 캡처했다. 각각 **1512×748 px**, 크기는 **206,671 bytes / 211,969 bytes**다. 첫 캡처는 종료한 5개 노드 전체, 둘째는 같은 Quality 노드의 Attributes·integration run 태그·노드 시간 **300.71초**를 보여준다. 두 PNG와 브라우저의 동일 trace URL을 시각 확인했다. 노드 시간과 원문 대조 호출 timeout 300.665초는 서로 다른 측정이다.
+
+privacy 정책으로 원문·State·모델 입력/출력은 비웠다. 이 trace는 실제 Quality-only 실행과 기존 Report/PDF lineage를 연결하며 새 Writer·Workers 실행이나 전체 pipeline fresh 검증을 주장하지 않는다. 기존 관점·Report·동적 분기 trace는 과거 검증 범위로 보존한다. 캡처 시각은 **23:31 KST**다. ZIP 구성은 **`README.md`, `report.pdf`, `tracing-1.png`, `tracing-2.png`, `quality.json`, `trace.receipt.json`, `submission.json`**의 7개 파일이며 패키징 실측값은 외부 `submission.receipt.json`으로 연결한다.
+
+## 직전 실제 Report·Quality 이력
 
 서지 증빙 반영 후 실제 재실행에서 **8쪽 PDF**를 생성했다. 출처 coverage 보완 **16건 accepted·remaining 0**, 참고문헌 **31개**와 증빙 기반 서지 **3건**이 PDF에 정상 반영된 것을 확인했다. 전체 8쪽 시각 확인에서 레이아웃 문제를 발견하지 않았다. 공개 근거의 검증 범위와 다음 조건을維持하고 내부 진단 문구를 제거했다. 팀 추정 TRL은 **6·3 / low**다.
 
 독립 Quality는 주장 추출 성공 이후 첫 원문 대조 호출이 **300초 시간 초과**로 중단됐다. 프로세스는 **exit 2**, 종료 이유는 **`judge_timeout`**, route는 **`review_required`**다. weighted score는 `null`이며 **H1–H7 전체가 `unverified`**다. 컴파일·쪽수·구조/인용/TRL의 형식 검사 pass와 최종 독립 품질 승인을 구분한다.
 
-| 최신 중단 실행의 실측 | 결과 |
+| 직전 중단 실행의 실측 | 결과 |
 | --- | --- |
 | 호출 | **22회**: Report 성공 2회 + Quality 주장 추출 성공 19회 + 원문 대조 timeout 1회. 해당 구간 search·extract·fetch 0회. |
 | 모델 | Report·Judge 모두 **`gpt-6-astra`**, Codex ChatGPT 로그인 경로. |
@@ -36,7 +54,7 @@
 | 원격 trace | [timeout 실행 trace](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/9d261ecc-823f-4d00-a7d4-f7bb13500681?poll=true), ID `9d261ecc-823f-4d00-a7d4-f7bb13500681`, 예상·저장·확인 **14개 노드**, `remote_verified=true`. 품질 통과 trace가 아니다. |
 | 보존 기록 | output의 `corpus-timeout.trace.receipt.json`, `corpus-timeout.codex.calls.jsonl`. 이전 실패와 구분한다. |
 
-직전 timeout 이후 **482개 주장·전체 원문 window·판정 사유를 그대로 보존하는 묶음 전송 형식**을 적용했다. 정규화 후 전체 연결·누락·중복 index 검사와 판정 기준을 유지한다. 현재 마지막 Quality만 재실행 중이며 실제 통과·점수·최종 제출 상태는 후속 실측으로 확인한다.
+직전 timeout 이후 **482개 주장·전체 원문 window·판정 사유를 그대로 보존하는 묶음 전송 형식**을 적용했다. 정규화 후 전체 연결·누락·중복 index 검사와 판정 기준을 유지한다. 마지막 Quality 재실행도 timeout으로 끝났으며 위의 점수 null·미검증 결과를 최종 실제 평가 상태로 기록했다. 자료 패키징 상태만 후속 실측으로 확정한다.
 
 ### 직전 초안·중단과 로컬 검사 기록
 
@@ -47,7 +65,7 @@
 - 마지막 로컬 회귀는 `pipeline/tests agent/domain/tests tools/tests report/tests` **346 passed / 8.62초**, Pydantic deprecation 경고 2개다. 외부 실행 결과·보고서 내용 승인과 구별한다.
 - 수정 후 새 runtime audit에서 서지 3건의 증빙 7필드를 모두 검증·반영했다. `reference_proofs.py`와 기존 metadata JSON의 증빙을 보고서 입력에 연결하고 충돌·URL 중복·주원문 hash·정확 좌표를 검사했다. **SourceReader 새 호출 0회**, 기존 원문 cache **162개 파일 불변**을 확인했으며 TRL·Review는 재사용했다. 이 검사는 새 PDF·독립 Quality 점수를 대신하지 않는다.
 
-최종 Report·독립 Quality·최종 PDF hash·같은 완료 trace·캡처·ZIP은 재실행 이후의 실측 결과로 갱신한다. 기존 실패 trace나 offline 합성 Quality 점수를 재사용하지 않는다.
+위 마지막 실제 실행 결과와 PDF hash·동일 Quality trace·캡처를 제출 자료에 연결했다. 직전 실패 trace나 offline 합성 Quality 점수를 최종 평가 점수로 재사용하지 않는다. 패키징 실측값은 외부 submission receipt로 구분한다.
 
 ## 실행 경로와 정책
 
@@ -65,9 +83,9 @@ uv run --frozen python -m pipeline \
 
 첫 Codex live 시도는 60·120초 timeout 뒤 중단(exit 130)됐고, 두 번째 시도에서는 Review의 약 309만 자 입력과 SourceReader의 대형 원문 호출이 `turn_incomplete`로 실패했다. `interrupted.trace.receipt.json`과 `failed-large-input.trace.receipt.json`은 두 실패 이력이다. 원격 trace 저장은 Report·Quality의 성공을 뜻하지 않는다.
 
-입력 개선 전 누적 snapshot은 **LLM 43회·search 31회·extract 64회**, 실제 **1,418,427 tokens**·미확인 예약 **5,995,666 tokens**다. 현재 재개는 같은 `usage.json`에 추가 호출을 누적하며 이 snapshot을 최종 비용·최종 사용량으로 표시하지 않는다. 실패 호출의 미확인 예약을 초기화하지 않는다.
+입력 개선 전 누적 snapshot은 **LLM 43회·search 31회·extract 64회**, 실제 **1,418,427 tokens**·미확인 예약 **5,995,666 tokens**다. 이후 재개는 같은 `usage.json`에 추가 호출을 누적했으며 이 snapshot을 최종 비용·최종 사용량으로 표시하지 않는다. 실패 호출의 미확인 예약을 초기화하지 않는다.
 
-이전 첫 Codex Writer에서는 7쪽 PDF가 생성됐고, coverage 보완의 10pt 규격 변경을 반려하여 초안을 보존했다. 직전 9쪽 초안과 최신 8쪽 PDF는 위 기록에서 구분한다. 이전 회귀 319개는 당시 기존 254개·새 timeout 검사 2개·Report 63개였으며 focused 검사 51개도 앞선 별도 기록이다. 최신 회귀는 위의 346개 결과로 구분한다. 최종 trace 캡처와 ZIP은 완료 후 만든다.
+이전 첫 Codex Writer에서는 7쪽 PDF가 생성됐고, coverage 보완의 10pt 규격 변경을 반려하여 초안을 보존했다. 직전 9쪽 초안과 최신 8쪽 PDF는 위 기록에서 구분한다. 이전 회귀 319개는 당시 기존 254개·새 timeout 검사 2개·Report 63개였으며 focused 검사 51개도 앞선 별도 기록이다. 최신 회귀는 위의 371개 결과로 구분한다. 최종 trace 캡처와 자료 패키징 범위는 위 실측 기록을 사용한다.
 
 실제 trace 준비는 [live helper](../tools/trace_live_pipeline.py)의 `--trace-project`와 같은 pipeline 옵션을 사용한다. `LANGSMITH_API_KEY` 또는 `LANGCHAIN_API_KEY`도 필요하다. 원문·State·응답·runtime payload를 숨기고 `live.trace.receipt.json`으로 원격 trace와 실제 Report·Quality·hash를 대조한다.
 
@@ -83,7 +101,7 @@ uv run --frozen python -m pipeline \
 | Report Writer | 원본 `report.input.md`와 작성용 `report.model-input.md`를 분리한다. Writer에는 source manifest와 모든 출처의 종합 관찰·실제 인용·적용 의미·한계·생략 사유를 전달한다. `window_readings` 전문은 보존 artifact의 hash·개수·coverage manifest로 연결하며 Writer의 읽기 범위는 출처별 종합이다. `report.prompt-projection.json`에 양쪽 hash·길이를 기록하고 parser·validator는 원본 handoff를 사용한다. |
 | 독립 Quality | canonical 근거 **232개 레코드 / 원문 2,688,569자**의 전체 목록·등록 identity를 유지한다. 긴 원문은 최대 **80,000자** window·**800자** 경계 중첩으로 독립 독해한 뒤 실제 원문에서 선택한 연속 span과 목록을 주장 감사·최종 rubric에 전달한다. 짧은 원문은 전체를 전달한다. Report의 독해를 정답으로 사용하지 않는다. |
 
-`quality.evidence-N.json`은 전체 원문, `quality.corpus-coverage-N.json`은 독립 독해의 전체 범위·선택 원문 span을 기록한다. 작성용 projection hash는 추가 추적 정보이며 등록 문서 hash를 새로 붙여 불일치를 덮지 않는다. 최종 Judge 입력의 기본 1,000,000자 한도·전체 PDF 줄과 시장 12셀·기술 귀속·원문 인용·미검사 차단은 유지한다. 현재 실행 결과의 Report·Quality 완료 여부는 후속 기록으로 확정해야 한다.
+`quality.evidence-N.json`은 전체 원문, `quality.corpus-coverage-N.json`은 독립 독해의 전체 범위·선택 원문 span을 기록한다. 작성용 projection hash는 추가 추적 정보이며 등록 문서 hash를 새로 붙여 불일치를 덮지 않는다. 최종 Judge 입력의 기본 1,000,000자 한도·전체 PDF 줄과 시장 12셀·기술 귀속·원문 인용·미검사 차단은 유지한다. 마지막 Report·Quality 결과는 위에 확정했으며 자료 패키징의 완료 상태만 후속 실측으로 확정한다.
 
 작성은 계층적 요약 방식이다. SourceReader의 전체 window 독해·Reducer 종합·원문은 `source-readings/`, `report.source-analysis.json`, `report.input.md`에 보존한다. Writer는 출처별 종합을 사용하고 독립 Quality는 **232개 canonical 원문**을 자체 독해한다. 종합 과정에서 선택한 내용의 타당성은 이 독립 원문 감사로 확인하며 최종 통과 판정은 아직 없다.
 
@@ -95,4 +113,4 @@ uv run --frozen python -m pipeline \
 
 등록 API 키의 **이전 목록 조회에서 127개**를 확인했지만 생성 성공은 아니었다. **20:25 KST** 최소 `gpt-4.1-mini` 호출은 **429 `credit_balance_exhausted`**였다. 다른 실습 환경의 중복되지 않는 기존 키는 한 번 최소 호출해 **404 `model_not_found`**를 받았고, 같은 키를 쓰는 환경의 중복 호출은 생략했다. Report 8의 당시 404는 [이전 기록](validation-20261007-quality-fix.md)에 보존한다.
 
-과거 `outputs/ow-validation-20261007`은 `report_repair`·피드백 16개·출처 독해 22개를 보존한다. 같은 API 설정에서의 재사용 가능 기록이며, 새 provider·공통 모델로 그 checkpoint를 재개하거나 이전 Judge 점수를 승계하지 않는다. saved 원본 조사 자료는 새 실행의 입력으로 사용할 수 있다. 새 PDF의 실제 gate·전체 10쪽 이하·시각 확인·동일 live trace·ZIP hash가 확인된 뒤에만 제출 상태를 갱신한다. 키 값·일부·hash·이메일·결제 정보·로컬 환경 파일 절대경로는 기록하지 않는다.
+과거 `outputs/ow-validation-20261007`은 `report_repair`·피드백 16개·출처 독해 22개를 보존한다. 같은 API 설정에서의 재사용 가능 기록이며, 새 provider·공통 모델로 그 checkpoint를 재개하거나 이전 Judge 점수를 승계하지 않는다. saved 원본 조사 자료는 새 실행의 입력으로 사용할 수 있다. 마지막 실제 PDF·미검증 gate·쪽수·시각 확인·동일 Quality trace를 위 기록에 연결했으며 자료 준비와 내용 승인 상태를 구분한다. ZIP hash는 외부 submission receipt로 확인한다. 키 값·일부·hash·이메일·결제 정보·로컬 환경 파일 절대경로는 기록하지 않는다.
