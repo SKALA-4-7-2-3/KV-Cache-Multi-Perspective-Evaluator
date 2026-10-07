@@ -5,12 +5,50 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, TypedDict
 from urllib.parse import urlsplit, urlunsplit
 from .references import normalize_reference
 
 class InputContractError(ValueError):
     """Raised when report input is unsafe or violates the handoff contract."""
+
+
+MARKET_CRITERIA = {
+    "market_size_growth": "시장규모·성장", "commercialization": "사업화",
+    "adoption": "도입", "ecosystem_support": "생태계 지원",
+    "standardization": "표준화", "business_value": "사업가치",
+}
+
+
+TRL_DIAGNOSTIC_PREFIX = (
+    "초안 근거의 기술·버전·원문 연결 또는 단계별 검증 방식을 확인할 수 없습니다. 초안 이유: "
+)
+
+
+class TRLReasonView(TypedDict):
+    kind: Literal["review_reason", "internal_diagnostic"]
+    public_text: str
+    internal_text: str | None
+
+
+def _trl_reason_view(pending: dict[str, Any], condition: str) -> TRLReasonView:
+    reason = pending.get("reason") or ""
+    diagnostic = (reason.startswith(TRL_DIAGNOSTIC_PREFIX)
+        and pending.get("status") == "unknown" and pending.get("evidence_ids") == []
+        and pending.get("generation_method") == "model"
+        and pending.get("semantic_validation_status") == "not_required"
+        and pending.get("semantic_reason") is None)
+    if diagnostic:
+        return {"kind": "internal_diagnostic",
+            "public_text": f"다음 단계의 필수 조건인 {condition}을 이번 평가 자료로 확인하지 못했다.",
+            "internal_text": reason}
+    return {"kind": "review_reason", "public_text": reason, "internal_text": None}
+
+
+def trl_public_reason(record: dict[str, Any]) -> str:
+    """Use the parser-owned presentation; keep manually constructed legacy inputs compatible."""
+    view = record.get("next_reason_view")
+    return view["public_text"] if isinstance(view, dict) else record.get("next_reason", "")
 
 
 @dataclass(frozen=True)
@@ -25,6 +63,16 @@ class ParsedReportInput:
     reference_records: dict[str, dict[str, Any]] = field(default_factory=dict)
     url_to_citation: dict[str, str] = field(default_factory=dict)
     source_analysis: tuple[dict[str, Any], ...] = ()
+    trl_assessments: dict[str, dict[str, Any]] = field(default_factory=dict)
+    market_findings: tuple[dict[str, Any], ...] = ()
+
+    @property
+    def market_cells(self) -> tuple[tuple[str, str], ...]:
+        expected = tuple((self.metadata[key], criterion) for key in
+                         ("sw_technology_id", "hw_technology_id") for criterion in MARKET_CRITERIA)
+        covered = {(tech, item.get("criterion_id")) for item in self.market_findings
+                   for tech in item.get("technology_ids", [item.get("tech_id")])}
+        return expected if set(expected) <= covered else ()
 
     @property
     def allowed_citation_keys(self) -> set[str]:
@@ -225,6 +273,71 @@ def _data_block(body: str, name: str, default: Any) -> Any:
         raise InputContractError(f"{name} 자료 기록을 읽을 수 없습니다.") from exc
 
 
+def _parse_review_trl(body: str, mapping: dict[str, str], technology_ids: tuple[str, str]) -> dict:
+    """Resolve final Review TRL evidence; legacy handoffs have no structured block."""
+    blocks = re.findall(r"<!-- REVIEW_TRL_JSON\n([\s\S]*?)\nEND_REVIEW_TRL_JSON -->", body)
+    if not blocks:
+        if "REVIEW_TRL_JSON" in body:
+            raise InputContractError("TRL 자료 기록의 주석 경계가 잘못되었습니다.")
+        return {}
+    if len(blocks) != 1:
+        raise InputContractError("TRL 자료 기록이 중복되었습니다.")
+    records = _data_block(body, "REVIEW_TRL", {})
+    if not isinstance(records, dict) or set(records) != set(technology_ids):
+        raise InputContractError("TRL 자료에는 두 기술의 최종 판정이 필요합니다.")
+    section = body.split("## 9.", 1)[1].split("## 10.", 1)[0]
+    evidence_refs = {}
+    for match in re.finditer(r"(?m)^### \[([^\]\n]+)\]\s*\n([\s\S]*?)(?=^### \[|\Z)", section):
+        evidence_id, content = match.groups()
+        reference = re.search(r"(?m)^- 연결 Reference ID:\s*(\S+)\s*$", content)
+        if reference:
+            if evidence_id in evidence_refs:
+                raise InputContractError("TRL 근거 인덱스에 중복 Evidence ID가 있습니다.")
+            ownership = re.search(r"(?m)^- (?:관련 기술|technology_ids):\s*([^\n]*)$", content)
+            owners = set(re.findall(r"\b(?:" + "|".join(map(re.escape, technology_ids)) + r")\b",
+                                    ownership.group(1))) if ownership else {reference.group(1)}
+            evidence_refs[evidence_id] = {"reference": reference.group(1), "technology_ids": owners}
+    resolved = {}
+    for tech, raw in records.items():
+        if not isinstance(raw, dict) or "level" not in raw:
+            raise InputContractError(f"TRL {tech} level 기록이 필요합니다.")
+        level = raw["level"]
+        if level is not None and (type(level) is not int or level not in range(1, 10)):
+            raise InputContractError(f"TRL {tech} level은 1~9 정수 또는 null이어야 합니다.")
+        ids = raw.get("evidence_ids", [])
+        if not isinstance(ids, list) or any(not isinstance(eid, str) or not eid for eid in ids):
+            raise InputContractError(f"TRL {tech} 근거 ID 형식이 잘못되었습니다.")
+        if level is not None and not ids:
+            raise InputContractError(f"TRL {tech}의 확정 추정 단계에 근거가 없습니다.")
+        citations = []
+        for eid in ids:
+            source = evidence_refs.get(eid, {})
+            reference = source.get("reference")
+            if reference not in mapping or tech not in source.get("technology_ids", set()):
+                raise InputContractError(f"TRL {tech} 근거 {eid}의 문서·인용 연결이 유효하지 않습니다.")
+            citations.append(mapping[reference])
+        checks = raw.get("checks", [])
+        if not isinstance(checks, list) or any(not isinstance(check, dict) for check in checks):
+            raise InputContractError(f"TRL {tech} 단계별 검토 형식이 잘못되었습니다.")
+        pending = raw.get("next_unconfirmed")
+        if pending is not None and not isinstance(pending, dict):
+            raise InputContractError(f"TRL {tech} 다음 미확인 조건 형식이 잘못되었습니다.")
+        pending = pending or {}
+        for key in ("required_evidence", "reason"):
+            if pending.get(key) is not None and not isinstance(pending[key], str):
+                raise InputContractError(f"TRL {tech} 다음 미확인 {key}는 문자열이어야 합니다.")
+        condition = pending.get("required_evidence") or (
+            "팀 기준 9단계까지 확인" if level == 9 else "기술 조사 Agent의 단계별 근거 입력 필요")
+        resolved[tech] = {
+            **raw,
+            "citation_keys": list(dict.fromkeys(citations)),
+            "next_condition": condition,
+            "next_reason": pending.get("reason") or "",
+            "next_reason_view": _trl_reason_view(pending, condition),
+        }
+    return resolved
+
+
 def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
                        allow_attributed_draft: bool = False,
                        reference_metadata: dict[str, dict[str, Any]] | None = None) -> ParsedReportInput:
@@ -296,6 +409,12 @@ def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
     reference_records = _reference_records(body, reference_to_citation)
     collected_sources = _data_block(body, "COLLECTED_SOURCES", [])
     retained_synthesis = _data_block(body, "RETAINED_SYNTHESIS", {})
+    upstream = _data_block(body, "UPSTREAM_ANALYSIS", {})
+    if not isinstance(upstream, dict):
+        raise InputContractError("상위 분석 자료 형식이 잘못되었습니다.")
+    market_findings = upstream.get("draft_findings", [])
+    if not isinstance(market_findings, list) or any(not isinstance(item, dict) for item in market_findings):
+        raise InputContractError("상위 시장 분석 목록 형식이 잘못되었습니다.")
     source_analysis = _data_block(body, "REPORT_SOURCE_ANALYSIS", [])
     if not isinstance(source_analysis, list) or any(not isinstance(item, dict) for item in source_analysis):
         raise InputContractError("출처별 분석 목록 형식이 잘못되었습니다.")
@@ -313,6 +432,10 @@ def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
         raise InputContractError("참고문헌 서지 정보 형식이 잘못되었습니다.")
     overrides = {**embedded_metadata, **(reference_metadata or {})}
     reference_records = {key: normalize_reference(record, overrides) for key, record in reference_records.items()}
+    trl_assessments = _parse_review_trl(
+        body, reference_to_citation,
+        (metadata["sw_technology_id"], metadata["hw_technology_id"]),
+    )
     warnings: list[str] = []
     if allow_attributed_draft:
         metadata["render_mode"] = "annotated_draft"
@@ -342,4 +465,6 @@ def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
         reference_records=reference_records,
         url_to_citation=url_to_citation,
         source_analysis=tuple(source_analysis),
+        trl_assessments=trl_assessments,
+        market_findings=tuple(market_findings),
     )

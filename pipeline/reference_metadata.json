@@ -422,5 +422,117 @@
     "arxiv_id": "2607.27187",
     "metadata_source": "https://arxiv.org/abs/2607.27187",
     "metadata_basis": "Primary arXiv citation_title, citation_author, citation_date metadata."
+  },
+  "https://arxiv.org/pdf/2511.11581": {
+    "title": "The Anatomy of a Triton Attention Kernel How to achieve cross-platform state-of-the-art LLM attention using only Triton",
+    "authors_or_organization": [
+      "Burkhard Ringlein",
+      "Jan van Lunteren",
+      "Radu Stoica",
+      "Thomas Parnell"
+    ],
+    "year": 2025,
+    "publication_date": "2025",
+    "metadata_source": "https://arxiv.org/pdf/2511.11581",
+    "metadata_basis": "Saved contiguous paper header. Only publication year is asserted; the printed version date and arXiv month are not reconciled.",
+    "source_proof": {
+      "source_id": "stakeholders:STK-integration-a6c1fd70f71744e4-R0-E027",
+      "excerpt_sha256": "60ba47c507941aabb57b26977936249d5e849bff034dcaf18bf849682741d3b4",
+      "fields": {
+        "title": {
+          "transform": "whitespace",
+          "spans": [
+            {
+              "start": 0,
+              "end": 119,
+              "quote": "The Anatomy of a Triton Attention Kernel How to achieve cross-platform state-of-the-art LLM attention using only Triton"
+            }
+          ]
+        },
+        "authors_or_organization": {
+          "transform": "author_list",
+          "spans": [
+            {
+              "start": 120,
+              "end": 184,
+              "quote": "Burkhard Ringlein, Jan van Lunteren, Radu Stoica, Thomas Parnell"
+            }
+          ]
+        },
+        "year": {
+          "transform": "year",
+          "spans": [
+            {
+              "start": 4446,
+              "end": 4450,
+              "quote": "2025"
+            }
+          ]
+        },
+        "publication_date": {
+          "transform": "year_date",
+          "spans": [
+            {
+              "start": 4446,
+              "end": 4450,
+              "quote": "2025"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "https://www.marvell.com/blogs/accelerating-ai-infrastructure-marvell-structera-sk-hynix-cxl-memory.html": {
+    "publication_date": "2026-08-05",
+    "metadata_source": "https://www.marvell.com/blogs/accelerating-ai-infrastructure-marvell-structera-sk-hynix-cxl-memory.html",
+    "metadata_basis": "Saved body date August 05, 2026; existing title and authors are retained.",
+    "source_proof": {
+      "source_id": "stakeholders:STK-integration-a6c1fd70f71744e4-R0-E029",
+      "excerpt_sha256": "33f330d85528bfce6df58bc0254bb6905d9520f5825bf99be1c01db0fb1f8ca4",
+      "fields": {
+        "publication_date": {
+          "transform": "date",
+          "spans": [
+            {
+              "start": 5622,
+              "end": 5637,
+              "quote": "August 05, 2026"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "https://www.asteralabs.com/resources/blog/breaking-through-the-memory-wall-how-cxl-transforms-rag-and-kv-cache-performance": {
+    "title": "Breaking Through the Memory Wall: How CXL Transforms RAG and KV Cache Performance",
+    "authors_or_organization": "Sandeep Dattaprasad",
+    "metadata_source": "https://www.asteralabs.com/resources/blog/breaking-through-the-memory-wall-how-cxl-transforms-rag-and-kv-cache-performance",
+    "metadata_basis": "Saved full H1 and explicit byline; publication date remains unconfirmed.",
+    "source_proof": {
+      "source_id": "stakeholders:STK-integration-a6c1fd70f71744e4-R0-E034",
+      "excerpt_sha256": "ce074ed4ecc37eb460ae95b2842d63d0b3552e02bbb044ce0f50a5126c85b3ce",
+      "fields": {
+        "title": {
+          "transform": "whitespace",
+          "spans": [
+            {
+              "start": 229,
+              "end": 310,
+              "quote": "Breaking Through the Memory Wall: How CXL Transforms RAG and KV Cache Performance"
+            }
+          ]
+        },
+        "authors_or_organization": {
+          "transform": "whitespace",
+          "spans": [
+            {
+              "start": 468,
+              "end": 487,
+              "quote": "Sandeep Dattaprasad"
+            }
+          ]
+        }
+      }
+    }
   }
 }

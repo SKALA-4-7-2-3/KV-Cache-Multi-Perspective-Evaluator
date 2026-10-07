@@ -3,6 +3,28 @@
 import re
 
 
+_NUMERIC_RANGE = re.compile(
+    r"(?<![A-Za-z0-9.])(\d+(?:\.\d+)?(?:[KMGT]|만|억)?)[ \t]*~[ \t]*"
+    r"(\d+(?:\.\d+)?(?:[KMGT]|만|억)?)(?![A-Za-z0-9.])")
+_PROTECTED = re.compile(
+    r"(?<!\\)%[^\n]*|\\(?:url|href)\{[^{}]*\}|"
+    r"\$\$[\s\S]*?\$\$|(?<!\\)\$[^$]*\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|"
+    r"\\begin\{(equation\*?|align\*?|verbatim|lstlisting)\}[\s\S]*?\\end\{\1\}")
+
+
+def normalize_numeric_ranges(latex: str) -> str:
+    """Render prose range separators; preserve numbers, units, URLs and math."""
+    preamble, marker, body = latex.partition(r"\begin{document}")
+    if not marker:
+        return latex
+    parts, start = [], 0
+    for protected in _PROTECTED.finditer(body):
+        parts.extend((_NUMERIC_RANGE.sub(r"\1--\2", body[start:protected.start()]), protected.group()))
+        start = protected.end()
+    parts.append(_NUMERIC_RANGE.sub(r"\1--\2", body[start:]))
+    return preamble + marker + "".join(parts)
+
+
 REPORT_LAYOUT = r"""% BEGIN_REPORT_LAYOUT
 \usepackage{fontspec}
 \usepackage{indentfirst}
@@ -29,4 +51,4 @@ def apply_report_layout(latex: str) -> str:
     preamble, marker, body = latex.partition(r"\begin{document}")
     if not marker:
         return latex
-    return preamble.rstrip() + "\n" + REPORT_LAYOUT + "\n" + marker + body
+    return normalize_numeric_ranges(preamble.rstrip() + "\n" + REPORT_LAYOUT + "\n" + marker + body)

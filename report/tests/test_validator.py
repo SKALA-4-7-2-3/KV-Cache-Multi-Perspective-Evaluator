@@ -22,6 +22,30 @@ class ValidatorTests(unittest.TestCase):
             any("허용되지 않은 citation_key" in issue for issue in result.issues)
         )
 
+    def test_numeric_tilde_ranges_fail_but_spaces_and_visible_ranges_pass(self) -> None:
+        parsed = parse_report_input(sample_input())
+        for value in ("128K~256K", "31~55\\%", "2025~2026", "144만~190만", "9.8억~2.1억"):
+            with self.subTest(value=value):
+                latex = valid_latex().replace(r"\end{document}", value + r"\end{document}")
+                self.assertTrue(any("숫자 범위" in issue for issue in validate_latex(latex, parsed).issues))
+        for value in ("128K--256K", "31부터 55까지", "A100~64GB", r"\textasciitilde{}", "% 128K~256K\n"):
+            with self.subTest(value=value):
+                latex = valid_latex().replace(r"\end{document}", value + r"\end{document}")
+                self.assertTrue(validate_latex(latex, parsed).valid)
+
+    def test_range_formatting_preserves_numbers_citations_and_protected_text(self) -> None:
+        from report_agent.layout import normalize_numeric_ranges
+        body = (r"128K~256K, 9.8억~2.1억, 31~55\%\cite{SW01_RDKV}. "
+                r"A100~64GB $3~4$ \(5~6\) \url{https://example.test/2025~2026} "
+                r"\href{https://example.test/1~2}{2025~2026년}" + "\n% 7~8\n")
+        source = r"\documentclass{article}\begin{document}" + body + r"\end{document}"
+        fixed = normalize_numeric_ranges(source)
+        self.assertIn(r"128K--256K, 9.8억--2.1억, 31--55\%\cite{SW01_RDKV}.", fixed)
+        self.assertIn(r"A100~64GB $3~4$ \(5~6\) \url{https://example.test/2025~2026}", fixed)
+        self.assertIn(r"\href{https://example.test/1~2}{2025--2026년}", fixed)
+        self.assertIn("% 7~8", fixed)
+        self.assertEqual(normalize_numeric_ranges(fixed), fixed)
+
     def test_local_asset_path_fails(self) -> None:
         parsed = parse_report_input(sample_input())
         latex = valid_latex().replace(
