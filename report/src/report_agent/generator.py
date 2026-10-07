@@ -235,9 +235,13 @@ class ReportAgent:
         self._responder = responder or self._openai_response
 
     def _openai_response(self, instructions: str, prompt: str) -> str:
-        from openai import OpenAI, OpenAIError
+        from openai import OpenAIError
+        try:
+            from pipeline.governance import openai_client as OpenAI
+        except ModuleNotFoundError:
+            from openai import OpenAI
 
-        client = OpenAI()
+        client = OpenAI(timeout=120, max_retries=0)
         try:
             response = client.responses.create(
                 model=self.model,
@@ -250,6 +254,8 @@ class ReportAgent:
             raise GenerationError(
                 f"OpenAI API 호출 실패({type(exc).__name__}). API 키와 모델 접근 권한을 확인하세요."
             ) from exc
+        finally:
+            client.close()
         if not response.output_text:
             raise GenerationError("모델 응답에 output_text가 없습니다.")
         return response.output_text
