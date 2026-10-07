@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from pipeline.artifacts import role_fingerprints
+from pipeline.artifacts import fingerprint, role_fingerprints
 
 
 COMMON = (
@@ -58,10 +58,36 @@ class RoleFingerprintTests(unittest.TestCase):
         self.assertTrue(all(before[role] != after[role] for role in before))
 
     def test_role_source_only_invalidates_its_owner(self):
+        before = fingerprint(self.root)
         self.assertEqual(self.changed_roles("agent/market/worker.py"), {"market"})
+        self.assertNotEqual(fingerprint(self.root), before)
 
     def test_report_quality_change_preserves_worker_fingerprints(self):
         self.assertEqual(self.changed_roles("pipeline/report_quality.py"), set())
+
+    def test_generated_cache_creation_and_changes_preserve_all_fingerprints(self):
+        # market_agent/.cache holds real CLI regression outputs. Cache files in
+        # any scanned source tree must not invalidate accepted worker results.
+        before = fingerprint(self.root)
+        before_roles = role_fingerprints(self.root)
+        for base in ("pipeline", "agent/market/market_agent", "report/src"):
+            for cache_name in (".cache", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".git"):
+                with self.subTest(base=base, cache=cache_name):
+                    directory = self.root / base / cache_name / "regression"
+                    directory.mkdir(parents=True)
+                    paths = [directory / name for name in ("result.json", "report.md", "generated.py")]
+                    for path in paths:
+                        path.write_text("first generated output\n")
+                    self.assertEqual(fingerprint(self.root), before)
+                    self.assertEqual(role_fingerprints(self.root), before_roles)
+                    for path in paths:
+                        path.write_text("changed generated output\n")
+                    self.assertEqual(fingerprint(self.root), before)
+                    self.assertEqual(role_fingerprints(self.root), before_roles)
+                    for path in paths:
+                        path.unlink()
+                    self.assertEqual(fingerprint(self.root), before)
+                    self.assertEqual(role_fingerprints(self.root), before_roles)
 
 
 if __name__ == "__main__":

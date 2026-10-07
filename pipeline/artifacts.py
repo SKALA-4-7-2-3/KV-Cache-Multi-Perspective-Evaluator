@@ -7,6 +7,14 @@ from pathlib import Path
 from threading import RLock
 
 
+# Runtime/test caches are generated data, even when their files use source-like
+# extensions. Use the same exclusions for run and accepted-worker fingerprints.
+_FINGERPRINT_EXCLUDED_PARTS = {
+    ".venv", "__pycache__", "output", "outputs", "tests", "examples",
+    ".cache", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".git",
+}
+
+
 def digest(value):
     return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -14,7 +22,7 @@ def digest(value):
 def fingerprint(root):
     paths = [p for base in ("pipeline", "agent", "report/src") for p in (root/base).rglob("*")
              if p.is_file() and p.suffix in {".py", ".md", ".json"} and not any(
-                 part in {".venv", "__pycache__", "output", "outputs", "tests", "examples"} for part in p.parts)]
+                 part in _FINGERPRINT_EXCLUDED_PARTS for part in p.parts)]
     paths += [p for p in (root/"uv.lock", root/"pyproject.toml") if p.exists()]
     return digest({str(p.relative_to(root)): sha256(p.read_bytes()).hexdigest() for p in sorted(paths)})
 
@@ -32,8 +40,8 @@ def role_fingerprints(root):
     for role in ("domain", "market", "stakeholders"):
         directory = root / "agent" / ("stakeholder" if role == "stakeholders" else role)
         paths = common + [p for p in directory.rglob("*") if p.is_file()
-            and p.suffix in {".py", ".md", ".json"} and not any(part in {
-                ".venv", "__pycache__", "output", "outputs", "tests", "examples"} for part in p.parts)]
+            and p.suffix in {".py", ".md", ".json"} and not any(
+                part in _FINGERPRINT_EXCLUDED_PARTS for part in p.parts)]
         result[role] = digest({str(p.relative_to(root)):sha256(p.read_bytes()).hexdigest() for p in sorted(paths)})
     return result
 
