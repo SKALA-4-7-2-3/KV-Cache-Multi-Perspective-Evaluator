@@ -162,7 +162,9 @@ class ReportAgent:
         except ModuleNotFoundError:
             from openai import OpenAI
 
-        client = OpenAI(timeout=120, max_retries=0)
+        # Full-source reports can exceed two minutes; the governed client still
+        # caps every request by the run's remaining budget and performs no SDK retry.
+        client = OpenAI(timeout=300, max_retries=0)
         try:
             response = client.responses.create(
                 model=self.model,
@@ -173,7 +175,7 @@ class ReportAgent:
             )
         except OpenAIError as exc:
             raise GenerationError(
-                f"OpenAI API 호출 실패({type(exc).__name__}). API 키와 모델 접근 권한을 확인하세요."
+                f"OpenAI API 호출 실패({type(exc).__name__}). 요청 시간·연결·API 오류 기록을 확인하세요."
             ) from exc
         finally:
             client.close()
