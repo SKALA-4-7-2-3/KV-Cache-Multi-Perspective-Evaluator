@@ -38,7 +38,7 @@ def _failure_header(data, *, run_id=None):
 
 def run_detailed(input_json, *, request=None, as_of=None, run_id=None,
                  config: AgentConfig | None = None, model=None, web=None,
-                 mode: str = "live") -> AgentState:
+                 mode: str = "live", scope: dict | None = None) -> AgentState:
     """Run two paper-analysis JSONs with request context, returning private diagnostics.
 
     ``input_json`` is an envelope, a JSON string, or a list of two paper objects.
@@ -59,6 +59,45 @@ def run_detailed(input_json, *, request=None, as_of=None, run_id=None,
         if len(serialized) + len(request_text) > config.max_input_chars:
             raise InputError("입력 JSON이 허용 크기를 넘었습니다.")
         normalized = parse_json_input(input_json, request=request, as_of=as_of, run_id=run_id)
+        if scope:
+            selected = set(scope.get("technology_ids", []))
+            known = {item.id for item in normalized.parsed.technologies}
+            if not selected or not selected <= known:
+                raise InputError("scope.technology_ids must select known technologies")
+            normalized.parsed.technologies = [item for item in normalized.parsed.technologies
+                                              if item.id in selected]
+            normalized.parsed.evidence = {key: item for key, item in normalized.parsed.evidence.items()
+                                          if selected.intersection(item.tech_ids)}
+            feedback = [str(item) for item in scope.get("feedback", []) if str(item).strip()]
+            prior = scope.get("prior") if isinstance(scope.get("prior"), dict) else None
+            if prior:
+                from .models import Evidence
+                for key, row in prior.get("evidence", {}).items():
+                    technology_ids = row.get("technology_ids", [])
+                    if key in normalized.parsed.evidence or not selected.intersection(technology_ids):
+                        continue
+                    normalized.parsed.evidence[key] = Evidence(
+                        id=key, tech_ids=list(technology_ids), title=str(row.get("title", key)),
+                        url=str(row.get("url", "")), location=str(row.get("location", "")),
+                        excerpt=str(row.get("excerpt", "")), publisher=str(row.get("publisher", "미표기")),
+                        published_at=str(row.get("published_at", "미표기")),
+                        retrieved_at=str(row.get("retrieved_at", "미표기")),
+                        source_type=str(row.get("source_type", "web")), scope=str(row.get("scope", "direct")),
+                        author=str(row.get("author", "미표기")), requested_url=str(row.get("requested_url", "")),
+                        metadata_provenance=dict(row.get("metadata_provenance", {})),
+                        search_queries=list(row.get("search_queries", [])),
+                        content_sha256=str(row.get("collected_content_sha256", "")), audit=dict(row.get("audit", {})))
+                prior_cells = {tech: prior.get("result", {}).get("by_technology", {}).get(tech)
+                               for tech in selected if tech in prior.get("result", {}).get("by_technology", {})}
+            else:
+                prior_cells = {}
+            if feedback or prior_cells:
+                normalized.parsed.analysis_context.additional_context = "\n".join(filter(None, (
+                    normalized.parsed.analysis_context.additional_context,
+                    ("선택된 기술 셀에 대한 상위 검토 feedback:\n- " + "\n- ".join(feedback)) if feedback else "",
+                    ("이전 accepted 셀(JSON, 새 근거와 feedback에 따라 필요한 부분만 재평가):\n" +
+                     json.dumps(prior_cells, ensure_ascii=False)) if prior_cells else "",
+                )))
         # Credentials/endpoints are never loaded from upstream document data.
         if not supplied_config:
             settings = getattr(normalized, "config", {})
@@ -98,7 +137,7 @@ def run_detailed(input_json, *, request=None, as_of=None, run_id=None,
 
 def run_stakeholder(input_json, *, request=None, as_of=None, run_id=None,
                     config: AgentConfig | None = None, model=None, web=None,
-                    mode: str = "live") -> dict:
+                    mode: str = "live", scope: dict | None = None) -> dict:
     """Return a JSON-serializable stakeholder result, including failure diagnostics."""
     return run_detailed(input_json, request=request, as_of=as_of, run_id=run_id,
-                        config=config, model=model, web=web, mode=mode)["output_json"]
+                        config=config, model=model, web=web, mode=mode, scope=scope)["output_json"]

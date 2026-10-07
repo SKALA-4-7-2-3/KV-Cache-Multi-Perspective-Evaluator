@@ -453,4 +453,5 @@ def build_graph(config: AgentConfig, model, web):
     builder.add_edge("analyze", "validate")
     builder.add_conditional_edges("validate", after_validation)
     builder.add_edge("render", END)
-    return builder.compile()
+    # Persist this worker's JSON outcome in the parent, not internal model state.
+    return builder.compile(checkpointer=False)
