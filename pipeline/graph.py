@@ -323,7 +323,7 @@ def build_graph(context, checkpointer=None):
             lambda:(ctx.quality or evaluate_report)(tex_path=report_result["tex_path"],pdf_path=report_result["pdf_path"],
                 review_input=rev_input,report_markdown=review_result["report_input_md"],model=judge_model,
                 output_dir=ctx.output_dir/"quality"/f"attempt-{attempt}",attempt=attempt,
-                max_judge_calls=ctx.max_judge_calls))
+                max_judge_calls=ctx.max_judge_calls,response_cache_dir=ctx.output_dir/"quality"))
         ctx.store.put("quality.json",result)
         route = result["route"]
         phase,reason = "review_required",result.get("failure_type") or "quality_not_passed"

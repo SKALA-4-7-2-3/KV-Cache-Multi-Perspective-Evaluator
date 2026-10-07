@@ -117,15 +117,17 @@ H1은 원문과 모순되는 `contradicted` 판정이나 중대 사실 오류를
 
 `checked_claims.checked`와 판정별 부분 집계는 현재 validator를 통과해 완료된 audit 배치만 누적합니다. 중간 실패 시 예정 배치나 미완료 주장을 완료 수에 포함하지 않으며, 부분 완료 수를 전체 Quality 통과로 해석하지 않습니다.
 
-통합 CLI는 `--max-judge-calls`로 **각 Quality 시도의 호출 상한**을 설정하며 기본값은 64회입니다. 독립 `evaluate_report` 함수의 기본값은 36회입니다. 이 로컬 상한과 후속 공통 모델 한도는 함께 적용됩니다. Judge·planner·worker·TRL·Review·Report의 실제 API 시도는 모두 `--max-model-calls` 안에 포함되며, Judge 상한만 늘려 공통 예산을 우회할 수 없습니다.
+통합 CLI는 `--max-judge-calls`로 **각 Quality 시도의 호출 상한**을 설정하며 기본값은 64회입니다. 독립 `evaluate_report` 함수의 기본값은 36회입니다. 주장 추출은 출력 8,000토큰·HTTP 120초, 원문 감사와 최종 rubric은 출력 16,384토큰·HTTP 300초를 사용합니다. 실제 요청과 입력 계획의 출력 예약은 같은 함수를 사용하며 HTTP 시간도 남은 공통 deadline을 넘지 않습니다. 이 로컬 상한과 후속 공통 모델 한도는 함께 적용됩니다. Judge·planner·worker·TRL·Review·Report의 실제 API 시도는 모두 `--max-model-calls` 안에 포함되며, Judge 상한만 늘려 공통 예산을 우회할 수 없습니다.
 
 원문 감사의 strict schema는 각 주장에 `technology_references`를 요구합니다. `supported`는 모든 해당 기술에 canonical owner가 일치하는 원문·span을 하나 이상 선택해야 하며, 적격 원문이 없는 기술은 해당 판정 분기를 제공하지 않습니다. 다른 판정은 기술별 참조를 null로 남길 수 있습니다. 기술 ID가 없는 범용 사실의 supported 판정도 등록된 원문 참조가 최소 한 개 필요합니다. 참조를 중복 제거해 실제 원문 인용으로 연결한 뒤 기존 hash·locator·문단 인용·ownership 검사를 다시 수행합니다. 인용문을 포함하는 판정은 해당 주장의 실제 citation과 기술 owner가 맞는 `claim_reference`를 필수로 선택합니다. 일치하는 원문이 없으면 인용 없는 unsupported/uncertain만 허용하며, contradicted와 supported는 근거 없이 반환할 수 없습니다.
 
 ### Judge 응답 캐시와 계약 보정
 
+통합 실행은 `quality/quality-responses/`를 공유 캐시로 사용하고, 기존 `quality/attempt-N/quality-responses/`도 현재 검사로 다시 검증합니다. 이전 alias는 원래 경로·실제 prompt hash의 provenance를 기록하며 새 응답으로 승격하지 않습니다.
+
 실제 provider의 주장 추출(`atomize`)·원문 감사(`audit`)에서 **현재 normalizer와 validator를 모두 통과한 raw 응답**만 Quality 출력 경로 아래 `quality-responses/`에 원자적으로 저장합니다. 요청의 단계·모델·instructions·실제 prompt·strict schema·버전을 정렬한 JSON의 SHA-256이 키입니다. 로드할 때 envelope의 키·버전·raw 형식·SHA-256을 확인하고, 현재 normalizer와 validator를 다시 실행합니다. 요청·모델·스키마 변경, 손상 또는 현재 계약 위반은 재사용하지 않습니다.
 
-계약 오류에는 **최대 한 번의 수정 호출**을 허용합니다. 원래 원문·PDF 줄·주장 목록은 유지하고 오류와 직전 미신뢰 응답만 추가합니다. 수정 요청의 원인이 된 응답과 오류는 `quality.invalid-*.json`에 남깁니다. 수정 응답도 같은 현재 검사를 통과해야 하며, 임계값을 낮추거나 미검사 주장을 통과로 바꾸지 않습니다.
+계약 오류에는 **최대 한 번의 수정 호출**을 허용합니다. 원래 원문·PDF 줄·주장 목록은 유지하고 오류와 직전 미신뢰 응답만 추가합니다. 수정 요청의 원인이 된 응답과 오류는 `quality.invalid-*.json`에 남깁니다. 미완료 응답은 상태·사유·입출력 토큰 및 부분 출력을 `quality.incomplete-*.json`에 미승인으로 기록하며 캐시하지 않습니다. 수정 응답도 같은 현재 검사를 통과해야 하며, 임계값을 낮추거나 미검사 주장을 통과로 바꾸지 않습니다.
 
 수정 프롬프트로 검증된 raw 응답은 실제 요청 키에 저장하고, 원래 요청 키에서 이를 가리키는 alias를 발급합니다. alias의 원래 키·대상 키 형식·실제 프롬프트 hash와 대상 envelope의 `verified_base_key`·raw hash·버전을 함께 확인해 보정 provenance를 보존합니다. 기존 원래 요청 캐시 키는 유지하며 손상된 alias는 cache miss입니다. 캐시 재사용도 현재 원문·주장 계약을 통과해야 하고, 최종 rubric과 전체 gate를 다시 평가합니다. 캐시 파일 자체는 보고서의 Quality 승인 기록이 아닙니다.
 

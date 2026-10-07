@@ -128,6 +128,139 @@ class ReportQualityTests(unittest.TestCase):
                 report_markdown=self.markdown, model="offline-judge", output_dir=self.output,
                 responder=responder or self.responder, **changes)
 
+    def offline_wire_client(self, calls, *, incomplete_audit=False, correct_atomize=False):
+        """Fake the SDK transport only; exercise the real provider and current validators."""
+        from types import SimpleNamespace
+        test = self
+        atomize_calls = []
+        def factory(**options):
+            class Client:
+                def __enter__(self): return self
+                def __exit__(self, *args): pass
+                @property
+                def responses(self): return self
+                def create(self, **kwargs):
+                    data = payload(kwargs["input"])
+                    phase = data["phase"]
+                    calls.append({"phase": phase, "options": options, "wire": kwargs})
+                    if incomplete_audit and phase == "audit":
+                        return SimpleNamespace(status="incomplete", output_text='{"checks":"OFFLINE partial"',
+                            incomplete_details=SimpleNamespace(reason="max_output_tokens"),
+                            usage=SimpleNamespace(input_tokens=1000, output_tokens=kwargs["max_output_tokens"],
+                                                  total_tokens=1000 + kwargs["max_output_tokens"]))
+                    answer = test.responder(JUDGE_INSTRUCTIONS, _judge_prompt(phase, data))
+                    if phase == "atomize":
+                        atomize_calls.append(data)
+                        raw = {"blocks": {row["block_id"]: {"non_claim_reason": row["non_claim_reason"],
+                            "claims": [{key: value for key, value in claim.items() if key != "report_quote"}
+                                       for claim in row["claims"]]} for row in answer["blocks"]}}
+                        if correct_atomize and len(atomize_calls) == 1:
+                            raw = {"blocks": {}}
+                    elif phase == "audit":
+                        raw = raw_audit_checks(answer, data)
+                    else:
+                        raw = answer
+                    return SimpleNamespace(status="completed", output_text=json.dumps(raw))
+            return Client()
+        return factory
+
+    def evaluate_provider(self, output_dir, **changes):
+        with patch("pipeline.report_quality.extract_pdf", return_value=(1, self.blocks)):
+            return evaluate_report(tex_path=self.tex, pdf_path=self.pdf, review_input=canonical(),
+                report_markdown=self.markdown, model="offline-judge", output_dir=output_dir, **changes)
+
+    def test_phase_reservations_match_sdk_output_limits_and_timeouts(self):
+        calls = []
+        with patch("pipeline.governance.openai_client", side_effect=self.offline_wire_client(calls)):
+            result = self.evaluate_provider(self.output)
+        self.assertEqual(result["route"], "passed", result["gates"])
+        self.assertEqual([call["phase"] for call in calls], ["atomize", "audit", "rubric"])
+        self.assertEqual([call["wire"]["max_output_tokens"] for call in calls], [8000, 16384, 16384])
+        self.assertEqual([call["options"]["timeout"] for call in calls], [120, 300, 300])
+        plan = json.loads(Path(result["input_plan_path"]).read_text())
+        self.assertEqual([entry["output_token_reservation"] for entry in plan["calls"]],
+                         [call["wire"]["max_output_tokens"] for call in calls])
+
+    def test_incomplete_cause_and_partial_are_recorded_but_never_cached(self):
+        calls = []
+        with patch("pipeline.governance.openai_client", side_effect=self.offline_wire_client(calls, incomplete_audit=True)):
+            result = self.evaluate_provider(self.output)
+        self.assertEqual(result["route"], "review_required")
+        self.assertIsNone(result["weighted_score"])
+        self.assertEqual(result["judge_calls"], 3)
+        details = result["gates"]["all_checks_completed"]["details"]
+        for value in ("incomplete", "max_output_tokens", "16384"):
+            self.assertIn(value, details)
+        diagnostics = sorted(self.output.glob("quality.incomplete-*.audit.json"))
+        self.assertEqual(len(diagnostics), 2)
+        for path in diagnostics:
+            record = json.loads(path.read_text())
+            self.assertIs(record["approved"], False)
+            self.assertEqual(record["raw_partial"], '{"checks":"OFFLINE partial"')
+            self.assertEqual(record["usage"]["output_tokens"], 16384)
+        self.assertTrue(all("OFFLINE partial" not in path.read_text()
+                            for path in (self.output / "quality-responses").glob("*.json")))
+
+    def test_shared_cache_revalidates_across_attempts_and_corruption_misses(self):
+        calls, quality_root = [], self.output / "quality"
+        with patch("pipeline.governance.openai_client", side_effect=self.offline_wire_client(calls)):
+            first = self.evaluate_provider(quality_root / "attempt-1", attempt=1, response_cache_dir=quality_root)
+            from pipeline.report_quality import _atomize, _audit
+            with patch("pipeline.report_quality._atomize", wraps=_atomize) as atomize, patch("pipeline.report_quality._audit", wraps=_audit) as audit:
+                second = self.evaluate_provider(quality_root / "attempt-2", attempt=2, response_cache_dir=quality_root)
+                self.assertEqual((atomize.call_count, audit.call_count), (1, 1))
+            self.assertEqual((first["judge_calls"], second["judge_calls"]), (3, 1))
+            self.assertEqual(second["cache_hits"], 2)
+            self.assertEqual([call["phase"] for call in calls[3:]], ["rubric"])
+            self.assertFalse((quality_root / "attempt-1" / "quality-responses").exists())
+            cached = next((quality_root / "quality-responses").glob("*.json"))
+            record = json.loads(cached.read_text()); record["raw"] = "tampered"
+            cached.write_text(json.dumps(record))
+            third = self.evaluate_provider(quality_root / "attempt-3", attempt=3, response_cache_dir=quality_root)
+        self.assertEqual(third["route"], "passed")
+        self.assertEqual(third["judge_calls"], 2)
+        self.assertEqual(third["cache_hits"], 1)
+
+    def test_legacy_corrected_cache_stays_in_place_with_provenance_and_current_validation(self):
+        calls, quality_root = [], self.output / "quality"
+        legacy = quality_root / "attempt-1"
+        with patch("pipeline.governance.openai_client", side_effect=self.offline_wire_client(calls, correct_atomize=True)):
+            first = self.evaluate_provider(legacy, attempt=1)
+        self.assertEqual(first["judge_calls"], 4)
+        alias_path = next((legacy / "quality-responses").glob("*.alias.json"))
+        alias = json.loads(alias_path.read_text())
+        before = {path.name: path.read_bytes() for path in alias_path.parent.glob("*.json")}
+        # Valid envelope does not confer approval: the current validator rejects this shared candidate.
+        shared = quality_root / "quality-responses"
+        shared.mkdir()
+        raw = json.loads((legacy / "quality-responses" / f"{alias['target_key']}.json").read_text())["raw"]
+        rejected = shared / f"{alias['base_key']}.json"
+        rejected.write_text(json.dumps({"key": alias["base_key"], "version": 1, "raw": raw,
+                                       "raw_sha256": sha256(raw.encode()).hexdigest()}))
+        original_shared = rejected.read_bytes()
+        from pipeline.report_quality import _atomize
+        validations = []
+        def validate(*args):
+            validations.append(1)
+            if len(validations) == 1:
+                raise JudgeContractError("OFFLINE current validator rejects shared candidate")
+            return _atomize(*args)
+        calls.clear()
+        with patch("pipeline.governance.openai_client", side_effect=self.offline_wire_client(calls)), patch("pipeline.report_quality._atomize", side_effect=validate):
+            second = self.evaluate_provider(quality_root / "attempt-2", attempt=2, response_cache_dir=quality_root)
+        self.assertEqual(second["route"], "passed", second["gates"])
+        self.assertEqual([call["phase"] for call in calls], ["rubric"])
+        self.assertEqual(len(validations), 2)
+        self.assertEqual(before, {path.name: path.read_bytes() for path in alias_path.parent.glob("*.json")})
+        self.assertEqual(rejected.read_bytes(), original_shared)
+        self.assertEqual(len(list(shared.glob("*.json"))), 1)
+        plan = json.loads(Path(second["input_plan_path"]).read_text())
+        hit = next(row for row in plan["cache_hits"] if row["phase"] == "atomize")
+        self.assertEqual(hit["response_key"], alias["target_key"])
+        self.assertEqual(hit["verified_base_key"], alias["base_key"])
+        self.assertEqual(hit["actual_prompt_sha256"], alias["actual_prompt_sha256"])
+        self.assertEqual(Path(hit["alias_path"]).resolve(), alias_path.resolve())
+
     def test_all_rendered_blocks_and_original_quotes_are_judged(self):
         result = self.evaluate()
         self.assertEqual(result["route"], "passed")
@@ -636,16 +769,26 @@ class ReportQualityTests(unittest.TestCase):
 
     def test_incomplete_provider_response_never_reaches_atomization(self):
         from types import SimpleNamespace
+        responses = iter([SimpleNamespace(status="completed", output_text='{"blocks": []}'),
+                          SimpleNamespace(status="incomplete", output_text='{"blocks": []}',
+                              incomplete_details=SimpleNamespace(reason="max_output_tokens"),
+                              usage=SimpleNamespace(input_tokens=3, output_tokens=8, total_tokens=11))])
         class Client:
             def __enter__(self): return self
             def __exit__(self, *args): pass
             @property
             def responses(self): return self
             def create(self, **kwargs):
-                return SimpleNamespace(status="incomplete", output_text='{"blocks": []}')
+                return next(responses)
         with patch("pipeline.governance.openai_client", return_value=Client()):
-            with self.assertRaises(JudgeContractError):
-                _provider("offline-model")(JUDGE_INSTRUCTIONS, _judge_prompt("audit", {}))
+            provider = _provider("offline-model")
+            provider(JUDGE_INSTRUCTIONS, _judge_prompt("audit", {}))
+            self.assertIsInstance(provider.raw_response, str)
+            with self.assertRaises(JudgeContractError) as caught:
+                provider(JUDGE_INSTRUCTIONS, _judge_prompt("audit", {}))
+        self.assertIsNone(provider.raw_response)
+        self.assertEqual(caught.exception.diagnostics["reason"], "max_output_tokens")
+        self.assertEqual(caught.exception.diagnostics["usage"]["total_tokens"], 11)
 
     def test_atomization_batches_at_most_twenty_units_without_losing_units(self):
         self.blocks[0]["text"] += "\n" + "\n".join("추가 원문 줄 " + str(i) for i in range(44))

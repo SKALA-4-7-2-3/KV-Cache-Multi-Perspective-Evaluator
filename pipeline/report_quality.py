@@ -46,6 +46,7 @@ class JudgeResponseCache:
 
     def __init__(self, output_dir):
         self.directory = Path(output_dir) / "quality-responses"
+        self.last_load_provenance = None
 
     @staticmethod
     def _request_key(request: dict) -> str:
@@ -67,11 +68,15 @@ class JudgeResponseCache:
             return None
 
     def load(self, request: dict) -> str | None:
+        self.last_load_provenance = None
         key = self._request_key(request)
         try:
             alias = json.loads((self.directory / f"{key}.alias.json").read_text(encoding="utf-8"))
         except FileNotFoundError:
             envelope = self._read_envelope(key)
+            if envelope is not None:
+                self.last_load_provenance = {"response_path": str(self.directory / f"{key}.json"),
+                                             "response_key": key}
             return envelope["raw"] if envelope is not None else None
         except (OSError, UnicodeError, ValueError, TypeError):
             return None
@@ -86,6 +91,10 @@ class JudgeResponseCache:
         if (envelope is None or envelope.get("verified_base_key") != key
                 or envelope.get("actual_prompt_sha256") != alias["actual_prompt_sha256"]):
             return None
+        self.last_load_provenance = {"response_path": str(self.directory / f"{alias['target_key']}.json"),
+            "response_key": alias["target_key"], "verified_base_key": key,
+            "actual_prompt_sha256": alias["actual_prompt_sha256"],
+            "alias_path": str(self.directory / f"{key}.alias.json")}
         return envelope["raw"]
 
     def _atomic_write(self, name: str, envelope: dict) -> None:
@@ -688,9 +697,16 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
     return raw
 
 
+def phase_output_limit(phase: str | None) -> int:
+    """One reservation and transport limit for each complete Judge response."""
+    return 16384 if phase in {"audit", "rubric"} else 8000
+
+
 def _provider(model: str, *, phase: str | None = None, data: dict | None = None) -> Responder:
     def respond(instructions, prompt):
         from .governance import openai_client
+        respond.raw_response = None
+        respond.incomplete_response = None
         format = {"type": "json_object"}
         if phase == "atomize":
             format = {"type": "json_schema", "name": "report_line_atomization", "strict": True,
@@ -700,12 +716,26 @@ def _provider(model: str, *, phase: str | None = None, data: dict | None = None)
                       "schema": _audit_schema(data or {})}
         if phase is not None and data is not None:
             prompt = _provider_prompt(phase, data)
-        with openai_client(timeout=120, max_retries=0) as client:
+        with openai_client(timeout=300 if phase in {"audit", "rubric"} else 120, max_retries=0) as client:
             response = client.responses.create(model=model, temperature=0, store=False,
-                max_output_tokens=8000, instructions=instructions, input=prompt,
+                max_output_tokens=phase_output_limit(phase), instructions=instructions, input=prompt,
                 text={"format": format})
         if getattr(response, "status", None) != "completed":
-            raise JudgeContractError("Judge response did not complete")
+            details, usage = getattr(response, "incomplete_details", None), getattr(response, "usage", None)
+            status, reason = getattr(response, "status", None), getattr(details, "reason", None)
+            diagnostic = {"status": status if isinstance(status, str) else None,
+                          "reason": reason if isinstance(reason, str) else None,
+                          "usage": {}}
+            for name in ("input_tokens", "output_tokens", "total_tokens"):
+                count = getattr(usage, name, None)
+                if type(count) is int and count >= 0:
+                    diagnostic["usage"][name] = count
+            raw = getattr(response, "output_text", None)
+            respond.incomplete_response = {**diagnostic, "approved": False,
+                                           "raw_partial": raw if isinstance(raw, str) else None}
+            error = JudgeContractError("Judge response did not complete: " + _json(diagnostic))
+            error.diagnostics = diagnostic
+            raise error
         if not response.output_text:
             raise JudgeContractError("Judge returned no parsed text")
         respond.raw_response = response.output_text
@@ -978,7 +1008,8 @@ def _complete_result(result, rubric, claims, checks, blocks, gate, finish, tex, 
 def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input: dict,
                     report_markdown: str, model: str, output_dir: str | Path, attempt: int = 1,
                     responder: Responder | None = None, max_evidence_chars: int = 1_000_000,
-                    max_block_chars: int = 12_000, max_judge_calls: int = 36) -> dict:
+                    max_block_chars: int = 12_000, max_judge_calls: int = 36,
+                    response_cache_dir: str | Path | None = None) -> dict:
     """Evaluate current artifact bytes once; fail closed on missing/incomplete checks.
 
     ``route`` is passed/report_repair/upstream_replan/review_required. Call and
@@ -1029,7 +1060,7 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         entry = {"call": result["judge_calls"], "phase": phase,
                  "input_chars": len(prompt), "input_utf8_bytes": len(prompt.encode()),
                  "instructions_utf8_bytes": len(JUDGE_INSTRUCTIONS.encode()),
-                 "output_token_reservation": 8000,
+                 "output_token_reservation": phase_output_limit(phase),
                  "prompt_sha256": sha256(prompt.encode()).hexdigest(),
                  "claim_count": len(data.get("claims", [])),
                  "evidence_count": len(data.get("evidence", [])),
@@ -1043,23 +1074,40 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
             answer = _ask(selected_responder, phase, data)
         finally:
             last_raw = getattr(selected_responder, "raw_response", None)
+            incomplete = getattr(selected_responder, "incomplete_response", None)
+            if isinstance(incomplete, dict):
+                (output / f"quality.incomplete-{attempt}-{result['judge_calls']}.{phase}.json").write_text(
+                    json.dumps({"phase": phase, "attempt": attempt, "call": result["judge_calls"],
+                                **incomplete}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         (output / f"quality.judge-{attempt}-{result['judge_calls']}.{phase}.json").write_text(
             json.dumps(answer, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return answer
 
-    cache, last_raw = JudgeResponseCache(output), None
+    cache, last_raw = JudgeResponseCache(response_cache_dir if response_cache_dir is not None else output), None
+    cache_readers = [cache]
+    if response_cache_dir is not None:
+        root = Path(response_cache_dir).resolve()
+        # Old attempts are read-only candidates; corrected aliases resolve in their own directory.
+        if root.is_dir():
+            candidates = sorted((path for path in root.iterdir()
+                if re.fullmatch(r"attempt-[1-9]\d*", path.name) and path.is_dir()
+                and path.resolve().parent == root), key=lambda path: int(path.name.split("-")[1]))
+            cache_readers += [JudgeResponseCache(path) for path in candidates]
 
     def verified(phase, data, validate):
         schema = _atomize_schema(data) if phase == "atomize" else _audit_schema(data)
         request = {"version": 1, "phase": phase, "model": model,
                    "instructions": JUDGE_INSTRUCTIONS, "prompt": _provider_prompt(phase, data), "schema": schema}
-        raw = cache.load(request) if responder is None else None
-        if raw is not None:
+        for reader in cache_readers if responder is None else []:
+            raw = reader.load(request)
+            if raw is None:
+                continue
             try:
                 answer = _normalize_provider_answer(phase, raw, data)
                 value = validate(answer)
                 result["cache_hits"] = result.get("cache_hits", 0) + 1
-                input_plan.setdefault("cache_hits", []).append({"phase": phase, "request_sha256": _hash(request)})
+                input_plan.setdefault("cache_hits", []).append({"phase": phase, "request_sha256": _hash(request),
+                                                               **(reader.last_load_provenance or {})})
                 plan_path.write_text(json.dumps(input_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 return answer, value
             except (JudgeContractError, ValueError, TypeError, KeyError):
