@@ -186,3 +186,5 @@ LangSmith 실증·보고서 제출 점검과 테스트 실행 방법은 [검증 
 | 이지석 (P228) | [stellacustodis](https://github.com/stellacustodis) | 기술 조사·RAG |
 
 기존 작성자를 유지한 역할별 대표 커밋과 실명 표시 방법은 [팀 기여 기록](docs/team-contributions.md)에 정리했습니다.
+
+최근 개선 코드를 6개 담당 영역의 실제 소스·테스트 커밋으로 재구성한 이력은 [역할별 구현 커밋](docs/role-implementation-history.md)에 있습니다. 작성자 표시는 사용자가 지정한 역할 담당자이며, Codex 구현·재구성과 원본 이력을 각 커밋 본문에 기록했습니다.

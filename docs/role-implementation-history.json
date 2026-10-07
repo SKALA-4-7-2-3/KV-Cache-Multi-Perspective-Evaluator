@@ -1,0 +1,176 @@
+{
+  "schema_version": "role-commit-reconstruction-v1",
+  "date": "2026-10-07",
+  "branch": "codex/role-implementation-history",
+  "base_commit": "a633cc101e66a9c44591585d3686c0b7cf143775",
+  "original_snapshot_commit": "8f5b8fa9f8fa882be042131de16187605ccbd8a6",
+  "original_snapshot_branch": "codex/team-contribution-records",
+  "original_implementation_author": "superjoung",
+  "prepared_by": "Codex at the request of 정회륜",
+  "author_assignment_is_proof_of_personal_manual_implementation": false,
+  "regrouped_code_head": "72d2d803205de3f8b91cfe51d3346855d9a29070",
+  "source_tree": "54e2ac644cb7b6342dce445fe14fefdd25cbfe62",
+  "regrouped_code_tree": "54e2ac644cb7b6342dce445fe14fefdd25cbfe62",
+  "exact_tree_match_before_documentation": true,
+  "source_changed_path_count": 67,
+  "role_commit_count": 6,
+  "roles": [
+    {
+      "role_owner": "정회륜",
+      "github_login": "superjoung",
+      "role": "시장 평가",
+      "commit": "9bb8450359efffc472aeea88663ae17f847ab0e3",
+      "changed_paths": [
+        ".mailmap",
+        "README.md",
+        "agent/market/market_agent/adaptive.py",
+        "agent/market/market_agent/collection.py",
+        "agent/market/market_agent/node.py",
+        "agent/market/market_agent/providers.py",
+        "agent/market/market_agent/tests/test_graph.py",
+        "agent/market/market_agent/tools.py",
+        "docs/team-contributions.md"
+      ],
+      "committer": "superjoung",
+      "author_semantics": "user_assigned_role_owner_codex_prepared"
+    },
+    {
+      "role_owner": "김광현",
+      "github_login": "kimgwang-hyeon",
+      "role": "오케스트레이터·이해관계자 평가",
+      "commit": "d8510ca67f710c3072629c3f927b8e2ef6af9348",
+      "changed_paths": [
+        "agent/stakeholder/stakeholder_agent/agent.py",
+        "agent/stakeholder/stakeholder_agent/graph.py",
+        "agent/stakeholder/stakeholder_agent/providers.py",
+        "agent/stakeholder/tests/test_json_integration.py",
+        "docs/model-architecture.md",
+        "docs/orchestration.md",
+        "docs/pipeline.md",
+        "pipeline/__main__.py",
+        "pipeline/checkpoint.py",
+        "pipeline/contracts.py",
+        "pipeline/governance.py",
+        "pipeline/graph.py",
+        "pipeline/planner.py",
+        "pipeline/runtime.py",
+        "pipeline/tests/test_governance.py",
+        "pipeline/tests/test_orchestration.py",
+        "pipeline/tests/test_planner.py",
+        "pipeline/tests/test_worker_adapters.py",
+        "pipeline/worker_adapters.py"
+      ],
+      "committer": "superjoung",
+      "author_semantics": "user_assigned_role_owner_codex_prepared"
+    },
+    {
+      "role_owner": "박정빈",
+      "github_login": "jjjjjeong-bin",
+      "role": "도메인 평가",
+      "commit": "e67a0a4c00ed94bfcc30b369d2087abd002a447f",
+      "changed_paths": [
+        "agent/domain/src/kv_domain_agent/agent.py",
+        "agent/domain/src/kv_domain_agent/models.py",
+        "agent/domain/src/kv_domain_agent/prompt.py",
+        "agent/domain/tests/test_scoped.py"
+      ],
+      "committer": "superjoung",
+      "author_semantics": "user_assigned_role_owner_codex_prepared"
+    },
+    {
+      "role_owner": "백순철",
+      "github_login": "soonchul0408-spec",
+      "role": "TRL·Review",
+      "commit": "53b7af39dea7851d56bc621a622d0fd19f68a61d",
+      "changed_paths": [
+        "agent/review/team_review/grounding.py",
+        "agent/review/team_review/markdown.py",
+        "agent/review/team_review/review.py",
+        "agent/review/team_review/schema.py",
+        "agent/review/team_review/synthesize.py",
+        "agent/review/team_review/tests/test_trl.py",
+        "pipeline/review_bridge.py",
+        "pipeline/tests/test_trl.py",
+        "pipeline/tests/test_trl_pipeline.py",
+        "pipeline/trl.py"
+      ],
+      "committer": "superjoung",
+      "author_semantics": "user_assigned_role_owner_codex_prepared"
+    },
+    {
+      "role_owner": "이현정",
+      "github_login": "dlkara",
+      "role": "보고서·Quality",
+      "commit": "55e6bf6fa6c3fe4d83d4c0364e32c3c7f0a56a85",
+      "changed_paths": [
+        "docs/validation-20261007-quality-fix.json",
+        "docs/validation-20261007-quality-fix.md",
+        "docs/validation-20261007.json",
+        "docs/validation-20261007.md",
+        "pipeline/report_quality.py",
+        "pipeline/reporting.py",
+        "pipeline/tests/test_judge_cache.py",
+        "pipeline/tests/test_report_quality.py",
+        "pipeline/tests/test_reporting_quality.py",
+        "report/src/report_agent/compiler.py",
+        "report/src/report_agent/generator.py",
+        "report/src/report_agent/layout.py",
+        "report/src/report_agent/parser.py",
+        "report/src/report_agent/prompt.py",
+        "report/src/report_agent/validator.py",
+        "report/tests/fixtures/trl-runtime.input.md",
+        "report/tests/fixtures/trl-runtime.tex",
+        "report/tests/test_compiler.py",
+        "report/tests/test_market_contract.py",
+        "report/tests/test_trl.py",
+        "report/tests/test_validator.py"
+      ],
+      "committer": "superjoung",
+      "author_semantics": "user_assigned_role_owner_codex_prepared"
+    },
+    {
+      "role_owner": "이지석",
+      "github_login": "stellacustodis",
+      "role": "RAG 실행·산출물 provenance",
+      "commit": "72d2d803205de3f8b91cfe51d3346855d9a29070",
+      "changed_paths": [
+        "pipeline/artifacts.py",
+        "pipeline/tests/test_artifact_fingerprints.py",
+        "pipeline/tests/test_stage_fingerprints.py",
+        "rag/runner.py"
+      ],
+      "committer": "superjoung",
+      "author_semantics": "user_assigned_role_owner_codex_prepared"
+    }
+  ],
+  "regression": {
+    "passed": 470,
+    "failed": 0,
+    "seconds": 14.14,
+    "offline": true,
+    "whole_repository_suite": false,
+    "scope": [
+      "pipeline/tests",
+      "agent/domain/tests",
+      "agent/market/market_agent/tests",
+      "agent/review/team_review/tests/test_trl.py",
+      "agent/review/team_review/tests/test_report_requirements.py",
+      "agent/review/team_review/tests/test_langgraph.py",
+      "report/tests"
+    ],
+    "command": "REPORT_FONT_DIR=\"$PWD/outputs/trl-validation-20261007/fonts\" TECTONIC_BIN=/Applications/ChatGPT.app/Contents/Resources/tectonic/tectonic TECTONIC_CACHE_DIR=/private/tmp/kv-trl-tectonic-cache uv run --offline --frozen --with pytest==8.4.2 python -m pytest pipeline/tests agent/domain/tests agent/market/market_agent/tests agent/review/team_review/tests/test_trl.py agent/review/team_review/tests/test_report_requirements.py agent/review/team_review/tests/test_langgraph.py report/tests -q --import-mode=importlib"
+  },
+  "independent_history_audit": "passed",
+  "existing_branches_rewritten": false,
+  "main_merged": false,
+  "force_push": false,
+  "final_documentation_only_paths": [
+    "README.md",
+    "docs/team-contributions.md",
+    "docs/role-implementation-history.md",
+    "docs/role-implementation-history.json"
+  ],
+  "live_report_generation_rerun": false,
+  "langsmith_live_trace_collected": false,
+  "report_submission_status_unchanged": true
+}
