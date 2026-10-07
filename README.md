@@ -164,7 +164,9 @@ uv run --frozen python -m pipeline \
 | `usage.json` | 후속 API 시도·실제/미확인/예약 토큰·예산 종료 이유 |
 | `rag/<run_id>-rag/` | live RAG subprocess의 출력·오류·조사 결과 |
 
-현재 문서는 구현된 계약과 실행 방법을 설명합니다. **이번 OW 구현의 실제 보고서·Quality 성적과 LangSmith 동적 trace는 아직 검증 완료로 기록하지 않았습니다.** LangSmith 연동 코드는 유지하며, 키 미설정으로 실제 trace와 제출 PNG는 미검증입니다. 오프라인 경계 테스트는 실제 원문 평가·유료 API 실행·PDF 시각 검사를 대신하지 않습니다.
+2026-10-07 실제 API 재개 실행에서 **6쪽 PDF와 팀 추정 TRL 6·4 출력**을 확인했습니다. 선택한 회귀 테스트는 **454개 통과**했지만, 최종 Quality는 84점과 별개로 hard gate를 통과하지 못해 `failed_quality`로 종료했습니다. 수동 원문 검토에서도 시장 전망 기간과 기술 귀속 오류가 남아 있어 **현재 PDF는 제출 채택본이 아닙니다**. 상세 범위·사용량·남은 오류는 [실행 검증 기록](docs/validation-20261007.md)과 [JSON receipt](docs/validation-20261007.json)를 참고하세요.
+
+LangSmith 연동 코드는 유지하며, 키 미설정으로 실제 trace와 제출 PNG는 미검증입니다. 새 retrieval/embedding은 실행하지 않고 저장 RAG 결과를 사용했습니다. 오프라인 경계 테스트는 실제 원문 평가·유료 API 실행·PDF 시각 검사를 대신하지 않습니다.
 
 LangSmith 실증·보고서 제출 점검과 테스트 실행 방법은 [검증 안내](docs/orchestration.md#관측성과-검증-범위)에 정리했습니다.
 

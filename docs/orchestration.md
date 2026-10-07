@@ -243,6 +243,6 @@ uv run --frozen python -m unittest \
   pipeline.tests.test_governance
 ```
 
-fixture는 worker/provider·보고서 생성·Quality 경계를 가짜로 두고 실제 saved bundle·bridge·Review 계약·Report parser·SQLite 재개를 검증합니다. 실제 원문의 의미 평가, 외부 API 사용량, 컴파일된 PDF 품질과 LangSmith 실증은 별도 확인이 필요합니다. Retrieval Hit Rate@K·MRR, Judge calibration·실제 Quality 점수·최종 보고서 페이지 수의 측정 결과는 아직 기록하지 않았습니다.
+fixture는 worker/provider·보고서 생성·Quality 경계를 가짜로 두고 실제 saved bundle·bridge·Review 계약·Report parser·SQLite 재개를 검증합니다. 실제 원문의 의미 평가, 외부 API 사용량, 컴파일된 PDF 품질과 LangSmith 실증은 별도 확인이 필요합니다. 실제 Quality 점수·최종 보고서 페이지 수·수동 원문 검토는 [2026-10-07 검증 기록](validation-20261007.md)에 구분해 기록했습니다. Retrieval Hit Rate@K·MRR, Judge calibration와 실제 LangSmith trace는 미검증입니다.
 
 보고서 제출 때는 최종 revision의 PDF가 10쪽 이하인지, SUMMARY/REFERENCE와 네 관점·출처가 포함되는지, 표·수식·인용·한글 배치가 읽히는지 시각 확인합니다. `content_quality_pass`, 시각 확인, LangSmith trace 확보를 각각 구분해 기록합니다.

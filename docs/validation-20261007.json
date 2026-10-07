@@ -1,0 +1,557 @@
+{
+  "schema_version": "1.0",
+  "recorded_at_utc": "2026-10-07T09:20:14.351709+00:00",
+  "branch": "codex/pdf-guided-orchestration",
+  "implementation_commit": "6c3d814e2d3621a5a8e03eddbcaa2e7e0b2a1b61",
+  "lecture": {
+    "title": "7. AI Agent 설계 및 구축 — 배기주",
+    "pages": 171,
+    "mapping": "docs/orchestration.md"
+  },
+  "implementation": [
+    "Orchestrator–Workers scoped planning/Send/reducers/terminal join",
+    "Control/payload separation and SHA256 references",
+    "SQLite resumption and stage/role identity checks",
+    "Cumulative API/token/time budgets and failed attempt accounting",
+    "TRL9-stage proposal, primary-source checks, Review semantic validation",
+    "PDF<=10 pages and final Review TRL preservation",
+    "Independent full rendered PDF and original-source Hybrid Quality",
+    "Bounded report repair with complete verified claim/audit contexts"
+  ],
+  "run": {
+    "run_id": "integration-fcb4b36916fd49e6",
+    "as_of": "2026-10-07",
+    "status": "failed_quality",
+    "phase": "failed_quality",
+    "termination_reason": "quality_attempt_limit",
+    "model": "gpt-4.1-mini",
+    "report_model": "gpt-4.1",
+    "judge_model": "gpt-4.1",
+    "research_executed": false,
+    "rag_mode": "saved",
+    "input_sha256": "ebddc0610649344023b7af54eea71199366fea737b7ac954b2b329043ea6a667",
+    "orchestration_code_sha256": "d9a4959fe235d23f52ccdcba147c10d3ee3cf8487b6f2dc614afe21436d443b0",
+    "role_code_sha256": {
+      "domain": "8df74075e6012a713d1103df10f26d2f60a971d5a6554a559defa491411d1d0f",
+      "market": "0f14097a595e0988bc576ce1e92297b5382ef1632286863de6739e704c4c912b",
+      "stakeholders": "df3632ef90c6939c46f176c25f67b7010763772117904cbcbd5eb5c52eb3681b"
+    },
+    "stage_code_sha256": {
+      "trl": "464164265198837a03422e7579a80637fd9e01089edb0038365072e61dc07458",
+      "review": "20dbec3c715747cb6721e157f222c618dd6e921ffee2add99b66e59283c92003",
+      "report": "8d15c542d08a7178c47e615b238857684ada362a665060df834a356c8b294239",
+      "quality": "ff8628fcabbe26dc8a243821d287a1a846c47c91d162f3fd2ecfd768a8b296fe"
+    },
+    "source_and_accepted_output_hashes_checked": true
+  },
+  "report": {
+    "revision": 7,
+    "tex": "outputs/ow-validation-20261007/reports/revision-7/report.tex",
+    "pdf": "outputs/ow-validation-20261007/reports/revision-7/report.pdf",
+    "sha256": {
+      "tex": "79737b88b46fe57bc9eb7f638ea696949fd4dd6fcd2120eef6817882e3d738d4",
+      "pdf": "f56779ffa113b213f14b1fbc1589addb473a142c5c084e5e309fd36d6e6cb907"
+    },
+    "pages": 6,
+    "generation_responses": 1,
+    "compile_attempts": 1,
+    "references": 11,
+    "source_readings": 22,
+    "trl": {
+      "SW-01": 6,
+      "HW-01": 4
+    },
+    "trl_status": "Public-information-based team estimate, not official certification",
+    "trl_preservation_validation": "passed",
+    "source_coverage_remaining": 10,
+    "visual_all_pages_checked": true,
+    "visual_clipping_or_overlap": false
+  },
+  "automated_quality": {
+    "attempt": 7,
+    "route": "report_repair",
+    "content_status": "revise",
+    "failure_type": "fact_error",
+    "axes": {
+      "groundedness": {
+        "score": 4,
+        "weight": 40
+      },
+      "neutrality": {
+        "score": 5,
+        "weight": 20
+      },
+      "bias_control": {
+        "score": 4,
+        "weight": 20
+      },
+      "perspective_coverage": {
+        "score": 4,
+        "weight": 20
+      }
+    },
+    "weighted_score": 84.0,
+    "gates": {
+      "H1": {
+        "status": "fail",
+        "details": []
+      },
+      "H2": {
+        "status": "fail",
+        "details": [
+          "p002-b001-u010-c001",
+          "p002-b001-u011-c001",
+          "p002-b001-u024-c001",
+          "p005-b001-u004-c001",
+          "p005-b001-u005-c001",
+          "p005-b001-u009-c001",
+          "p005-b001-u015-c001"
+        ]
+      },
+      "H3": {
+        "status": "pass",
+        "details": []
+      },
+      "H4": {
+        "status": "pass",
+        "details": []
+      },
+      "H5": {
+        "status": "pass",
+        "details": "Compiled PDF <=10 pages, every page has extractable text; visual submission check remains separate"
+      },
+      "H6": {
+        "status": "pass",
+        "details": "Hashes correspond to this checked revision"
+      },
+      "H7": {
+        "status": "fail",
+        "details": "No omitted block or unverified core assertion"
+      },
+      "compiled": {
+        "status": "pass",
+        "details": ""
+      },
+      "page_limit": {
+        "status": "pass",
+        "details": "6/10"
+      },
+      "structure_citations_trl": {
+        "status": "pass",
+        "details": []
+      },
+      "rendered_trl": {
+        "status": "pass",
+        "details": "Final PDF's explicit TRL fields must preserve Review values"
+      },
+      "all_checks_completed": {
+        "status": "pass",
+        "details": ""
+      },
+      "source_identity": {
+        "status": "pass",
+        "details": "Every referenced quote, document hash, owner and locator validated"
+      },
+      "axis_floor": {
+        "status": "pass",
+        "details": ""
+      },
+      "weighted_score": {
+        "status": "pass",
+        "details": ""
+      },
+      "unresolved_major_findings": {
+        "status": "fail",
+        "details": ""
+      }
+    },
+    "blocks": {
+      "total": 6,
+      "checked": 6
+    },
+    "units": {
+      "total": 216,
+      "checked": 216
+    },
+    "claims": {
+      "total": 169,
+      "checked": 169,
+      "supported": 141,
+      "contradicted": 5,
+      "unsupported": 20,
+      "uncertain": 3,
+      "uncited_facts": 12
+    },
+    "market_cells": {
+      "checked": 12,
+      "analysis_present": 11,
+      "gap_handled": 12
+    },
+    "finding_severities": {
+      "minor": 22,
+      "major": 7
+    },
+    "repair_requests": 29,
+    "judge_calls": 37,
+    "cache_hits": 0,
+    "latency_seconds": 618.5363419999485,
+    "controller": {
+      "completed_content_assessments": 4,
+      "format_repairs": 0,
+      "completed_base_sha256": [
+        "080bcd208a9342d688b60137765681db4fa64547f5722c1b074d413839267867",
+        "0f90dd9638901d6f81e6c4940c852c78c5d5c0e2a5a478d485ee1b15cc00739a",
+        "0ff2bff46ecd967d491320df3ae1dd36ac186e34f9293837a45c01af8d44d2b0",
+        "34096ab567d77b7425b700cced4e7cca22c4a39cbec3ad76c349c2d830a8337a"
+      ],
+      "format_base_sha256": [],
+      "base_quality_ref": {
+        "relative_path": "artifacts/quality-7-7e25d3bbdcfc4f5b.json",
+        "sha256": "080bcd208a9342d688b60137765681db4fa64547f5722c1b074d413839267867",
+        "media_type": "application/json",
+        "schema_version": "1.0"
+      }
+    },
+    "claims_ledger": "outputs/ow-validation-20261007/quality/attempt-7/quality.claims-7.json",
+    "canonical_evidence": "outputs/ow-validation-20261007/quality/attempt-7/quality.evidence-7.json",
+    "hashes": {
+      "canonical_evidence": "aafbbf41d4d36ba0c8a7c82593bc8bb670a6ec8f34de120b8f5a064d510dd75a",
+      "tex": "79737b88b46fe57bc9eb7f638ea696949fd4dd6fcd2120eef6817882e3d738d4",
+      "pdf": "f56779ffa113b213f14b1fbc1589addb473a142c5c084e5e309fd36d6e6cb907",
+      "claims": "4b76b0698c451ed106e7e5a5ea1f862ba264401306e0a0bed9bd6e72672683ea"
+    }
+  },
+  "manual_source_review": {
+    "status": "not_source_ready",
+    "major_findings": 4,
+    "minor_findings": 1,
+    "issues": [
+      {
+        "id": "manual-r7-market-period",
+        "severity": "major",
+        "tex_line": 123,
+        "finding": "Pooling CAGR period changed to 2025--2034; source forecast is 2026--2034. Segment types remain separate.",
+        "evidence_id": "MKT-45e0903d2f2bced4",
+        "source_hash": "e0aa3d5a3e322c40a65b4fd59472c5ad13c35dc1f341683d150c8d90f3baae97"
+      },
+      {
+        "id": "manual-r7-trldiagnostic",
+        "severity": "major",
+        "tex_line": 79,
+        "finding": "Internal controller diagnostic is required verbatim by the TRL report contract and recurs despite repair feedback. It is not a statement in the selected paper. Do not promote the unverified draft suffix to primary-source evidence.",
+        "code_chain": [
+          "pipeline/trl.py:147",
+          "report/src/report_agent/parser.py:303",
+          "report/src/report_agent/prompt.py:131",
+          "report/src/report_agent/validator.py:101"
+        ]
+      },
+      {
+        "id": "manual-r7-adoption-scope",
+        "severity": "major",
+        "tex_line": 133,
+        "finding": "General CXL pooling regional/pilot evidence is still phrased with Photonic-CXL as the same category; selected Photonic implementation deployment is not established by these cited sources. Keep general CXL activity and Photonic platform descriptions separate."
+      },
+      {
+        "id": "manual-r7-standard-scope",
+        "severity": "major",
+        "tex_line": 143,
+        "finding": "Broad general CXL2/3/4 ecosystem compatibility is over-attributed to Photonic-CXL. The cited Marvell PF-NIC describes CXL3.1 and PCIeGen6 specifically.",
+        "evidence_id": "MKT-606d485c073ac4fb",
+        "source_hash": "c2bb928e41bd3750a276e1def3aa2ffbcf49304dbd4539eaaaec8372c70dbae8"
+      },
+      {
+        "id": "manual-r7-gap-scope",
+        "severity": "minor",
+        "tex_line": 128,
+        "finding": "Broad absence wording should be limited to what the reviewed sources present, rather than a universal claim that products or deployments do not exist."
+      }
+    ],
+    "record": "outputs/ow-validation-20261007/manual-source-review-revision-7.json",
+    "automatic_verdicts_changed": false
+  },
+  "overall_assessment": {
+    "pdf_generation": "verified",
+    "trl_rendering": "verified",
+    "content_submission_ready": false,
+    "reason": "Original-source manual review still finds an incorrect market CAGR period and implementation-scope/TRL diagnostic problems. Automated scores alone do not override those findings."
+  },
+  "corpus": {
+    "canonical_evidence_records": 213,
+    "distinct_documents": 24,
+    "excerpt_characters": 625257,
+    "scope": "All registered selected-paper evidence and collected web source excerpts, not the entirety of each website or original PDF byte content",
+    "complete_registered_corpus_used_in_quality": true
+  },
+  "tests": {
+    "implementation_commit": "6c3d814e2d3621a5a8e03eddbcaa2e7e0b2a1b61",
+    "passed": 454,
+    "failed": 0,
+    "seconds": 12.19,
+    "command": "REPORT_FONT_DIR=\"$PWD/outputs/trl-validation-20261007/fonts\" TECTONIC_BIN=/Applications/ChatGPT.app/Contents/Resources/tectonic/tectonic TECTONIC_CACHE_DIR=/private/tmp/kv-trl-tectonic-cache uv run --frozen --with pytest==8.4.2 python -m pytest pipeline/tests agent/domain/tests agent/market/market_agent/tests agent/review/team_review/tests/test_trl.py agent/review/team_review/tests/test_report_requirements.py agent/review/team_review/tests/test_langgraph.py report/tests -q --import-mode=importlib",
+    "scope": "Selected pipeline/domain/market/Review/report regression suite; offline provider boundaries and real local PDF compilation paths. Does not certify API semantics.",
+    "excluded_existing_failures": {
+      "stakeholder_baseline": 8,
+      "baseline_commit": "51170464c276b9a00123637282f65340cbe508ea",
+      "baseline_log": "/tmp/stakeholder-5117046-baseline8.log"
+    }
+  },
+  "usage": {
+    "counts": {
+      "llm": 565,
+      "search": 49,
+      "extract": 116,
+      "fetch": 0
+    },
+    "actual_provider_tokens": 29857761,
+    "unconfirmed_reserved_tokens": 2868746,
+    "active_elapsed_seconds": 8720.26,
+    "limits": {
+      "llm": 640,
+      "search": 72,
+      "extract": 144,
+      "fetch": 90,
+      "tokens": 40000000,
+      "seconds": 10800
+    },
+    "budget_extensions": [
+      {
+        "before": {
+          "llm": 160,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 3000000,
+          "seconds": 3600
+        },
+        "after": {
+          "llm": 160,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 8000000,
+          "seconds": 3600
+        },
+        "at": "2026-10-07T04:30:07.165922+00:00",
+        "used_tokens": 1132771,
+        "unconfirmed_tokens": 112326,
+        "counts": {
+          "llm": 33,
+          "search": 19,
+          "extract": 48,
+          "fetch": 0
+        },
+        "elapsed_seconds": 305.215
+      },
+      {
+        "before": {
+          "llm": 160,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 8000000,
+          "seconds": 3600
+        },
+        "after": {
+          "llm": 256,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 12000000,
+          "seconds": 5400
+        },
+        "at": "2026-10-07T05:06:26.962370+00:00",
+        "used_tokens": 5767947,
+        "unconfirmed_tokens": 1022701,
+        "counts": {
+          "llm": 151,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 1279.386
+      },
+      {
+        "before": {
+          "llm": 256,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 12000000,
+          "seconds": 5400
+        },
+        "after": {
+          "llm": 320,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 24000000,
+          "seconds": 7200
+        },
+        "at": "2026-10-07T05:33:22.205480+00:00",
+        "used_tokens": 9087218,
+        "unconfirmed_tokens": 1058330,
+        "counts": {
+          "llm": 170,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 1923.144
+      },
+      {
+        "before": {
+          "llm": 320,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 24000000,
+          "seconds": 7200
+        },
+        "after": {
+          "llm": 480,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 7200
+        },
+        "at": "2026-10-07T06:50:29.976980+00:00",
+        "used_tokens": 13935515,
+        "unconfirmed_tokens": 2557290,
+        "counts": {
+          "llm": 261,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 3800.672
+      },
+      {
+        "before": {
+          "llm": 480,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 7200
+        },
+        "after": {
+          "llm": 560,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 9000
+        },
+        "at": "2026-10-07T08:46:50.602852+00:00",
+        "used_tokens": 24388261,
+        "unconfirmed_tokens": 2868746,
+        "counts": {
+          "llm": 452,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 7200.101
+      },
+      {
+        "before": {
+          "llm": 560,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 9000
+        },
+        "after": {
+          "llm": 640,
+          "search": 72,
+          "extract": 144,
+          "fetch": 90,
+          "tokens": 40000000,
+          "seconds": 10800
+        },
+        "at": "2026-10-07T09:06:06.406365+00:00",
+        "used_tokens": 27371173,
+        "unconfirmed_tokens": 2868746,
+        "counts": {
+          "llm": 527,
+          "search": 49,
+          "extract": 116,
+          "fetch": 0
+        },
+        "elapsed_seconds": 8021.225
+      }
+    ],
+    "scope": "Cumulative downstream development calls including failed attempts, retries and resumes. Saved/live RAG acquisition subprocess excluded. This is not fresh-run performance or a billing estimate."
+  },
+  "development_provenance": {
+    "content_assessment_sequence": [
+      {
+        "attempt": 3,
+        "completed": 1
+      },
+      {
+        "attempt": 4,
+        "completed": 2
+      },
+      {
+        "attempt": 5,
+        "completed": 2,
+        "technical_timeout": true
+      },
+      {
+        "attempt": 6,
+        "completed": 3
+      },
+      {
+        "attempt": 7,
+        "completed": 4
+      }
+    ],
+    "automatic_completed_content_cap": 3,
+    "manual_final_repair": "outputs/ow-validation-20261007/manual-structured-repair-revision-6.json",
+    "manual_final_repair_reason": "One explicit development repair after preserving full verified feedback contexts, with prior counters/usage/verdicts retained. This is not a normal automatic cap3 loop pass.",
+    "manual_source_checks": [
+      "outputs/ow-validation-20261007/manual-source-checks.json",
+      "outputs/ow-validation-20261007/manual-source-checks-revision-5.json"
+    ],
+    "source_reading_cache_transfer": "outputs/ow-validation-20261007/manual-source-reading-cache-transfer-revision-7.json",
+    "source_reading_cache_records": 22,
+    "source_reading_cache_revalidated_by_production": true
+  },
+  "unverified": [
+    "Fresh retrieval/embedding and HitRate@K/MRR (saved RAG reused)",
+    "LangSmith live trace/PNG (key absent; integration code retained)",
+    "Judge calibration against an independent labelled dataset"
+  ],
+  "publication": {
+    "main_merged": false,
+    "new_secrets_or_runtime_outputs_committed": false
+  },
+  "manual_judge_review": {
+    "automatic_verdicts_changed": false,
+    "findings": [
+      {
+        "type": "trl_authority_mismatch",
+        "claim_id": "p002-b001-u024-c001",
+        "observation": "The Judge marked the public-information team estimate TRL6 uncertain because the paper does not discuss TRL levels and therefore does not directly support the number. The exact value is Review-authorized and passed rendered_trl preservation; the rationale remains an original-source audit subject.",
+        "proposed_fix": "Route the exact governed TRL value to its Review authority while retaining semantic audits for each premise; do not fabricate official source proof."
+      },
+      {
+        "type": "audit_enum_reason_conflict",
+        "claim_ids": [
+          "p005-b001-u046-c001",
+          "p006-b001-u001-c001",
+          "p006-b001-u005-c001",
+          "p006-b001-u009-c001",
+          "p006-b001-u017-c001"
+        ],
+        "observation": "All five contradicted enum results concern bibliography lines. Their own reasons describe matching/supported source metadata. These are not verified factual contradictions.",
+        "proposed_fix": "Validate reference metadata against registered source identity and fail closed on enum/reason contradictions; do not silently remap verdicts."
+      }
+    ],
+    "scope": "Read-only review of completed Quality7 claim ledger; recommendations are not implemented or evaluated in this receipt."
+  }
+}
