@@ -144,6 +144,8 @@ class _Bridge:
                     self.aliases[eid] = original
 
     def web_sources(self, role, raw_sources, supports, full_texts=None):
+        from typing import get_args
+        from team_review.schema import Method
         for key, value in raw_sources.items():
             raw = _plain(value)
             eid = raw.get("id") or key
@@ -197,16 +199,25 @@ class _Bridge:
             self.aliases[eid] = canonical
             retained = "\n[…]\n".join(matching) if matching else excerpt
             scope = raw.get("scope") or audit.get("relevance")
+            # Preserve collector metadata; this bridge never certifies an identity
+            # or upgrades a generic product claim into an operational experiment.
+            original_provenance = raw.get("provenance") or {}
+            identity = {field: original_provenance[field] for field in
+                        ("target_technology_id", "target_version", "target_identity_verified")
+                        if field in original_provenance}
+            method = raw.get("method", "statement")
+            if method not in get_args(Method):
+                method = "unspecified"
             self.evidence[canonical] = {
                 "id": canonical, "doc_id": did, "technology_ids": techs, "excerpt": retained,
                 "page": None, "location": raw.get("location") or raw.get("locator") or "수집 본문 내 인용 구절",
-                "method": "statement", "verified_source": False, "synthetic": False,
+                "method": method, "verified_source": False, "synthetic": False,
                 "collected_at": str(raw.get("retrieved_at") or self.as_of),
                 "independence": "unknown", "technology_relevance": "direct" if scope in {"direct", "exact"} else "indirect",
                 "conditions": [], "source_verification": "collected_excerpt" if available else "unverified",
                 "provenance": {"collector": role, "quote_matched": bool(matching), "original_evidence_id": eid,
                     "collected_excerpt_sha256": digest, "source_audit": audit,
-                    "original_source_type": raw.get("source_type"), "pdf_reverified_this_run": False},
+                    "original_source_type": raw.get("source_type"), "pdf_reverified_this_run": False, **identity},
             }
             source_metadata.update(evidence_id=canonical, reference_id=did,
                                    citation_key=self.documents[did]["citation_key"])
@@ -214,7 +225,10 @@ class _Bridge:
             # This does not promote it to verified evidence or a confirmed finding.
             self.source_reports.append({
                 **source_metadata,
-                "excerpt": re.sub(r"!\[[^\]]*\]\(data:[^\s)]+\)", "", excerpt),
+                # Keep the exact collected original so its registered digest is
+                # verifiable. Model context is projected separately; deleting a
+                # data image here would invalidate the collected source identity.
+                "excerpt": excerpt,
                 "source_audit": audit,
                 "review_status": "source_report_not_independently_verified",
                 "usage_note": "실제 수집 본문에서 관련 내용을 분석해 인용할 수 있습니다. 업체 주장·인접 기술 사례는 해당 출처에 귀속하고, 메뉴·탐색 문구만 있거나 관련 없는 자료는 사용하지 않습니다.",
@@ -451,6 +465,7 @@ def build_review_state(bundle, request, results, *, run_id, as_of) -> dict[str, 
             "evaluation_as_of": bridge.as_of, "requirements": {str(k): str(v) for k, v in requirements.items()},
             "domain_requirements": deepcopy(requirements), "source_attribution": bridge.attribution,
             "stakeholder_rubric": "operating_organization", "source_reuse": True, "source_reuse_notice": notice,
+            "trl_evidence_policy": "selected_implementation",
             "upstream_context_manifest": deepcopy(bundle.get("context_manifest", {})),
             "original_research_quality": deepcopy(bundle["run"].get("quality", {}))},
         "documents": bridge.documents, "evidence": bridge.evidence, "assessments": assessments, "errors": {},
@@ -465,9 +480,11 @@ Upstream repair requests are returned as diagnostics to the parent. This wrapper
 does not claim that a role was rerun, manufacture a passed seal, or call Research.
 """
     from team_review import review_agent_node
+    from team_review.review import call_trl_grounding
+    trl_auditor = lambda payload: call_trl_grounding(payload, model=model)
     if draft:
         from team_review.markdown import review_handoff_node
-        return review_handoff_node(deepcopy(state))
+        return review_handoff_node(deepcopy(state), trl_auditor=trl_auditor)
     actual = deepcopy(state)
     actual["config"]["synthesis_model"] = model
-    return review_agent_node(actual)
+    return review_agent_node(actual, trl_auditor=trl_auditor)
