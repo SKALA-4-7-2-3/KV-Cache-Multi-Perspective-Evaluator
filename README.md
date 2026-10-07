@@ -4,10 +4,14 @@
 
 이 브랜치의 통합 실행기는 **LangGraph Orchestrator–Workers(OW)**입니다. 저장된 조사 결과 또는 새 RAG 결과를 확보한 뒤, 필요한 평가 셀을 계획하고 해당 범위의 worker를 실행합니다. 보고서 생성 뒤에는 별도의 **Hybrid Quality** 평가와 제한된 수정 루프를 거칩니다.
 
+판교 7반 2조의 [제출 README](docs/submission/README.md)에 필수 항목·State 일곱 항목·재현 방법과 증빙 범위를 모았습니다. [9쪽 보고서 원문](docs/submission/report.md)은 근거 편집 정리본이며 자동 Quality 통과 산출물이 아닙니다. LangSmith에는 합성 모델 경계를 사용한 실제 그래프 제어 테스트를 기록했습니다. 현재 OpenAI 키의 모델 접근 오류로 새 live 보고서와 독립 AI 평가는 미완료입니다.
+
 ## Selected Technologies
 
 - **SW: RDKV** — 제거(eviction)와 양자화(quantization)를 함께 고려하는 비트 할당 기반 KV cache 압축 기술.
 - **HW: Photonic-CXL** — 광 연결과 CXL 기반 공유 메모리 장치를 활용하는 KV cache 관리 기술.
+
+같은 KV 용량 문제를 데이터량 감소와 저장 공간 확장으로 각각 풀기 때문에 선정했습니다. 압축 품질·커널 호환성과 외부 메모리 대역폭·배포 비용·검증 수준을 같은 조건표에서 비교합니다.
 
 논문별 실험 조건·한계·검증 방식을 함께 기록합니다. 시뮬레이션·에뮬레이션 결과와 실제 장치·운용 검증을 구분하며, 특정 기술을 추천하거나 우열을 확정하는 보고서를 목표로 하지 않습니다. 입력 논문은 [논문 안내](rag/papers/README.md)를 참고하세요.
 
