@@ -334,7 +334,22 @@ of this report's organization, chosen scope or evaluation method are nonfactual
 editorial text unless they assert an external technology fact. The controller
 supplies paragraph_citation_keys from the actual PDF, including paragraph-final
 citations. Assign only the keys relevant to each atomic assertion; a wrapped
-line must not be forced to cite sources belonging to another assertion.""",
+line must not be forced to cite sources belonging to another assertion.
+Classification examples (apply the semantic distinction, not word matching):
+- '본 보고서는 RDKV와 Photonic-CXL을 비교한다' and its wrapped continuations:
+  claims=[], non_claim_reason='보고서 자체의 선정 목적과 범위를 설명한다'.
+- '분석은 TRL, 시장성, 이해관계자, 도메인의 네 관점에서 종합한다':
+  claims=[], non_claim_reason='보고서 자체의 평가방법을 설명한다'.
+- '공개 정보 기반 팀 추정이며 공식 인증이 아니다': editorial qualification,
+  not an external author_report needing a fabricated source citation.
+- Page numbers, reference URLs/titles and bibliography continuations: claims=[],
+  with an explicit layout/bibliography reason. A reference entry is not evidence
+  that the report's substantive claims were examined.
+- '논문 저자는 128K에서 4.5배 속도를 보고했다': author_report, source required.
+- 'RDKV가 운영 비용을 절감한다': external fact or conditional inference according
+  to the whole sentence, never dismiss it as editorial just because this report
+  discusses it. author_report means an EXTERNAL source author's reported result,
+  not the report author's choice of scope, organization or method.""",
     "audit": """For EVERY fixed claim return checks:[{claim_id,verdict,reason,
 evidence_ids,supporting_quotes:[{evidence_id,quote}],target,role,criterion_ids}].
 verdict is supported, contradicted, unsupported or uncertain. Audit each claim
@@ -342,7 +357,13 @@ against this complete selected original document set; do not reinterpret a gener
 as a source. supported or contradicted requires exact contiguous source quotes
 and the matching evidence_ids. If these originals lack support, use uncertain.
 Check all numbers, negation, attribution, conditions, simulations and inference
-premises. For a repair use target report (wording/attribution can be corrected),
+premises. A market forecast must preserve the source's base year AND base value,
+end year AND end value, and CAGR interval together. Correct currency conversion
+does not excuse a wrong year: 2025=USD138 million and 2026=USD213.6 million
+contradict '2026 starts at USD138 million', even if the end value and CAGR match.
+One Korean 억 is 100 million; independently check the value and the timeframe.
+Use original body sentences containing those numbers, not navigation or titles.
+For a repair use target report (wording/attribution can be corrected),
 upstream (new scoped evidence/reassessment is genuinely required), or human.
 role for upstream is technical/domain/market/stakeholders and criterion_ids
 names the affected known criteria. The full original parent page_context is
@@ -443,11 +464,17 @@ def _audit_schema(data: dict) -> dict:
     evidence_ids = [source["evidence_id"] for source in data.get("evidence", [])]
     if not claim_ids or not evidence_ids or len(claim_ids) != len(set(claim_ids)):
         raise JudgeContractError("Strict audit requires registered claims and original evidence")
-    properties = {"verdict": {"$ref": "#/$defs/verdict"}, "reason": {"type": "string"},
-        "references": {"type": "array", "items": {"type": "object", "additionalProperties": False,
+    reference_options = []
+    for source in data["evidence"]:
+        if not isinstance(source.get("excerpt"), str) or not source["excerpt"]:
+            raise JudgeContractError("Strict audit original must have at least one quote span")
+        reference_options.append({"type": "object", "additionalProperties": False,
             "required": ["evidence_id", "span_index"], "properties": {
-                "evidence_id": {"$ref": "#/$defs/evidence_id"},
-                "span_index": {"type": "integer", "minimum": 0}}}},
+                "evidence_id": {"type": "string", "enum": [source["evidence_id"]]},
+                "span_index": {"type": "integer", "minimum": 0,
+                               "maximum": (len(source["excerpt"]) - 1) // 800}}})
+    properties = {"verdict": {"$ref": "#/$defs/verdict"}, "reason": {"type": "string"},
+        "references": {"type": "array", "items": {"$ref": "#/$defs/source_reference"}},
         "target": {"type": "string", "enum": ["report", "upstream", "human"]},
         "role": {"anyOf": [{"type": "string", "enum": ["technical", "domain", "market", "stakeholders"]}, {"type": "null"}]},
         "criterion_ids": {"type": "array", "items": {"type": "string"}}}
@@ -456,6 +483,7 @@ def _audit_schema(data: dict) -> dict:
         "properties": {"checks": {"type": "object", "additionalProperties": False,
             "properties": {identifier: check for identifier in claim_ids}, "required": claim_ids}},
         "$defs": {"evidence_id": {"type": "string", "enum": evidence_ids},
+                  "source_reference": {"anyOf": reference_options},
                   "verdict": {"type": "string", "enum": ["supported", "contradicted", "unsupported", "uncertain"]}}}
 
 
@@ -535,7 +563,7 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
                 index = reference.get("span_index") if isinstance(reference, dict) else None
                 if (not isinstance(identifier, str) or identifier not in sources or type(index) is not int
                         or not 0 <= index < len(sources[identifier]["quote_spans"])):
-                    raise JudgeContractError("Structured audit has an unregistered original source/span reference")
+                    raise JudgeContractError(f"Structured audit has an unregistered source/span reference: {identifier!r}, index={index!r}")
                 span = sources[identifier]["quote_spans"][index]
                 quotes.append({"evidence_id": identifier, "quote": span["text"]})
             normalized.append({**{key: value for key, value in row.items() if key != "references"},

@@ -548,6 +548,9 @@ class ReportQualityTests(unittest.TestCase):
         self.assertEqual(format["type"], "json_schema")
         self.assertEqual(format["schema"]["properties"]["checks"]["required"], [claim["claim_id"]])
         self.assertEqual(format["schema"]["$defs"]["evidence_id"]["enum"], [source["evidence_id"]])
+        reference = format["schema"]["$defs"]["source_reference"]["anyOf"][0]["properties"]
+        self.assertEqual(reference["evidence_id"]["enum"], [source["evidence_id"]])
+        self.assertEqual(reference["span_index"], {"type": "integer", "minimum": 0, "maximum": 2})
         projected = payload(calls[0]["input"])["evidence"][0]
         self.assertNotIn("excerpt", projected)
         self.assertEqual("".join(span["text"] for span in projected["quote_spans"]), source["excerpt"])
