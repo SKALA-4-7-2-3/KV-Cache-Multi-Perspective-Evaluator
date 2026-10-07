@@ -6,6 +6,7 @@ from pathlib import Path
 
 from report_agent import ReportAgent
 from report_agent.compiler import find_latex_compiler
+from report_agent.generator import prepare_candidate
 from report_agent.parser import InputContractError, parse_report_input
 from report_agent.prompt import SYSTEM_INSTRUCTIONS, build_generation_prompt, build_repair_prompt
 from report_agent.validator import validate_latex
@@ -70,6 +71,32 @@ def trl_latex():
         "\\subsection{기술 성숙도}\n미확인 사항을 보존한다.",
         "\\subsection{기술 성숙도}\n" + body,
     )
+
+
+class ReportContentPolicyTests(unittest.TestCase):
+    def test_review_diagnostics_stay_in_saved_input_not_report_body(self):
+        # Offline fixture: neither the TRL value nor the review notes describe
+        # either real paper. Exercise the actual parser/formatter/TRL validator.
+        retained = {"review_notes": [{"verdict": "rejected",
+            "reason": "검사기가 의견의 연결 범위 밖 근거 ID를 반환함.",
+            "evidence_ids": ["SW-01"]}]}
+        source = trl_input().replace("demo: true", "demo: false\nattribution_first: true").replace(
+            "semantic_validation_status: passed", "semantic_validation_status: rejected")
+        source += "\n<!-- RETAINED_SYNTHESIS_JSON\n" + json.dumps(retained, ensure_ascii=False) + "\nEND_RETAINED_SYNTHESIS_JSON -->\n"
+        parsed = parse_report_input(source, allow_attributed_draft=True)
+        candidate = prepare_candidate(trl_latex(), parsed)
+        self.assertNotIn("종합 검토 사항", candidate)
+        self.assertNotIn("검사기가 의견", candidate)
+        self.assertNotIn("BEGIN_ATTRIBUTION_APPENDIX", candidate)
+        self.assertEqual(parsed.raw_markdown, source)
+        self.assertEqual(parsed.retained_synthesis, retained)
+        self.assertEqual(parsed.metadata["semantic_validation_status"], "rejected")
+        self.assertEqual(parsed.trl_assessments["SW-01"]["level"], 4)
+        self.assertIsNone(parsed.trl_assessments["HW-01"]["level"])
+        self.assertIn("목표 서비스의 동시성 조건 미확인", candidate)
+        self.assertIn("제공 자료에서 단계 판정 근거 미확인", candidate)
+        result = validate_latex(candidate, parsed)
+        self.assertTrue(result.valid, result.issues)
 
 
 class TRLParserTests(unittest.TestCase):
