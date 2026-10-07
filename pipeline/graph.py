@@ -239,8 +239,12 @@ def build_graph(context, checkpointer=None):
         rev_input = build_review_state(ctx.bundle,ctx.request,results,run_id=ctx.run_id,as_of=ctx.as_of)
         technical_feedback = [r["instructions"] for r in state.get("feedback",[]) if r.get("role") == "technical"]
         if technical_feedback: rev_input["config"]["trl_feedback"] = technical_feedback
-        rev_input["assessments"]["technical"],trl_ref = ctx.stage("trl",rev_input,
-            lambda:(ctx.trl or generate_trl_assessment)(rev_input,model=ctx.model))
+        def draft_trl():
+            if ctx.trl:
+                return ctx.trl(rev_input,model=ctx.model)
+            return generate_trl_assessment(rev_input,model=ctx.model,
+                cache_dir=ctx.output_dir/"trl-drafts")
+        rev_input["assessments"]["technical"],trl_ref = ctx.stage("trl",rev_input,draft_trl)
         ctx.store.put("trl.output.json",rev_input["assessments"]["technical"])
         rev_input["review"]["round"] = min(1,state["replan_count"])
         input_ref = ctx.store.put("review.input.json",rev_input)

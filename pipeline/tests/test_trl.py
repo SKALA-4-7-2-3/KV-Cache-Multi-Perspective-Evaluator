@@ -4,6 +4,8 @@ from copy import deepcopy
 from importlib import import_module
 from importlib.util import find_spec
 import json
+from pathlib import Path
+import tempfile
 import unittest
 
 import pipeline  # Registers the existing agent packages without importing research.
@@ -300,6 +302,60 @@ class TRLAssessmentTests(unittest.TestCase):
             for level in range(1, 10):
                 self.assertEqual(self.check(result, tech, level)["status"], "unknown")
             self.assertIsNone(self.reviewed(state, result)[tech]["level"])
+
+    def test_transient_timeout_retries_once_but_contract_error_does_not(self):
+        state = make_state()
+        calls = []
+        def transient(instructions, prompt):
+            calls.append(prompt_payload(prompt)["technology_id"])
+            if len(calls) == 1:
+                class APITimeoutError(RuntimeError): pass
+                raise APITimeoutError("offline timeout")
+            return {"checks": []}
+        self.generate(state, transient)
+        self.assertEqual(calls, ["SW-01", "SW-01", "HW-01"])
+
+        failures = []
+        def invalid(*args):
+            failures.append(1)
+            raise ValueError("invalid model contract")
+        with self.assertRaisesRegex(ValueError, "invalid model contract"):
+            self.generate(state, invalid)
+        self.assertEqual(failures, [1])
+
+    def test_successful_per_technology_cache_revalidates_sources_and_feedback_identity(self):
+        from pipeline.trl import generate_trl_assessment
+        state = make_state()
+        calls = []
+        def responder(instructions, prompt):
+            payload = prompt_payload(prompt)
+            calls.append(deepcopy(payload))
+            tech = payload["technology_id"]
+            return {"checks": [{"level": 1, "status": "met", "reason": STAGE_EXCERPTS[1],
+                                "evidence_ids": [f"fixture-{tech}-stage-1"]}]}
+        with tempfile.TemporaryDirectory() as directory:
+            first = generate_trl_assessment(state, model="offline-test", responder=responder,
+                                            cache_dir=Path(directory))
+            self.assertEqual(len(calls), 2)
+            # Even a schema-valid cached draft must re-enter current evidence validation.
+            sw_cache = next(path for path in Path(directory).glob("SW-01-*.json"))
+            saved = json.loads(sw_cache.read_text())
+            saved["draft"]["checks"][0]["evidence_ids"] = ["invented-cache-id"]
+            sw_cache.write_text(json.dumps(saved))
+            cached = generate_trl_assessment(state, model="offline-test", responder=responder,
+                                             cache_dir=Path(directory))
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(self.check(first, "SW-01", 1)["status"], "met")
+            self.assertEqual(self.check(cached, "SW-01", 1)["status"], "unknown")
+            self.assertEqual(self.check(cached, "SW-01", 1)["evidence_ids"], [])
+            # Review feedback is part of the original payload identity and cannot reuse stale drafts.
+            changed_feedback = deepcopy(state)
+            changed_feedback["config"]["trl_feedback"] = ["Recheck the stage wording"]
+            generate_trl_assessment(changed_feedback, model="offline-test", responder=responder,
+                                    cache_dir=Path(directory))
+            self.assertEqual(len(calls), 4)
+            self.assertTrue(all(call.get("review_feedback") == ["Recheck the stage wording"]
+                                for call in calls[-2:]))
 
 
 if __name__ == "__main__":

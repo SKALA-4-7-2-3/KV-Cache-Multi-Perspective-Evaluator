@@ -1,7 +1,9 @@
 """Draft evidence-backed stage checks; Review alone determines the final TRL."""
 
 from copy import deepcopy
+from hashlib import sha256
 import json
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -60,7 +62,45 @@ def _respond(model, instructions, prompt):
         return response.output_parsed.model_dump(mode="json")
 
 
-def generate_trl_assessment(state, *, model, responder=None):
+def _transient(exc: Exception) -> bool:
+    return isinstance(exc, (TimeoutError, ConnectionError)) or type(exc).__name__ in {
+        "APITimeoutError", "APIConnectionError", "ConnectError", "ReadTimeout", "WriteTimeout",
+    }
+
+
+def _draft_stamp(payload: dict, model: str) -> str:
+    identity = {"payload": payload, "model": model, "instructions": INSTRUCTIONS,
+                "schema": TRLDraft.model_json_schema(),
+                "code_sha256": sha256(Path(__file__).read_bytes()).hexdigest()}
+    return sha256(json.dumps(identity, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+
+def _cached_draft(cache_dir, tech: str, stamp: str):
+    if cache_dir is None:
+        return None
+    path = Path(cache_dir) / f"{tech}-{stamp}.json"
+    try:
+        saved = json.loads(path.read_text())
+        if saved.get("stamp") == stamp:
+            return TRLDraft.model_validate(saved.get("draft"))
+    except (FileNotFoundError, json.JSONDecodeError, ValueError, TypeError):
+        pass
+    return None
+
+
+def _save_draft(cache_dir, tech: str, stamp: str, draft: TRLDraft):
+    if cache_dir is None:
+        return
+    directory = Path(cache_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{tech}-{stamp}.json"
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps({"stamp": stamp, "draft": draft.model_dump(mode="json")},
+                                    ensure_ascii=False, indent=2) + "\n")
+    temporary.replace(path)
+
+
+def generate_trl_assessment(state, *, model, responder=None, cache_dir=None):
     """Preserve technical analysis and add stage drafts from canonical source excerpts.
 
     This does not confer a verified TRL. Model checks require Review's separate
@@ -77,9 +117,21 @@ def generate_trl_assessment(state, *, model, responder=None):
             "technical_analysis": cell["items"], "evidence": list(evidence.values())}
         if state.get("config", {}).get("trl_feedback"):
             payload["review_feedback"] = state["config"]["trl_feedback"]
-        draft = TRLDraft.model_validate(respond(INSTRUCTIONS, json.dumps(payload, ensure_ascii=False)))
+        stamp = _draft_stamp(payload, model)
+        draft = _cached_draft(cache_dir, tech, stamp)
+        if draft is None:
+            prompt = json.dumps(payload, ensure_ascii=False)
+            for attempt in range(2):
+                try:
+                    draft = TRLDraft.model_validate(respond(INSTRUCTIONS, prompt))
+                    break
+                except Exception as exc:
+                    if attempt or not _transient(exc):
+                        raise
+        # Cached drafts re-enter every current source/method validation below.
         if len({check.level for check in draft.checks}) != len(draft.checks):
             raise ValueError(f"Duplicate TRL stages for {tech}")
+        _save_draft(cache_dir, tech, stamp, draft)
         checks = {level: {"status": "unknown", "reason": "해당 단계에 대한 근거 연결된 초안이 제공되지 않았습니다.",
                          "evidence_ids": [], "generation_method": "model"} for level in TRL}
         for check in draft.checks:
