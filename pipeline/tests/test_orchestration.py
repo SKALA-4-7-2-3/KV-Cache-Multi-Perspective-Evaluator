@@ -200,6 +200,26 @@ class OrchestrationIntegrationTests(unittest.TestCase):
     def accepted(self, context):
         return {role: context.store.put(f"fixtures/{role}.json", portable_role(role)) for role in CATALOG}
 
+    def test_judge_model_change_rejudges_without_repeating_research_or_report(self):
+        fake = OfflineBoundaries()
+        context = self.context(fake)
+        first = self.invoke(context, accepted=self.accepted(context))
+        self.assertEqual(fake.qualities[-1]["model"], "offline-test")
+        changed = self.context(fake, judge_model="offline-independent-judge")
+        second = self.invoke(changed, accepted=first["accepted_refs"])
+        self.assertEqual(second["phase"], "content_quality_pass")
+        self.assertEqual(fake.qualities[-1]["model"], "offline-independent-judge")
+        self.assertEqual(len(fake.qualities), 2)
+        self.assertEqual(len(fake.reports), 1)
+        self.assertEqual(len(fake.reviews), 1)
+        self.assertEqual(len(fake.trls), 1)
+        limited = self.context(fake, judge_model="offline-independent-judge", max_judge_calls=32)
+        third = self.invoke(limited, accepted=second["accepted_refs"])
+        self.assertEqual(third["phase"], "content_quality_pass")
+        self.assertEqual(fake.qualities[-1]["max_judge_calls"], 32)
+        self.assertEqual(len(fake.qualities), 3)
+        self.assertEqual(len(fake.reports), 1)
+
     def invoke(self, context, *, accepted=None, pending=None, **kwargs):
         graph = self.build_graph(context)
         result = graph.invoke(self.initial_state(context, accepted_refs=accepted,

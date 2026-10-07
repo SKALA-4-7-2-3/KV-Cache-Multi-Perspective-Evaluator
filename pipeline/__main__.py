@@ -40,6 +40,7 @@ def main():
                         help="With --resume, rerun selected stages while keeping other successful results")
     parser.add_argument("--stop-after", choices=["prepare", "domain", "stakeholders", "market", "trl", "review", "report", "quality"], default="quality")
     parser.add_argument("--report-model", help="Report writing model; defaults to --model")
+    parser.add_argument("--judge-model", help="Independent report Quality model; defaults to --model")
     parser.add_argument("--max-judge-calls", type=int, default=64, help="Quality HTTP call ceiling per attempt, within the global model limit")
     parser.add_argument("--max-tokens", type=int, default=5_000_000, help="Post-RAG actual+unconfirmed+reserved token ceiling")
     parser.add_argument("--max-model-calls", type=int, default=160, help="Post-RAG model HTTP attempt limit")
@@ -127,12 +128,18 @@ def main():
         "seconds":args.max_seconds},allow_budget_increase=args.extend_budget)
     configure(ledger)
     context = PipelineContext(output,bundle,request,manifest["run_id"],args.as_of,args.model,
-        draft=args.draft,stop_after=args.stop_after,report_model=args.report_model,max_judge_calls=args.max_judge_calls)
+        draft=args.draft,stop_after=args.stop_after,report_model=args.report_model,
+        judge_model=args.judge_model,max_judge_calls=args.max_judge_calls)
     report_settings = {"model":args.report_model or args.model,"draft":args.draft}
     old_settings = manifest.get("report_settings",report_settings)
     if old_settings["model"] != report_settings["model"]: args.rerun.append("report")
     if old_settings["draft"] != report_settings["draft"]: args.rerun.append("review")
     manifest["report_settings"] = report_settings
+    quality_settings = {"model": args.judge_model or args.model, "max_judge_calls": args.max_judge_calls}
+    old_quality_settings = manifest.get("quality_settings", {"model": args.model, "max_judge_calls": 64})
+    if old_quality_settings != quality_settings:
+        args.rerun.append("quality")
+    manifest["quality_settings"] = quality_settings
     order = ["trl","review","report","quality"]
     invalidated = set()
     for name in args.rerun:
@@ -143,7 +150,8 @@ def main():
     configuration = {"configurable":{"thread_id":manifest["run_id"]},"max_concurrency":3,
         "recursion_limit":128,"run_name":"KV-Cache Orchestrator–Workers",
         "tags":["kv-cache","orchestrator-workers"],"metadata":{
-            "evaluation_run_id":manifest["run_id"],"input_sha256":identity,"code_sha256":context.code_hash}}
+            "evaluation_run_id":manifest["run_id"],"input_sha256":identity,"code_sha256":context.code_hash,
+            "judge_model":args.judge_model or args.model,"report_model":args.report_model or args.model}}
     snapshot = graph.get_state(configuration)
     old_code = manifest.get("orchestration_code_sha256")
     from .artifacts import role_fingerprints

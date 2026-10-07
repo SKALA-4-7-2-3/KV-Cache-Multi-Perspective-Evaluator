@@ -711,9 +711,11 @@ def _audit(answer: dict, claims: list[dict], evidence: list[dict], documents: di
         if set(ids) != quote_ids or check["verdict"] in {"supported", "contradicted"} and not quotes:
             raise JudgeContractError("Semantic support requires original quotes for every linked evidence ID")
         claim = claim_map[check["claim_id"]]
+        claim_technologies = set(claim["technology_ids"])
         actual_keys = set(claim["citation_keys"])
         paragraph_keys = set(claim.get("rendered_citation_keys", claim["citation_keys"]))
-        if quotes and (not set(claim["technology_ids"]) <= owners
+        if quotes and (check["verdict"] == "supported" and not claim_technologies <= owners
+                       or claim_technologies and not claim_technologies & owners
                        or actual_keys and (not actual_keys & citation_keys or not citation_keys <= paragraph_keys)):
             raise JudgeContractError("Claim technology or actual citation is not owned by its quoted sources")
         check["source_locations"] = locations

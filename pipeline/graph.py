@@ -45,6 +45,7 @@ class PipelineContext:
     max_quality_attempts: int = 3
     max_judge_calls: int = 64
     report_model: str | None = None
+    judge_model: str | None = None
 
     def __post_init__(self):
         self.output_dir = Path(self.output_dir).resolve()
@@ -296,9 +297,10 @@ def build_graph(context, checkpointer=None):
         rev_input = ctx.store.get(state["review_input_ref"])
         rev_input["synthesis"] = review_result.get("synthesis",{})
         attempt = state["quality_attempt"]+1
-        result,ref = ctx.stage(f"quality-{attempt}",[state["report_ref"],state["review_ref"],state["review_input_ref"]],
+        judge_model = ctx.judge_model or ctx.model
+        result,ref = ctx.stage(f"quality-{attempt}",[state["report_ref"],state["review_ref"],state["review_input_ref"],judge_model,ctx.max_judge_calls],
             lambda:(ctx.quality or evaluate_report)(tex_path=report_result["tex_path"],pdf_path=report_result["pdf_path"],
-                review_input=rev_input,report_markdown=review_result["report_input_md"],model=ctx.model,
+                review_input=rev_input,report_markdown=review_result["report_input_md"],model=judge_model,
                 output_dir=ctx.output_dir/"quality"/f"attempt-{attempt}",attempt=attempt,
                 max_judge_calls=ctx.max_judge_calls))
         ctx.store.put("quality.json",result)

@@ -311,6 +311,20 @@ class ReportQualityTests(unittest.TestCase):
         self.assertEqual(groups[0]["evidence_scope"]["selection"], "all_originals_uncited")
         self.assertEqual(groups[0]["evidence"], sources)
 
+    def test_partial_technology_evidence_can_reject_but_cannot_support_compound_claim(self):
+        data = canonical()
+        source = canonical_evidence(data)[0]
+        claim = {"claim_id":"fixed", "technology_ids":["SW-01","HW-01"], "citation_keys":["SW01_RDKV"]}
+        check = {"claim_id":"fixed", "verdict":"unsupported", "reason":"SW evidence does not establish the HW half",
+            "evidence_ids":[source["evidence_id"]], "supporting_quotes":[{"evidence_id":source["evidence_id"], "quote":source["excerpt"]}],
+            "target":"report", "role":None, "criterion_ids":[]}
+        for verdict in ("unsupported", "uncertain", "contradicted"):
+            check["verdict"] = verdict
+            self.assertEqual(_audit({"checks":[deepcopy(check)]},[claim],[source],data["documents"])[0]["verdict"],verdict)
+        check["verdict"] = "supported"
+        with self.assertRaises(JudgeContractError):
+            _audit({"checks":[check]},[claim],[source],data["documents"])
+
     def test_failed_later_audit_preserves_only_completed_claim_counts(self):
         def responder(instructions, prompt):
             data = payload(prompt)
