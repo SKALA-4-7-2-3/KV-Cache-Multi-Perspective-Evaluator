@@ -94,14 +94,14 @@
       "seconds": 14400
     },
     "counts": {
-      "llm": 574,
+      "llm": 577,
       "search": 49,
       "extract": 116,
       "fetch": 0
     },
     "used_tokens": 29857761,
-    "unconfirmed_tokens": 4442197,
-    "elapsed_seconds": 8725.409,
+    "unconfirmed_tokens": 4443046,
+    "elapsed_seconds": 8728.159,
     "budget_extensions": [
       {
         "before": {
@@ -397,7 +397,42 @@
     "endpoint_org_project_overrides_present": false,
     "configured_nonempty_alternative_provider_keys": false,
     "previous_model_trials_count": 2,
-    "total_failed_candidates": 9,
-    "required": "Verify OpenAI project model permissions or provide an accessible project key; do not claim an untested replacement works."
+    "total_failed_candidates": 11,
+    "required": "Verify OpenAI project model permissions or provide an accessible project key; do not claim an untested replacement works.",
+    "explicit_user_key_probes": [
+      {
+        "kind": "explicit_user_key_model_probe",
+        "model": "gpt-6.1-sol",
+        "not_content_assessment": true,
+        "explicit_user_key_in_sdk": true,
+        "official_endpoint": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      },
+      {
+        "kind": "explicit_user_key_model_probe",
+        "model": "gpt-6-luna",
+        "not_content_assessment": true,
+        "explicit_user_key_in_sdk": true,
+        "official_endpoint": true,
+        "status": "unavailable",
+        "error_type": "NotFoundError",
+        "http_status": 404,
+        "error_code": "model_not_found"
+      }
+    ],
+    "chat_endpoint_probe": {
+      "kind": "explicit_user_key_endpoint_diagnostic",
+      "endpoint": "chat.completions",
+      "model": "gpt-4.1",
+      "not_content_assessment": true,
+      "status": "unavailable",
+      "error_type": "PermissionDeniedError",
+      "http_status": 403,
+      "error_code": "model_not_found"
+    },
+    "explicit_key_in_sdk_and_official_endpoint_verified": true
   }
 }

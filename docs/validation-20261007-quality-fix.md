@@ -14,6 +14,7 @@
 | 기본 모델 확인 | `gpt-4.1-mini`의 최소 요청도 동일한 오류 |
 | 모델 목록 확인 | 현재 연결 키의 `/models` 응답은 빈 목록; 키 값은 출력하지 않음 |
 | 모델 교체 요청 검증 | GPT-4.1/mini, GPT-6 Sol, GPT-5.6 Sol, GPT-5.4, GPT-4.1 snapshot, GPT-5/mini, GPT-4o의 9개 후보 모두 접근 오류; 사용 가능하다고 확인된 교체 모델 없음 |
+| 사용자 키 직접 지정 확인 | SDK의 api_key가 지정 파일의 키와 일치하고 주소가 공식 `https://api.openai.com/v1/`임을 확인; GPT-6.1 Sol·GPT-6 Luna도 404, GPT-4.1 Chat Completions는 403 접근 거절 |
 | 최종 Quality 8 | 보고서 생성 실패로 실행되지 않음 |
 | 과거 결과 | Report 7 / Quality 7과 원문·판정·사용량을 보존 |
 | 시각화 | 실제 코드의 9단계와 수정·재조사 분기를 표현; 320/736px 브라우저 검사 통과 |
@@ -37,6 +38,8 @@ Report 호출 1회와 기본 모델 접근 확인 1회는 접근 오류로 실�
 OpenAI의 [공식 GPT-4.1 모델 안내](https://developers.openai.com/api/docs/models/gpt-4.1)는 해당 모델을 계속 안내하고 있다. 현재 오류만으로 모델이 전체 서비스에서 폐지됐다거나 키가 무효라고 단정하지 않는다. 모델에 접근 가능한 프로젝트 키·권한 확인이 필요하다.
 
 실제 실행 `.env`는 존재하며 workspace의 두 실습 `.env`와 같은 OpenAI 키를 사용하고 있었다. 별도 endpoint·organization·project routing도 설정되어 있지 않았다. 대체 제공자 키는 값이 비어 있어 사용 가능한 대체 경로를 확인하지 못했다. 확인 없이 기본 모델명을 바꾸지 않았다.
+
+사용자가 자신의 키 사용을 재요청한 뒤 해당 파일의 키와 공식 API 주소를 SDK 인자로 직접 지정해 재확인했다. 실제 SDK 값의 일치 여부만 출력했으며 키·해시는 출력하지 않았다. 추가 최신 모델 두 개도 404였고, 별도의 Chat Completions 경로는 `PermissionDeniedError / HTTP 403 / model_not_found`로 실패했다. 총 11개 모델 후보에서 사용 가능한 교체 대상을 확인하지 못했다. 이 결과는 현재 키의 접근 문제를 조사할 근거이며 모든 OpenAI 모델의 서비스 종료를 뜻하지 않는다. [공식 오류 안내](https://developers.openai.com/api/docs/guides/error-codes)와 프로젝트 권한 확인이 필요하다.
 
 키·권한과 실제 사용 가능한 모델을 확인한 뒤 재개한다. 같은 모델이면 동일 출력 경로의 `--resume`으로 pending Report부터 이어갈 수 있다. 다른 기본 모델로 교체하면 현재 CLI가 모델을 입력 identity로 취급하므로 명시적인 새 실행 기록으로 전환해야 한다. 완료된 이전 실행과 카운터·사용량을 지우지 않으며 모델 변경 범위를 기록한다. Report/Judge만 교체해 기존 관점 평가를 재사용하려면 그 혼합 실행도 별도 provenance로 기록하고 수정 피드백이 유실되지 않는 경로를 사용한다. 이전 PDF의 기간·기술 귀속 문제는 새 결과가 원문 검토와 Quality를 통과하기 전까지 해결됐다고 표시하지 않는다.
 
