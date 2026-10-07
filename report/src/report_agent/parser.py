@@ -13,6 +13,13 @@ class InputContractError(ValueError):
     """Raised when report input is unsafe or violates the handoff contract."""
 
 
+MARKET_CRITERIA = {
+    "market_size_growth": "시장규모·성장", "commercialization": "사업화",
+    "adoption": "도입", "ecosystem_support": "생태계 지원",
+    "standardization": "표준화", "business_value": "사업가치",
+}
+
+
 @dataclass(frozen=True)
 class ParsedReportInput:
     raw_markdown: str
@@ -26,6 +33,15 @@ class ParsedReportInput:
     url_to_citation: dict[str, str] = field(default_factory=dict)
     source_analysis: tuple[dict[str, Any], ...] = ()
     trl_assessments: dict[str, dict[str, Any]] = field(default_factory=dict)
+    market_findings: tuple[dict[str, Any], ...] = ()
+
+    @property
+    def market_cells(self) -> tuple[tuple[str, str], ...]:
+        expected = tuple((self.metadata[key], criterion) for key in
+                         ("sw_technology_id", "hw_technology_id") for criterion in MARKET_CRITERIA)
+        covered = {(tech, item.get("criterion_id")) for item in self.market_findings
+                   for tech in item.get("technology_ids", [item.get("tech_id")])}
+        return expected if set(expected) <= covered else ()
 
     @property
     def allowed_citation_keys(self) -> set[str]:
@@ -360,6 +376,12 @@ def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
     reference_records = _reference_records(body, reference_to_citation)
     collected_sources = _data_block(body, "COLLECTED_SOURCES", [])
     retained_synthesis = _data_block(body, "RETAINED_SYNTHESIS", {})
+    upstream = _data_block(body, "UPSTREAM_ANALYSIS", {})
+    if not isinstance(upstream, dict):
+        raise InputContractError("상위 분석 자료 형식이 잘못되었습니다.")
+    market_findings = upstream.get("draft_findings", [])
+    if not isinstance(market_findings, list) or any(not isinstance(item, dict) for item in market_findings):
+        raise InputContractError("상위 시장 분석 목록 형식이 잘못되었습니다.")
     source_analysis = _data_block(body, "REPORT_SOURCE_ANALYSIS", [])
     if not isinstance(source_analysis, list) or any(not isinstance(item, dict) for item in source_analysis):
         raise InputContractError("출처별 분석 목록 형식이 잘못되었습니다.")
@@ -411,4 +433,5 @@ def parse_report_input(markdown: str, *, allow_unreviewed: bool = False,
         url_to_citation=url_to_citation,
         source_analysis=tuple(source_analysis),
         trl_assessments=trl_assessments,
+        market_findings=tuple(market_findings),
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from .parser import ParsedReportInput
+from .parser import MARKET_CRITERIA, ParsedReportInput
 
 
 SYSTEM_INSTRUCTIONS = r"""
@@ -137,6 +137,22 @@ def trl_output_instructions(parsed: ParsedReportInput) -> str:
     ))
 
 
+def market_output_instructions(parsed: ParsedReportInput) -> str:
+    if not parsed.market_cells:
+        return ""
+    names = {parsed.metadata["sw_technology_id"]: "RDKV", parsed.metadata["hw_technology_id"]: "Photonic-CXL"}
+    cells = "\n".join(f"% BEGIN_MARKET_CELL {tech} {criterion}\n"
+        + rf"\paragraph{{{names[tech]} — {MARKET_CRITERIA[criterion]}}}" + "\n"
+        + f"% END_MARKET_CELL {tech} {criterion}" for tech, criterion in parsed.market_cells)
+    return "\n".join(("[시장성 12셀 작성 계약]",
+        r"반드시 \subsection{시장성}과 다음 subsection 사이에서 아래 12개 경계와 기술·항목 제목을 각각 한 번 작성한다.",
+        "경계는 내부 검사용 주석이다. 각 경계 안에는 제목에 이어 실제 분석 본문을 직접 작성한다. 코드가 본문을 추가하지 않는다.",
+        "각 항목은 원문의 관찰 또는 근거에 연결된 조건부 해석을 출처 인용과 함께 설명한다. 관련 CXL 산업의 실적을 선정 기술의 실적으로 바꾸지 않는다.",
+        "자료가 부족한 항목에는 미확인 범위, `판단 영향:`과 `다음 확인:`을 포함해 실무 영향과 구체적 확인 계획을 설명한다. 제목·주석·자료 부재 표시만으로 항목을 채우지 않는다.",
+        "여러 raw findings가 같은 셀에 연결돼도 모두 검토해 한 논지로 종합하고 반대 근거·조건·한계를 보존한다. 미확인을 통과나 승인으로 바꾸지 않는다.",
+        cells))
+
+
 def build_generation_prompt(parsed: ParsedReportInput) -> str:
     digest = hashlib.sha256(parsed.raw_markdown.encode("utf-8")).hexdigest()[:16]
     delimiter = f"REPORT_SOURCE_{digest}"
@@ -218,6 +234,7 @@ def build_generation_prompt(parsed: ParsedReportInput) -> str:
 ---END_{delimiter}---
 
 {trl_output_instructions(parsed)}
+{market_output_instructions(parsed)}
 
 완전한 LaTeX 문서만 출력하라.
 """.strip()
@@ -259,6 +276,7 @@ section으로 승격하거나 생략하지 않는다. 더 작은 구분이 필�
 ---END_{delimiter}---
 
 {trl_output_instructions(parsed)}
+{market_output_instructions(parsed)}
 
 코드 펜스 없이 수정된 완전한 LaTeX 문서만 출력하라.
 """.strip()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .parser import ParsedReportInput
+from .parser import MARKET_CRITERIA, ParsedReportInput
 from .prompt import REQUIRED_OUTLINE, REQUIRED_SUBSECTIONS
 
 
@@ -106,6 +106,35 @@ def _trl_issues(latex: str, parsed: ParsedReportInput) -> list[str]:
     return issues
 
 
+def _market_issues(latex: str, parsed: ParsedReportInput) -> list[str]:
+    if not parsed.market_cells:
+        return []
+    heading = re.search(r"\\subsection\{시장성\}", latex)
+    if not heading:
+        return ["시장성: 12개 기술·항목 분석을 시장성 subsection에 작성해야 합니다."]
+    following = latex[heading.end():]
+    end = re.search(r"\\(?:subsection|section)\{", following)
+    market = following[:end.start()] if end else following
+    names = {parsed.metadata["sw_technology_id"]: "RDKV", parsed.metadata["hw_technology_id"]: "Photonic-CXL"}
+    issues = []
+    for tech, criterion in parsed.market_cells:
+        identity = re.escape(f"{tech} {criterion}")
+        pattern = rf"(?m)^% BEGIN_MARKET_CELL {identity}[ \t]*\n([\s\S]*?)^% END_MARKET_CELL {identity}[ \t]*$"
+        blocks = re.findall(pattern, market)
+        if len(blocks) != 1:
+            issues.append(f"시장성 {tech}/{criterion}: 시장성 안에 정확한 경계와 분석 본문을 한 번 작성해야 합니다.")
+            continue
+        plain = _visible_text(blocks[0])
+        label = MARKET_CRITERIA[criterion]
+        content = plain.replace(names[tech], "", 1).replace(label, "", 1)
+        if names[tech] not in plain or _compact(label) not in _compact(plain) or len(_compact(content)) < 20:
+            issues.append(f"시장성 {tech}/{criterion}: 보이는 기술·항목 제목과 실질 분석 본문이 필요합니다.")
+        if not CITE.search(re.sub(r"(?<!\\)%[^\n]*", "", blocks[0])) and not all(
+                field in _compact(plain).replace("：", ":") for field in ("미확인", "판단영향:", "다음확인:")):
+            issues.append(f"시장성 {tech}/{criterion}: 근거 인용 또는 미확인 범위·판단 영향·다음 확인을 작성해야 합니다.")
+    return issues
+
+
 def _balanced_braces(text: str) -> bool:
     depth = 0
     index = 0
@@ -133,6 +162,7 @@ def _balanced_braces(text: str) -> bool:
 def validate_latex(latex: str, parsed: ParsedReportInput) -> ValidationResult:
     issues: list[str] = []
     issues.extend(_trl_issues(latex, parsed))
+    issues.extend(_market_issues(latex, parsed))
 
     if "```" in latex:
         issues.append("코드 펜스가 남아 있습니다.")
