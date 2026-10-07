@@ -1,5 +1,6 @@
 """Offline persistence tests: raw cache reuse confers no Judge approval."""
 from copy import deepcopy
+from hashlib import sha256
 import json
 from pathlib import Path
 import tempfile
@@ -70,6 +71,70 @@ class JudgeResponseCacheTests(unittest.TestCase):
         self.cache.save(self.request, "second response\n")
         self.assertEqual(self.cache.load(self.request), "second response\n")
         self.assertEqual(list((self.output / "quality-responses").iterdir()), [self.path()])
+
+
+    def test_verified_correction_redirect_keeps_actual_prompt_provenance_and_old_key(self):
+        corrected = {**self.request, "prompt": self.request["prompt"] + "\ncontract correction"}
+        self.cache.save(self.request, "old base response")
+        base_path = self.output / "quality-responses" / (self.cache._request_key(self.request) + ".json")
+        original = base_path.read_bytes()
+        self.cache.save_verified(self.request, corrected, self.raw)
+        self.assertEqual(self.cache.load(self.request), self.raw)
+        self.assertEqual(self.cache.load(corrected), self.raw)
+        self.assertEqual(base_path.read_bytes(), original)
+        alias_path = base_path.with_suffix(".alias.json")
+        alias = json.loads(alias_path.read_text())
+        target = json.loads((alias_path.parent / (alias["target_key"] + ".json")).read_text())
+        self.assertEqual(alias["base_key"], self.cache._request_key(self.request))
+        self.assertEqual(alias["target_key"], self.cache._request_key(corrected))
+        self.assertEqual(target["verified_base_key"], alias["base_key"])
+        self.assertEqual(alias["actual_prompt_sha256"], target["actual_prompt_sha256"])
+        self.assertEqual(alias["actual_prompt_sha256"], sha256(corrected["prompt"].encode()).hexdigest())
+        self.assertFalse(list(alias_path.parent.glob("*.tmp")))
+
+    def test_redirect_request_changes_and_unverified_save_are_misses(self):
+        corrected = {**self.request, "prompt": "corrected prompt"}
+        self.cache.save(corrected, self.raw)
+        self.assertIsNone(self.cache.load(self.request))
+        self.cache.save_verified(self.request, corrected, self.raw)
+        for field, value in (("model", "new-model"), ("strict_schema", {"type": "string"}),
+                             ("prompt", "different task"), ("format_version", 2)):
+            with self.subTest(field=field):
+                self.assertIsNone(self.cache.load({**self.request, field: value}))
+        for changes in ({"model": "wrong-model"}, {"format_version": True}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.cache.save_verified(self.request, {**corrected, **changes}, self.raw)
+
+    def test_corrupt_alias_or_target_is_a_miss_even_when_legacy_base_exists(self):
+        corrected = {**self.request, "prompt": "corrected prompt"}
+        self.cache.save(self.request, "old base response")
+        self.cache.save_verified(self.request, corrected, self.raw)
+        directory = self.output / "quality-responses"
+        alias_path = directory / (self.cache._request_key(self.request) + ".alias.json")
+        target_path = directory / (self.cache._request_key(corrected) + ".json")
+        alias, target = json.loads(alias_path.read_text()), json.loads(target_path.read_text())
+        for field, value in (("base_key", "0" * 64), ("target_key", "../outside"),
+                             ("target_key", "0" * 64), ("version", True),
+                             ("actual_prompt_sha256", "wrong"), ("actual_prompt_sha256", "0" * 64)):
+            with self.subTest(alias_field=field):
+                alias_path.write_text(json.dumps({**alias, field: value}))
+                self.assertIsNone(self.cache.load(self.request))
+        alias_path.write_text(json.dumps(alias))
+        for field, value in (("verified_base_key", "0" * 64), ("key", "0" * 64),
+                             ("version", 2), ("raw", "tampered"),
+                             ("actual_prompt_sha256", "0" * 64)):
+            with self.subTest(target_field=field):
+                target_path.write_text(json.dumps({**target, field: value}))
+                self.assertIsNone(self.cache.load(self.request))
+        target_path.unlink()
+        self.assertIsNone(self.cache.load(self.request))
+
+    def test_new_verified_base_response_supersedes_old_redirect(self):
+        corrected = {**self.request, "prompt": "corrected prompt"}
+        self.cache.save_verified(self.request, corrected, self.raw)
+        self.cache.save_verified(self.request, self.request, "new verified base")
+        self.assertEqual(self.cache.load(self.request), "new verified base")
+        self.assertFalse(list((self.output / "quality-responses").glob("*.alias.json")))
 
 
 if __name__ == "__main__":

@@ -53,8 +53,7 @@ class JudgeResponseCache:
                                separators=(",", ":"), allow_nan=False)
         return sha256(canonical.encode("utf-8")).hexdigest()
 
-    def load(self, request: dict) -> str | None:
-        key = self._request_key(request)
+    def _read_envelope(self, key: str) -> dict | None:
         try:
             envelope = json.loads((self.directory / f"{key}.json").read_text(encoding="utf-8"))
             if (not isinstance(envelope, dict) or envelope.get("key") != key
@@ -63,30 +62,74 @@ class JudgeResponseCache:
                     or not isinstance(envelope.get("raw"), str)
                     or envelope.get("raw_sha256") != sha256(envelope["raw"].encode("utf-8")).hexdigest()):
                 return None
-            return envelope["raw"]
+            return envelope
         except (OSError, UnicodeError, ValueError, TypeError):
             return None
 
-    def save(self, request: dict, raw: str) -> None:
+    def load(self, request: dict) -> str | None:
+        key = self._request_key(request)
+        try:
+            alias = json.loads((self.directory / f"{key}.alias.json").read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            envelope = self._read_envelope(key)
+            return envelope["raw"] if envelope is not None else None
+        except (OSError, UnicodeError, ValueError, TypeError):
+            return None
+        if (not isinstance(alias, dict) or alias.get("base_key") != key
+                or type(alias.get("version")) is not int or alias["version"] != self._VERSION
+                or not isinstance(alias.get("target_key"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", alias["target_key"])
+                or not isinstance(alias.get("actual_prompt_sha256"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", alias["actual_prompt_sha256"])):
+            return None
+        envelope = self._read_envelope(alias["target_key"])
+        if (envelope is None or envelope.get("verified_base_key") != key
+                or envelope.get("actual_prompt_sha256") != alias["actual_prompt_sha256"]):
+            return None
+        return envelope["raw"]
+
+    def _atomic_write(self, name: str, envelope: dict) -> None:
         from tempfile import NamedTemporaryFile
 
-        if not isinstance(raw, str):
-            raise TypeError("Judge cache accepts raw text only")
-        key = self._request_key(request)
-        envelope = {"key": key, "version": self._VERSION, "raw": raw,
-                    "raw_sha256": sha256(raw.encode("utf-8")).hexdigest()}
         self.directory.mkdir(parents=True, exist_ok=True)
         temporary = None
         try:
             with NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.directory,
-                    prefix=f".{key}.", suffix=".tmp", delete=False) as stream:
+                    prefix=f".{name}.", suffix=".tmp", delete=False) as stream:
                 temporary = Path(stream.name)
                 json.dump(envelope, stream, ensure_ascii=False, sort_keys=True)
                 stream.write("\n")
-            temporary.replace(self.directory / f"{key}.json")
+            temporary.replace(self.directory / f"{name}.json")
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
+
+    def save(self, request: dict, raw: str) -> None:
+        if not isinstance(raw, str):
+            raise TypeError("Judge cache accepts raw text only")
+        key = self._request_key(request)
+        self._atomic_write(key, {"key": key, "version": self._VERSION, "raw": raw,
+            "raw_sha256": sha256(raw.encode("utf-8")).hexdigest()})
+
+    def save_verified(self, base_request: dict, actual_request: dict, raw: str) -> None:
+        """Publish an alias only after the caller's current validators succeed."""
+        if not isinstance(raw, str) or not isinstance(actual_request.get("prompt"), str):
+            raise TypeError("Verified Judge response and actual prompt must be text")
+        if (self._request_key({k: v for k, v in base_request.items() if k != "prompt"})
+                != self._request_key({k: v for k, v in actual_request.items() if k != "prompt"})):
+            raise ValueError("A correction cannot change the base request identity")
+        base_key, target_key = self._request_key(base_request), self._request_key(actual_request)
+        if base_key == target_key:
+            self.save(base_request, raw)
+            (self.directory / f"{base_key}.alias.json").unlink(missing_ok=True)
+            return
+        prompt_hash = sha256(actual_request["prompt"].encode("utf-8")).hexdigest()
+        self._atomic_write(target_key, {"key": target_key, "version": self._VERSION, "raw": raw,
+            "raw_sha256": sha256(raw.encode("utf-8")).hexdigest(),
+            "verified_base_key": base_key, "actual_prompt_sha256": prompt_hash})
+        self._atomic_write(f"{base_key}.alias", {"version": self._VERSION, "base_key": base_key,
+            "target_key": target_key, "actual_prompt_sha256": prompt_hash})
+
 
 
 def _json(value) -> str:
@@ -138,11 +181,48 @@ def rendered_units(blocks: list[dict]) -> list[dict]:
     """Independent material denominator: every nonempty rendered line, no fact filter."""
     units = []
     for block in blocks:
+        paragraph, active = 0, False
         for index, line in enumerate(block["text"].splitlines(keepends=True), 1):
             if line.strip():
+                new_paragraph = (line[:1].isspace() or
+                    bool(re.match(r"\s*(?:\d+(?:\.\d+)*\s|\[\d+\]|[•*−–-]\s)", line)))
+                if not active or new_paragraph:
+                    paragraph += 1
+                active = True
                 units.append({"block_id": block["block_id"] + f"-u{index:03d}",
-                    "parent_block_id": block["block_id"], "page": block["page"], "text": line})
+                    "parent_block_id": block["block_id"], "paragraph_id": block["block_id"] + f"-p{paragraph:03d}",
+                    "page": block["page"], "text": line})
+            else:
+                active = False
+    # The report uses an indented first line for each new prose paragraph.
+    # A page break can split that paragraph before its closing citations.
+    for previous, current in zip(blocks, blocks[1:]):
+        if current["page"] != previous["page"] + 1:
+            continue
+        before = [unit for unit in units if unit["parent_block_id"] == previous["block_id"]
+                  and unit["text"].strip() != str(previous["page"])]
+        after = [unit for unit in units if unit["parent_block_id"] == current["block_id"]
+                 and unit["text"].strip() != str(current["page"])]
+        if not before or not after:
+            continue
+        first = after[0]["text"]
+        if (first[:1].isspace() or re.match(r"(?:\d+(?:\.\d+)*\s|\[\d+\]|[•*−–-]\s)", first)):
+            continue
+        continuation = after[0]["paragraph_id"]
+        for unit in after:
+            if unit["paragraph_id"] == continuation:
+                unit["paragraph_id"] = before[-1]["paragraph_id"]
     return units
+
+
+def bind_rendered_citations(units: list[dict], citation_numbers: dict) -> None:
+    """Bind only numbered references physically present in the owning paragraph."""
+    paragraphs = {}
+    for unit in units:
+        unit["literal_citation_keys"] = sorted(_literal_citations(unit, citation_numbers))
+        paragraphs.setdefault(unit["paragraph_id"], set()).update(unit["literal_citation_keys"])
+    for unit in units:
+        unit["paragraph_citation_keys"] = sorted(paragraphs[unit["paragraph_id"]])
 
 
 def _web_original_excerpt(identifier: str, source: dict, document: dict,
@@ -249,7 +329,12 @@ to its wrapped continuations, including a citation at the sentence/paragraph end
 Never borrow a different paragraph's citation or a source for another assertion.
 Empty claims are permitted only for headings/bibliography/nonfactual text with
 a specific non_claim_reason. Use the supplied numbered-citation mapping;
-uncited claims have an empty citation_keys list, never omit them.""",
+uncited claims have an empty citation_keys list, never omit them. Descriptions
+of this report's organization, chosen scope or evaluation method are nonfactual
+editorial text unless they assert an external technology fact. The controller
+supplies paragraph_citation_keys from the actual PDF, including paragraph-final
+citations. Assign only the keys relevant to each atomic assertion; a wrapped
+line must not be forced to cite sources belonging to another assertion.""",
     "audit": """For EVERY fixed claim return checks:[{claim_id,verdict,reason,
 evidence_ids,supporting_quotes:[{evidence_id,quote}],target,role,criterion_ids}].
 verdict is supported, contradicted, unsupported or uncertain. Audit each claim
@@ -315,11 +400,12 @@ def _atomize_schema(data: dict) -> dict:
         raise JudgeContractError("Strict atomization requires unique units and registered citation keys")
     blocks = {}
     for unit in units:
-        literal = _literal_citations(unit, data.get("citation_numbers", {}))
+        literal = set(unit.get("paragraph_citation_keys", _literal_citations(unit, data.get("citation_numbers", {}))))
         properties = {"text": {"type": "string"},
             "kind": {"type": "string", "enum": ["author_report", "fact", "inference", "gap"]},
             "technology_ids": {"type": "array", "items": {"type": "string", "enum": ["SW-01", "HW-01"]}},
-            "citation_keys": {"type": "array", "items": {"type": "string", "enum": sorted(literal)} if literal else {"$ref": "#/$defs/citation_key"}},
+            "citation_keys": {"type": "array", "items": {"type": "string", "enum": sorted(literal)} if literal else {"$ref": "#/$defs/citation_key"},
+                              **({"maxItems": 0} if "paragraph_citation_keys" in unit and not literal else {})},
             "core": {"type": "boolean"}}
         claim = {"type": "object", "properties": properties, "required": list(properties),
                  "additionalProperties": False}
@@ -381,8 +467,9 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "to that unit's exact whole original line, including whitespace and line breaks. "
                    "Use SW-01/HW-01 technology IDs and registered citation keys from the schema. "
                    "A unit must contain at least one claim OR a nonempty specific non-claim explanation. "
-                   "When a factual unit explicitly displays numeric citations, distribute ALL and ONLY those "
-                   "registered keys among its claims; never drop an actual numbered citation. "
+                   "Use the supplied canonical paragraph_citation_keys for wrapped factual lines. "
+                   "Assign each assertion's own relevant citations; actual paragraph sources remain recorded "
+                   "by the controller and are all sent to the original-source auditor. "
                    "Every key is required; the JSON schema defines the response structure.")
     elif phase == "audit":
         prompt += ("\nFor this strict audit request, checks must be an object keyed by EVERY fixed claim ID. "
@@ -417,11 +504,12 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
                     or any(not isinstance(claim, dict) or "report_quote" in claim
                            for claim in row["claims"])):
                 raise JudgeContractError("Structured atomization changed its anchored original line")
-            literal = _literal_citations(unit, (data or {}).get("citation_numbers", {}))
-            if literal and row["claims"]:
+            literal = set(unit.get("paragraph_citation_keys", _literal_citations(unit, (data or {}).get("citation_numbers", {}))))
+            if (literal or "paragraph_citation_keys" in unit) and row["claims"]:
                 groups = [claim.get("citation_keys") for claim in row["claims"]]
                 if (any(not isinstance(keys, list) or any(not isinstance(key, str) for key in keys) for keys in groups)
-                        or set(key for keys in groups for key in keys) != literal):
+                        or (not set(key for keys in groups for key in keys) <= literal if "paragraph_citation_keys" in unit
+                            else set(key for keys in groups for key in keys) != literal)):
                     raise JudgeContractError("Atomic unit did not preserve all and only its literal numbered citations: " + unit["block_id"] + " requires " + ", ".join(sorted(literal)))
             normalized.append({**row, "block_id": unit["block_id"], "claims": [
                 {**claim, "report_quote": unit["text"]} for claim in row["claims"]]})
@@ -530,11 +618,16 @@ def _atomize(answer: dict, blocks: list[dict], allowed_keys: set[str]) -> list[d
                     or claim.get("kind") not in {"author_report", "fact", "inference", "gap"}
                     or type(claim.get("core")) is not bool or not isinstance(keys, list)
                     or not set(keys) <= allowed_keys or not isinstance(technologies, list)
-                    or not set(technologies) <= {"SW-01", "HW-01"}):
+                    or not set(technologies) <= {"SW-01", "HW-01"}
+                    or "paragraph_citation_keys" in originals[row["block_id"]]
+                       and not set(keys) <= set(originals[row["block_id"]]["paragraph_citation_keys"])):
                 raise JudgeContractError("Atomic claim has an invalid quote, identity or disposition")
             claims.append({**claim, "claim_id": row["block_id"] + f"-c{index:03d}",
                            "block_id": row["block_id"], "page": originals[row["block_id"]]["page"],
-                           "parent_block_id": originals[row["block_id"]].get("parent_block_id", row["block_id"])})
+                           "parent_block_id": originals[row["block_id"]].get("parent_block_id", row["block_id"]),
+                           **({"rendered_citation_keys": originals[row["block_id"]]["paragraph_citation_keys"],
+                               "rendered_literal_citation_keys": originals[row["block_id"]]["literal_citation_keys"]}
+                              if "paragraph_citation_keys" in originals[row["block_id"]] else {})})
     return claims
 
 
@@ -601,7 +694,7 @@ def _audit_groups(claims: list[dict], evidence: list[dict], documents: dict,
     """
     grouped = {}
     for claim in claims:
-        keys = tuple(sorted(set(claim["citation_keys"])))
+        keys = tuple(sorted(set(claim.get("rendered_citation_keys", claim["citation_keys"]))))
         grouped.setdefault(keys, []).append(claim)
     groups = []
     for keys, items in grouped.items():
@@ -827,7 +920,7 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
                 answer = ask(phase, current)
                 value = validate(answer)
                 if responder is None and isinstance(last_raw, str):
-                    cache.save({**request, "prompt": _provider_prompt(phase, current)}, last_raw)
+                    cache.save_verified(request, {**request, "prompt": _provider_prompt(phase, current)}, last_raw)
                 return answer, value
             except JudgeContractError as exc:
                 if repair or result["judge_calls"] >= max_judge_calls:
@@ -894,6 +987,7 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         result["canonical_evidence_path"] = str(evidence_path)
         citation_numbers = {str(index): key for index, key in enumerate(
             re.findall(r"\\bibitem(?:\[[^\]]*\])?\{([^{}]+)\}", tex_bytes.decode()), 1)}
+        bind_rendered_citations(units, citation_numbers)
         claims, unit_dispositions = [], []
         for chunk in block_chunks:
             context = [block for block in blocks if block["page"] in {unit["page"] for unit in chunk}]

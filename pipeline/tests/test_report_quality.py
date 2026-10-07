@@ -39,7 +39,7 @@ class ReportQualityTests(unittest.TestCase):
         self.pdf.write_bytes(b"%PDF-1.7\noffline boundary")
         self.markdown = (FIXTURES / "trl-runtime.input.md").read_text()
         self.blocks = [{"block_id": "p001-b001", "page": 1, "text": "SUMMARY: RDKV GPU 실험 보고 [1]. 추정 TRL: 4. Photonic-CXL 추정 TRL: 미확인."},
-                       {"block_id": "p001-b002", "page": 1, "text": "표: 실운영 채택은 미확인이다."}]
+                       {"block_id": "p001-b002", "page": 1, "text": "표: 실운영 채택은 미확인이다 [1]."}]
         self.calls = []
 
     def responder(self, instructions, prompt):
@@ -48,8 +48,8 @@ class ReportQualityTests(unittest.TestCase):
         if data["phase"] == "atomize":
             return {"blocks": [{"block_id": block["block_id"], "non_claim_reason": "",
                 "claims": [{"report_quote": block["text"], "text": block["text"],
-                    "kind": "author_report" if block["block_id"].endswith("001") else "gap",
-                    "technology_ids": ["SW-01"], "citation_keys": ["SW01_RDKV"], "core": True}]}
+                    "kind": "author_report" if block.get("parent_block_id", block["block_id"]).endswith("001") else "gap",
+                    "technology_ids": ["SW-01"], "citation_keys": block.get("paragraph_citation_keys", ["SW01_RDKV"]), "core": True}]}
                 for block in data["blocks"]]}
         if data["phase"] == "audit":
             return {"checks": [{"claim_id": claim["claim_id"], "verdict": "supported",
@@ -211,6 +211,53 @@ class ReportQualityTests(unittest.TestCase):
         self.assertTrue(any("same assertion's owning paragraph" in prompt for prompt in captured_instructions))
         self.assertTrue(all("parent_block_id" in claim for claim in audit["claims"]))
 
+    def test_page_break_preserves_closing_citations_without_borrowing_next_paragraph(self):
+        from pipeline.report_quality import rendered_units, bind_rendered_citations
+        pages = [
+            {"block_id": "p001-b001", "page": 1, "text": "   RDKV 검증 조건은\n페이지에서 이어진다\n\n  1\n"},
+            {"block_id": "p002-b001", "page": 2, "text": "다음 페이지의 동일 문단이다 [1,2].\n\n   새 문단의 별도 근거 [3].\n\n  2\n"},
+            {"block_id": "p003-b001", "page": 3, "text": "9 REFERENCE\n\n[4] 서지 정보\n\n  3\n"},
+        ]
+        units = rendered_units(pages)
+        bind_rendered_citations(units, {"1": "SW", "2": "HW", "3": "WEB", "4": "REF"})
+        self.assertEqual(len(units), 9)  # Includes all three page-number lines.
+        self.assertEqual([unit["paragraph_citation_keys"] for unit in units[:2]], [["HW", "SW"]] * 2)
+        continued = next(unit for unit in units if unit["text"].startswith("다음"))
+        separate = next(unit for unit in units if "새 문단" in unit["text"])
+        heading = next(unit for unit in units if unit["text"].startswith("9 REFERENCE"))
+        self.assertEqual(continued["paragraph_id"], units[0]["paragraph_id"])
+        self.assertEqual(continued["paragraph_citation_keys"], ["HW", "SW"])
+        self.assertEqual(separate["paragraph_citation_keys"], ["WEB"])
+        self.assertEqual(heading["paragraph_citation_keys"], [])
+
+    def test_new_indented_page_paragraph_does_not_inherit_previous_citation(self):
+        from pipeline.report_quality import rendered_units, bind_rendered_citations
+        pages = [{"block_id": "p001-b001", "page": 1, "text": "   이전 주장 [1].\n\n 1\n"},
+                 {"block_id": "p002-b001", "page": 2, "text": "   새 주장에 근거 없음.\n\n 2\n"}]
+        units = rendered_units(pages)
+        bind_rendered_citations(units, {"1": "SW"})
+        self.assertEqual(units[0]["paragraph_citation_keys"], ["SW"])
+        self.assertEqual(units[2]["paragraph_citation_keys"], [])
+
+    def test_adjacent_new_paragraph_and_list_citations_do_not_cover_previous_uncited_fact(self):
+        from pipeline.report_quality import rendered_units, bind_rendered_citations
+        blocks = [{"block_id": "p001-b001", "page": 1,
+            "text": "   SW 상용 채택 주장\n   HW 처리량 주장 [1].\n • 별도 목록 주장 [2].\n[3] 서지\n"}]
+        units = rendered_units(blocks)
+        bind_rendered_citations(units, {"1": "HW", "2": "WEB", "3": "REF"})
+        self.assertEqual([u["paragraph_citation_keys"] for u in units], [[], ["HW"], ["WEB"], ["REF"]])
+
+    def test_unused_paragraph_reference_cannot_make_uncited_core_fact_pass(self):
+        def responder(instructions, prompt):
+            answer = self.responder(instructions, prompt)
+            if payload(prompt)["phase"] == "atomize":
+                answer["blocks"][0]["claims"][0]["citation_keys"] = []
+            return answer
+        result = self.evaluate(responder)
+        self.assertEqual(result["route"], "report_repair")
+        self.assertGreater(result["checked_claims"]["uncited_facts"], 0)
+        self.assertEqual(result["gates"]["H2"]["status"], "fail")
+
     def test_quote_spanning_wrapped_lines_is_rejected_without_normalization(self):
         self.blocks[0]["text"] += "\nRDKV 검증은 시뮬레이션으로\n수행되었으며 실제 운용 검증은 아니다 [1]."
         def responder(instructions, prompt):
@@ -243,6 +290,8 @@ class ReportQualityTests(unittest.TestCase):
         self.assertGreater(plan["calls"][-1]["input_utf8_bytes"], len(original))
 
     def test_compound_citations_are_audited_together_with_complete_owned_originals(self):
+        for block in self.blocks:
+            block["text"] = block["text"].replace("[1]", "[1,2]")
         evidence = canonical()
         evidence["documents"]["HW-01"] = {"sha256": "b" * 64, "citation_key": "HW01_PHOTONIC_CXL"}
         evidence["evidence"]["HW-laboratory"] = {"id": "HW-laboratory", "doc_id": "HW-01",
@@ -268,6 +317,8 @@ class ReportQualityTests(unittest.TestCase):
         self.assertEqual(len([call for call in self.calls if call["phase"] == "audit"]), 1)
 
     def test_uncited_claims_receive_every_original_and_missing_cited_document_fails_closed(self):
+        for block in self.blocks:
+            block["text"] = block["text"].replace("[1]", "")
         def uncited(instructions, prompt):
             answer = self.responder(instructions, prompt)
             if payload(prompt)["phase"] == "atomize":
@@ -283,6 +334,8 @@ class ReportQualityTests(unittest.TestCase):
         self.assertEqual(audit["evidence_scope"]["selection"], "all_originals_uncited")
         self.assertEqual(len(audit["evidence"]), len(canonical()["evidence"]))
         self.calls.clear()
+        for block in self.blocks:
+            block["text"] += " [1,2]"
         def missing(instructions, prompt):
             answer = self.responder(instructions, prompt)
             if payload(prompt)["phase"] == "atomize":
@@ -608,6 +661,56 @@ class ReportQualityTests(unittest.TestCase):
             third = execute()
             self.assertEqual(third["route"], "passed")
             self.assertEqual(third["judge_calls"], 2)
+
+
+    def test_corrected_raw_cache_redirect_reuses_only_after_current_validation(self):
+        atomize_calls = []
+        def provider(model, *, phase, data):
+            def respond(instructions, prompt):
+                if phase == "atomize":
+                    atomize_calls.append(data)
+                    if len(atomize_calls) == 1:
+                        respond.raw_response = json.dumps({"blocks": {}})
+                        return _normalize_provider_answer(phase, respond.raw_response, data)
+                answer = self.responder(instructions, _judge_prompt(phase, data))
+                if phase == "atomize":
+                    raw = {"blocks": {row["block_id"]: {"non_claim_reason": row["non_claim_reason"],
+                        "claims": [{key: value for key, value in claim.items() if key != "report_quote"} for claim in row["claims"]]}
+                        for row in answer["blocks"]}}
+                elif phase == "audit":
+                    raw = {"checks": {row["claim_id"]: {**{key: value for key, value in row.items()
+                        if key not in {"claim_id", "supporting_quotes", "evidence_ids"}},
+                        "references": [{"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]]}
+                        for row in answer["checks"]}}
+                else:
+                    raw = answer
+                respond.raw_response = json.dumps(raw)
+                return _normalize_provider_answer(phase, respond.raw_response, data)
+            return respond
+        def execute():
+            with patch("pipeline.report_quality.extract_pdf", return_value=(1, self.blocks)):
+                return evaluate_report(tex_path=self.tex, pdf_path=self.pdf, review_input=canonical(),
+                    report_markdown=self.markdown, model="offline-judge", output_dir=self.output)
+        with patch("pipeline.report_quality._provider", side_effect=provider):
+            first, second = execute(), execute()
+            self.assertEqual(first["route"], second["route"])
+            self.assertNotEqual(first["route"], "review_required", first["gates"])
+            self.assertEqual((first["judge_calls"], second["judge_calls"]), (4, 1))
+            self.assertEqual(second["cache_hits"], 2)
+            self.assertEqual(len(atomize_calls), 2)
+            self.assertIn("contract_feedback", atomize_calls[1])
+            from pipeline.report_quality import _atomize
+            count = []
+            def current_validator(*args):
+                count.append(1)
+                if len(count) == 1:
+                    raise JudgeContractError("Offline current validator rejects the cached disposition")
+                return _atomize(*args)
+            with patch("pipeline.report_quality._atomize", side_effect=current_validator):
+                third = execute()
+            self.assertEqual(third["route"], second["route"])
+            self.assertEqual(third["judge_calls"], 2)
+            self.assertEqual(len(count), 2)
 
 
 if __name__ == "__main__":
