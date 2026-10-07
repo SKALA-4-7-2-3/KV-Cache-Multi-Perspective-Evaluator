@@ -82,87 +82,8 @@ report_source_analysis가 제공되면 자료별 관찰 내용, 실제 인용 �
 독자가 읽을 본문은 간결하게 작성하고, 실제 본문에서 인용한 자료만 하나의 번호 있는 REFERENCE에 넣는다.
 출처 개수를 맞추기 위해 인용을 추가하거나, 사용하지 않은 자료를 참고문헌에 넣지 않는다.
 본문과 본문 인용은 보고서 에이전트가 직접 작성한다. 코드가 출처별 설명 문단이나 누락 인용을 붙이지 않는다.
-REFERENCE 서지 항목과 검토 사항 부록은 코드에서 추가한다. 별도 출처 목록이나 원래 초안 전체를 반복하지 않는다.
+REFERENCE 서지 항목만 코드에서 추가한다. 검토 기록은 저장된 입력 자료에 유지하며 최종 본문이나 부록에 반복하지 않는다.
 """.strip()
-
-
-def _latex_text(value: object) -> str:
-    substitutions = {"\\": r"\textbackslash{}", "{": r"\{", "}": r"\}",
-                     "%": r"\%", "&": r"\&", "#": r"\#", "$": r"\$",
-                     "_": r"\_", "~": r"\textasciitilde{}", "^": r"\textasciicircum{}",
-                     "<": r"\textless{}", ">": r"\textgreater{}"}
-    return "".join(substitutions.get(char, char) for char in str(value) if ord(char) >= 32 or char == "\n").replace("\n", " ")
-
-
-def _source_url(url: str) -> str:
-    visible = "".join(_latex_text(char) + (r"\allowbreak{}" if char in "/?&=-_." else "") for char in url)
-    label = r"\texttt{" + visible + "}"
-    if url.startswith(("https://", "http://")):
-        return r"\href{" + _latex_text(url) + "}{" + label + "}"
-    return label
-
-
-def review_note_sources(note: dict, parsed: ParsedReportInput) -> tuple[str, list[str], list[str]]:
-    """Resolve documents mentioned by the reviewer, not support for its verdict."""
-    reason = str(note.get("reason") or "")
-    identifiers = list(note.get("evidence_ids") or [])
-
-    def collect(match):
-        identifiers.extend(value.strip() for value in match.group(1).split(",") if value.strip())
-        return ""
-
-    reason = re.sub(r"\((?:evidence_ids|출처)\s*:\s*([^)]*)\)", collect, reason)
-    keys, unresolved = set(), []
-    for identifier in dict.fromkeys(identifiers):
-        key = parsed.reference_to_citation.get(identifier)
-        if key is None and identifier.startswith("paper:"):
-            # Resolve the exact document identity through registered passages;
-            # this does not make a shortened ID a valid passage-level claim.
-            registered = re.findall(
-                r"(?m)^### \[(paper:[^\]\n]+)\]\s*\n- 연결 Reference ID:\s*(\S+)", parsed.body)
-            matches = {parsed.reference_to_citation.get(reference)
-                       for evidence_id, reference in registered
-                       if evidence_id.partition("@")[0] == identifier.partition("@")[0]}
-            if len(matches) == 1:
-                key = matches.pop()
-        if key in parsed.reference_records:
-            keys.add(key)
-        else:
-            unresolved.append(identifier)
-    reason = " ".join(re.sub(r"https?://\S+", "해당 출처", reason).split())
-    return reason, [key for key in parsed.reference_records if key in keys], unresolved
-
-
-def retain_attribution_appendix(latex: str, parsed: ParsedReportInput) -> str:
-    """Show review notes; keep original draft opinions in the saved input."""
-    latex = re.sub(r"% BEGIN_ATTRIBUTION_NOTICE[\s\S]*?% END_ATTRIBUTION_NOTICE\n?", "", latex)
-    latex = re.sub(r"% BEGIN_ATTRIBUTION_APPENDIX[\s\S]*?% END_ATTRIBUTION_APPENDIX\n?", "", latex)
-    if parsed.metadata.get("render_mode") != "annotated_draft":
-        return latex
-    notes, seen = [], set()
-    for note in parsed.retained_synthesis.get("review_notes") or []:
-        if note.get("verdict") == "supported":
-            continue
-        reason, citations, unresolved = review_note_sources(note, parsed)
-        identity = (reason, tuple(citations), tuple(unresolved))
-        if reason and identity not in seen:
-            notes.append((reason, citations, unresolved))
-            seen.add(identity)
-    if not notes:
-        return latex
-    lines = ["% BEGIN_ATTRIBUTION_APPENDIX", r"\subsubsection*{종합 검토 사항}",
-             "생성된 원래 의견과 검토 기록은 보고서 입력 자료에 보존했다. "
-             "아래는 자동 검토에서 제시한 사항이다. 인용 번호는 검사 기록에 등장한 검토 대상 자료를 가리키며, "
-             "해당 자료가 검토 내용 전체를 뒷받침한다는 판정은 아니다." + r"\par"]
-    for reason, citations, unresolved in notes:
-        line = _latex_text("검토 사항: " + reason)
-        if citations:
-            line += r" 검토 대상 자료: \cite{" + ",".join(citations) + "}."
-        if unresolved:
-            line += " 일부 자료의 연결은 확인이 필요하다."
-        lines.append(line + r"\par")
-    lines += ["% END_ATTRIBUTION_APPENDIX", ""]
-    return latex.replace(r"\section{REFERENCE}", "\n".join(lines) + r"\section{REFERENCE}", 1)
 
 
 def canonicalize_citations(latex: str, parsed: ParsedReportInput) -> str:
@@ -218,7 +139,7 @@ def prepare_candidate(candidate: str, parsed: ParsedReportInput) -> str:
     candidate = apply_report_layout(_strip_code_fence(candidate))
     if parsed.metadata.get("render_mode") == "annotated_draft":
         candidate = canonicalize_citations(candidate, parsed)
-        return retain_cited_references(retain_attribution_appendix(candidate, parsed), parsed)
+        return retain_cited_references(candidate, parsed)
     return drop_unused_references(candidate)
 
 
@@ -235,9 +156,15 @@ class ReportAgent:
         self._responder = responder or self._openai_response
 
     def _openai_response(self, instructions: str, prompt: str) -> str:
-        from openai import OpenAI, OpenAIError
+        from openai import OpenAIError
+        try:
+            from pipeline.governance import openai_client as OpenAI
+        except ModuleNotFoundError:
+            from openai import OpenAI
 
-        client = OpenAI()
+        # Full-source reports can exceed two minutes; the governed client still
+        # caps every request by the run's remaining budget and performs no SDK retry.
+        client = OpenAI(timeout=300, max_retries=0)
         try:
             response = client.responses.create(
                 model=self.model,
@@ -248,8 +175,10 @@ class ReportAgent:
             )
         except OpenAIError as exc:
             raise GenerationError(
-                f"OpenAI API 호출 실패({type(exc).__name__}). API 키와 모델 접근 권한을 확인하세요."
+                f"OpenAI API 호출 실패({type(exc).__name__}). 요청 시간·연결·API 오류 기록을 확인하세요."
             ) from exc
+        finally:
+            client.close()
         if not response.output_text:
             raise GenerationError("모델 응답에 output_text가 없습니다.")
         return response.output_text
