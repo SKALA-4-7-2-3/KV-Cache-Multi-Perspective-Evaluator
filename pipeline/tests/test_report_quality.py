@@ -80,6 +80,21 @@ def raw_audit_checks(answer, data):
         for row in answer["checks"]}}
 
 
+def raw_rubric(answer, data):
+    """Explicit offline adapter to the keyed provider contract, never a real judgment."""
+    units = {unit["block_id"]: unit for unit in data["units"]}
+    claims = {claim["claim_id"]: claim for claim in data["claims"]}
+    market = {technology: {} for technology in ("SW-01", "HW-01")}
+    for row in answer["market_coverage"]:
+        identifier = next((claims[key]["block_id"] for key in row["claim_ids"] if key in claims), None)
+        market[row["technology_id"]][row["criterion_id"]] = {
+            "analysis_present": row["analysis_present"], "gap_handled": row["gap_handled"],
+            "report_unit_id": identifier if identifier in units else None, "claim_ids": row["claim_ids"]}
+    return {**{key: value for key, value in answer.items() if key not in {"block_coverage", "market_coverage"}},
+        "block_coverage": {row["block_id"]: row["complete"] for row in answer["block_coverage"]},
+        "market_coverage": market}
+
+
 class ReportQualityTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -128,11 +143,12 @@ class ReportQualityTests(unittest.TestCase):
                 report_markdown=self.markdown, model="offline-judge", output_dir=self.output,
                 responder=responder or self.responder, **changes)
 
-    def offline_wire_client(self, calls, *, incomplete_audit=False, correct_atomize=False):
+    def offline_wire_client(self, calls, *, incomplete_audit=False, correct_atomize=False, correct_rubric=False):
         """Fake the SDK transport only; exercise the real provider and current validators."""
         from types import SimpleNamespace
         test = self
         atomize_calls = []
+        rubric_calls = []
         def factory(**options):
             class Client:
                 def __enter__(self): return self
@@ -159,7 +175,10 @@ class ReportQualityTests(unittest.TestCase):
                     elif phase == "audit":
                         raw = raw_audit_checks(answer, data)
                     else:
-                        raw = answer
+                        rubric_calls.append(data)
+                        raw = raw_rubric(answer, data)
+                        if correct_rubric and len(rubric_calls) == 1:
+                            raw = {name: axis["score"] for name, axis in answer["axes"].items()}
                     return SimpleNamespace(status="completed", output_text=json.dumps(raw))
             return Client()
         return factory
@@ -180,6 +199,80 @@ class ReportQualityTests(unittest.TestCase):
         plan = json.loads(Path(result["input_plan_path"]).read_text())
         self.assertEqual([entry["output_token_reservation"] for entry in plan["calls"]],
                          [call["wire"]["max_output_tokens"] for call in calls])
+
+    def test_strict_rubric_requires_all_axes_blocks_cells_and_binds_original_units(self):
+        calls = []
+        with patch("pipeline.governance.openai_client", side_effect=self.offline_wire_client(calls)):
+            result = self.evaluate_provider(self.output)
+        call = next(call["wire"] for call in calls if call["phase"] == "rubric")
+        schema = call["text"]["format"]
+        self.assertEqual(schema["type"], "json_schema")
+        self.assertIs(schema["strict"], True)
+        data = payload(call["input"])
+        raw = raw_rubric(self.responder(JUDGE_INSTRUCTIONS, _judge_prompt("rubric", data)), data)
+        self.assertTrue(schema_accepts(schema["schema"], raw))
+        normalized = _normalize_provider_answer("rubric", json.dumps(raw), data)
+        units = {unit["block_id"]: unit for unit in data["units"]}
+        for row in normalized["market_coverage"]:
+            self.assertEqual(row["report_quote"], units[row["report_unit_id"]]["text"])
+        self.assertEqual(result["route"], "passed", result["gates"])
+        for field, key in (("axes", "groundedness"), ("block_coverage", self.blocks[0]["block_id"]),
+                           ("market_coverage", "HW-01")):
+            invalid = deepcopy(raw); invalid[field].pop(key)
+            self.assertFalse(schema_accepts(schema["schema"], invalid))
+            with self.assertRaises(JudgeContractError):
+                _normalize_provider_answer("rubric", json.dumps(invalid), data)
+        invalid = deepcopy(raw)
+        invalid["market_coverage"]["SW-01"]["business_value"]["report_unit_id"] = "invented-unit"
+        with self.assertRaises(JudgeContractError):
+            _normalize_provider_answer("rubric", json.dumps(invalid), data)
+        duplicate = json.dumps(raw).replace('"axes":', '"axes": {}, "axes":', 1)
+        with self.assertRaises(JudgeContractError):
+            _normalize_provider_answer("rubric", duplicate, data)
+
+    def test_rubric_contract_correction_is_bounded_and_cannot_leave_stale_scores(self):
+        seen = []
+        def responder(instructions, prompt):
+            data = payload(prompt)
+            answer = self.responder(instructions, prompt)
+            if data["phase"] == "rubric":
+                seen.append(data)
+                answer["findings"] = [{"severity": "major", "type": "offline", "reason": "",
+                    "claim_ids": [], "target": "report", "role": None, "technology_ids": [],
+                    "criterion_ids": [], "evidence_ids": []}]
+            return answer
+        result = self.evaluate(responder)
+        self.assertEqual(result["route"], "review_required")
+        self.assertEqual(result["judge_calls"], 4)
+        self.assertEqual(len(seen), 2)
+        for field in ("blocks", "units", "claims", "checks", "evidence"):
+            self.assertEqual(seen[0][field], seen[1][field])
+        self.assertIn("contract_feedback", seen[1])
+        self.assertIsNone(result["weighted_score"])
+        self.assertEqual(result["axes"], {})
+        self.assertEqual(result["checked_blocks"]["checked"], 0)
+
+    def test_flat_rubric_gets_one_correction_and_valid_negative_result_is_cached(self):
+        calls = []
+        original = self.responder
+        def negative(instructions, prompt):
+            answer = original(instructions, prompt)
+            if payload(prompt)["phase"] == "rubric":
+                answer["axes"]["groundedness"]["score"] = 3
+            return answer
+        with patch.object(self, "responder", side_effect=negative), patch("pipeline.governance.openai_client",
+                side_effect=self.offline_wire_client(calls, correct_rubric=True)):
+            first = self.evaluate_provider(self.output)
+            second = self.evaluate_provider(self.output)
+        self.assertEqual((first["route"], second["route"]), ("report_repair", "report_repair"))
+        self.assertEqual((first["judge_calls"], second["judge_calls"]), (4, 0))
+        self.assertEqual(second["cache_hits"], 3)
+        rubrics = [payload(call["wire"]["input"]) for call in calls if call["phase"] == "rubric"]
+        self.assertEqual(len(rubrics), 2)
+        self.assertIn("contract_feedback", rubrics[1])
+        for field in ("blocks", "units", "claims", "checks", "evidence"):
+            self.assertEqual(rubrics[0][field], rubrics[1][field])
+        self.assertTrue(list((self.output / "quality-responses").glob("*.alias.json")))
 
     def test_incomplete_cause_and_partial_are_recorded_but_never_cached(self):
         calls = []
@@ -209,17 +302,17 @@ class ReportQualityTests(unittest.TestCase):
             with patch("pipeline.report_quality._atomize", wraps=_atomize) as atomize, patch("pipeline.report_quality._audit", wraps=_audit) as audit:
                 second = self.evaluate_provider(quality_root / "attempt-2", attempt=2, response_cache_dir=quality_root)
                 self.assertEqual((atomize.call_count, audit.call_count), (1, 1))
-            self.assertEqual((first["judge_calls"], second["judge_calls"]), (3, 1))
-            self.assertEqual(second["cache_hits"], 2)
-            self.assertEqual([call["phase"] for call in calls[3:]], ["rubric"])
+            self.assertEqual((first["judge_calls"], second["judge_calls"]), (3, 0))
+            self.assertEqual(second["cache_hits"], 3)
+            self.assertEqual(calls[3:], [])
             self.assertFalse((quality_root / "attempt-1" / "quality-responses").exists())
             cached = next((quality_root / "quality-responses").glob("*.json"))
             record = json.loads(cached.read_text()); record["raw"] = "tampered"
             cached.write_text(json.dumps(record))
             third = self.evaluate_provider(quality_root / "attempt-3", attempt=3, response_cache_dir=quality_root)
         self.assertEqual(third["route"], "passed")
-        self.assertEqual(third["judge_calls"], 2)
-        self.assertEqual(third["cache_hits"], 1)
+        self.assertEqual(third["judge_calls"], 1)
+        self.assertEqual(third["cache_hits"], 2)
 
     def test_legacy_corrected_cache_stays_in_place_with_provenance_and_current_validation(self):
         calls, quality_root = [], self.output / "quality"
@@ -249,7 +342,7 @@ class ReportQualityTests(unittest.TestCase):
         with patch("pipeline.governance.openai_client", side_effect=self.offline_wire_client(calls)), patch("pipeline.report_quality._atomize", side_effect=validate):
             second = self.evaluate_provider(quality_root / "attempt-2", attempt=2, response_cache_dir=quality_root)
         self.assertEqual(second["route"], "passed", second["gates"])
-        self.assertEqual([call["phase"] for call in calls], ["rubric"])
+        self.assertEqual(calls, [])
         self.assertEqual(len(validations), 2)
         self.assertEqual(before, {path.name: path.read_bytes() for path in alias_path.parent.glob("*.json")})
         self.assertEqual(rejected.read_bytes(), original_shared)
@@ -270,6 +363,45 @@ class ReportQualityTests(unittest.TestCase):
         audit = next(call for call in self.calls if call["phase"] == "audit")
         self.assertEqual(audit["evidence"][0]["excerpt"], canonical()["evidence"]["SW-laboratory"]["excerpt"])
         self.assertTrue((self.output / "quality.json").exists())
+
+    def test_numeric_recheck_preserves_fixed_claims_quotes_and_entire_original_corpus(self):
+        # Explicit offline fake verdicts: this verifies handoff, not forecast semantic correctness.
+        self.blocks[0]["text"] += "\n2026 base USD138 million; 2025–2030 CAGR 32%, 128K tokens [1]."
+        def responder(instructions, prompt):
+            data = payload(prompt)
+            answer = self.responder(instructions, prompt)
+            if data["phase"] == "atomize":
+                for row in answer["blocks"]:
+                    if row["block_id"].startswith("p001-b002"):
+                        row["claims"][0]["text"] = "실운영 채택은 미확인이다."
+            if data["phase"] == "audit":
+                row = answer["checks"][-1]
+                row.update(verdict="uncertain", evidence_ids=[], supporting_quotes=[])
+            return answer
+        self.evaluate(responder)
+        rubric = next(call for call in self.calls if call["phase"] == "rubric")
+        claims = {claim["claim_id"]: claim for claim in rubric["claims"]}
+        checks = {check["claim_id"]: check for check in rubric["checks"]}
+        cases = rubric["numeric_recheck_cases"]
+        numeric = {claim["claim_id"] for claim in claims.values()
+                   if re.search(r"\d|[%$]|USD|KRW|tokens?|토큰", claim["text"], re.I)}
+        self.assertEqual({case["claim"]["claim_id"] for case in cases}, numeric)
+        for case in cases:
+            identifier = case["claim"]["claim_id"]
+            self.assertEqual(case["claim"], claims[identifier])
+            self.assertEqual(case["audit"], checks[identifier])
+            if case["audit"]["verdict"] == "supported":
+                self.assertTrue(case["audit"]["source_locations"])
+        citation_only = next(claim for claim in claims.values() if claim["block_id"].startswith("p001-b002"))
+        self.assertIn("[1]", citation_only["report_quote"])
+        self.assertNotIn(citation_only["claim_id"], numeric)
+        self.assertEqual(rubric["audit_summary"], {"total": 3, "supported": 2,
+            "contradicted": 0, "unsupported": 0, "uncertain": 1})
+        self.assertEqual(rubric["unverified_core_claim_ids"], [citation_only["claim_id"]])
+        self.assertEqual(rubric["evidence"], canonical_evidence(canonical()))
+        prompt = _judge_prompt("rubric", rubric)
+        self.assertIn("an earlier supported audit can be wrong", prompt)
+        self.assertIn("generic checking examples, never substitute sources", prompt)
 
     def test_timeout_never_passes(self):
         def timeout(*args):
@@ -1117,7 +1249,7 @@ class ReportQualityTests(unittest.TestCase):
                 elif phase == "audit":
                     raw = raw_audit_checks(answer, data)
                 else:
-                    raw = answer
+                    raw = raw_rubric(answer, data)
                 respond.raw_response = json.dumps(raw)
                 return _normalize_provider_answer(phase, respond.raw_response, data)
             return respond
@@ -1128,15 +1260,15 @@ class ReportQualityTests(unittest.TestCase):
         with patch("pipeline.report_quality._provider", side_effect=provider):
             first, second = execute(), execute()
             self.assertEqual((first["route"], second["route"]), ("passed", "passed"))
-            self.assertEqual((first["judge_calls"], second["judge_calls"]), (3, 1))
-            self.assertEqual(second["cache_hits"], 2)
-            self.assertEqual(len(self.calls), 4)
+            self.assertEqual((first["judge_calls"], second["judge_calls"]), (3, 0))
+            self.assertEqual(second["cache_hits"], 3)
+            self.assertEqual(len(self.calls), 3)
             cached = next((self.output / "quality-responses").glob("*.json"))
             envelope = json.loads(cached.read_text()); envelope["raw"] = "tampered"
             cached.write_text(json.dumps(envelope))
             third = execute()
             self.assertEqual(third["route"], "passed")
-            self.assertEqual(third["judge_calls"], 2)
+            self.assertEqual(third["judge_calls"], 1)
 
 
     def test_corrected_raw_cache_redirect_reuses_only_after_current_validation(self):
@@ -1156,7 +1288,7 @@ class ReportQualityTests(unittest.TestCase):
                 elif phase == "audit":
                     raw = raw_audit_checks(answer, data)
                 else:
-                    raw = answer
+                    raw = raw_rubric(answer, data)
                 respond.raw_response = json.dumps(raw)
                 return _normalize_provider_answer(phase, respond.raw_response, data)
             return respond
@@ -1168,8 +1300,8 @@ class ReportQualityTests(unittest.TestCase):
             first, second = execute(), execute()
             self.assertEqual(first["route"], second["route"])
             self.assertNotEqual(first["route"], "review_required", first["gates"])
-            self.assertEqual((first["judge_calls"], second["judge_calls"]), (4, 1))
-            self.assertEqual(second["cache_hits"], 2)
+            self.assertEqual((first["judge_calls"], second["judge_calls"]), (4, 0))
+            self.assertEqual(second["cache_hits"], 3)
             self.assertEqual(len(atomize_calls), 2)
             self.assertIn("contract_feedback", atomize_calls[1])
             from pipeline.report_quality import _atomize
@@ -1182,7 +1314,7 @@ class ReportQualityTests(unittest.TestCase):
             with patch("pipeline.report_quality._atomize", side_effect=current_validator):
                 third = execute()
             self.assertEqual(third["route"], second["route"])
-            self.assertEqual(third["judge_calls"], 2)
+            self.assertEqual(third["judge_calls"], 1)
             self.assertEqual(len(count), 2)
 
 

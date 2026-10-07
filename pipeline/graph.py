@@ -319,17 +319,47 @@ def build_graph(context, checkpointer=None):
         rev_input["synthesis"] = review_result.get("synthesis",{})
         attempt = state["quality_attempt"]+1
         judge_model = ctx.judge_model or ctx.model
-        result,ref = ctx.stage(f"quality-{attempt}",[state["report_ref"],state["review_ref"],state["review_input_ref"],judge_model,ctx.max_judge_calls],
+        result,base_ref = ctx.stage(f"quality-{attempt}",[state["report_ref"],state["review_ref"],state["review_input_ref"],judge_model,ctx.max_judge_calls],
             lambda:(ctx.quality or evaluate_report)(tex_path=report_result["tex_path"],pdf_path=report_result["pdf_path"],
                 review_input=rev_input,report_markdown=review_result["report_input_md"],model=judge_model,
                 output_dir=ctx.output_dir/"quality"/f"attempt-{attempt}",attempt=attempt,
                 max_judge_calls=ctx.max_judge_calls,response_cache_dir=ctx.output_dir/"quality"))
+        prior = ctx.store.get(state["quality_ref"]) if state.get("quality_ref") else {}
+        prior_controller = prior.get("controller",{}) if isinstance(prior,dict) else {}
+        prior_completed = prior_controller.get("completed_content_assessments")
+        prior_format = prior_controller.get("format_repairs")
+        completed_refs = set(prior_controller.get("completed_base_sha256",[]))
+        format_refs = set(prior_controller.get("format_base_sha256",[]))
+        if type(prior_completed) is not int or prior_completed < 0:
+            prior_gate = prior.get("gates",{}).get("all_checks_completed",{}).get("status") == "pass"
+            prior_completed = state.get("quality_attempt",0) if prior_gate else 0
+            if prior_gate and state.get("quality_ref",{}).get("sha256"):
+                completed_refs.add(state["quality_ref"]["sha256"])
+        if type(prior_format) is not int or prior_format < 0:
+            prior_format = (state.get("quality_attempt",0) if prior.get("route") == "report_repair"
+                            and prior.get("gates",{}).get("all_checks_completed",{}).get("status") != "pass" else 0)
+        completed = result.get("gates",{}).get("all_checks_completed",{}).get("status") == "pass"
+        base_sha = base_ref["sha256"]
+        completed_count,format_count = prior_completed,prior_format
+        if completed and base_sha not in completed_refs:
+            completed_count += 1
+            completed_refs.add(base_sha)
+        if result.get("route") == "report_repair" and not completed and base_sha not in format_refs:
+            format_count += 1
+            format_refs.add(base_sha)
+        result = {**result,"controller":{
+            "completed_content_assessments":completed_count,"format_repairs":format_count,
+            "completed_base_sha256":sorted(completed_refs),"format_base_sha256":sorted(format_refs),
+            "base_quality_ref":base_ref}}
+        ref = ctx.store.put(f"quality/controller-{attempt}-{digest([base_ref,result['controller']])[:16]}.json",result)
         ctx.store.put("quality.json",result)
         route = result["route"]
         phase,reason = "review_required",result.get("failure_type") or "quality_not_passed"
         requests = result.get("repair_requests",[])
         if route == "passed": phase,reason = "content_quality_pass",None
-        elif attempt >= ctx.max_quality_attempts: phase,reason = "failed_quality","quality_attempt_limit"
+        elif ((completed and completed_count >= ctx.max_quality_attempts)
+              or (route == "report_repair" and not completed and format_count >= ctx.max_quality_attempts)):
+            phase,reason = "failed_quality","quality_attempt_limit"
         elif route == "report_repair": phase,reason = "report_repair",None
         elif route == "upstream_replan" and state["replan_count"] < ctx.max_replans:
             cells = feedback_cells(requests)

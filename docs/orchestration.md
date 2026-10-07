@@ -109,7 +109,7 @@ H1은 원문과 모순되는 `contradicted` 판정이나 중대 사실 오류를
 | `upstream_replan` | 역할·기술·기준 범위를 task로 변환해 재조사. technical 전용 요청은 관점 worker 없이 TRL/Review 경로로 전달 |
 | `review_required` | Judge 오류·원문 공백·사람 검토 등 자동 완료할 수 없는 이유를 보존하고 종료 |
 
-기본 재계획 상한은 2회, Quality 평가 상한은 3회입니다. 품질 상한에 도달해 미달이면 `failed_quality`입니다. API·Judge 오류는 성공 판정이 아니며, `failure_type`과 미검사 범위를 남깁니다. `content_quality_pass`도 Judge rubric의 결과이며 공식 인증이나 PDF 시각 검토의 완료를 뜻하지 않습니다.
+기본 재계획 상한은 2회, 완료된 내용 평가의 상한은 3회입니다. `quality_attempt`는 모든 평가 시도의 단조 증가 번호이며, hash 검증된 controller 참조가 완료된 내용 평가와 별도의 형식 보정 횟수를 기록합니다. 계약·전송 실패는 즉시 `review_required`로 종료하며 내용 평가 한도를 소비하지 않습니다. 형식 보정은 별도로 최대 3회이고, 같은 cached base 결과는 한 번만 계수합니다. 완료된 내용 평가 상한에 도달해 미달이면 `failed_quality`입니다. API·Judge 오류는 성공 판정이 아니며, `failure_type`과 미검사 범위를 남깁니다. `content_quality_pass`도 Judge rubric의 결과이며 공식 인증이나 PDF 시각 검토의 완료를 뜻하지 않습니다.
 
 웹 근거는 등록된 **수집 원문 전체**를 사용합니다. 선택된 인용 발췌가 아닌 전체 excerpt의 SHA-256을 document hash와 대조하고, evidence/reference ID·인용 키·URL·관련 기술을 확인합니다. 전체 source report가 없으면 canonical에 남은 원문 자체가 같은 등록 hash인지 확인하며, 새 hash를 발급해 불일치를 덮지 않습니다. 전체 원문이 없거나 identity가 다르거나 여러 원문이 충돌하면 평가를 중단합니다.
 
@@ -120,6 +120,8 @@ H1은 원문과 모순되는 `contradicted` 판정이나 중대 사실 오류를
 통합 CLI는 `--max-judge-calls`로 **각 Quality 시도의 호출 상한**을 설정하며 기본값은 64회입니다. 독립 `evaluate_report` 함수의 기본값은 36회입니다. 주장 추출은 출력 8,000토큰·HTTP 120초, 원문 감사와 최종 rubric은 출력 16,384토큰·HTTP 300초를 사용합니다. 실제 요청과 입력 계획의 출력 예약은 같은 함수를 사용하며 HTTP 시간도 남은 공통 deadline을 넘지 않습니다. 이 로컬 상한과 후속 공통 모델 한도는 함께 적용됩니다. Judge·planner·worker·TRL·Review·Report의 실제 API 시도는 모두 `--max-model-calls` 안에 포함되며, Judge 상한만 늘려 공통 예산을 우회할 수 없습니다.
 
 원문 감사의 strict schema는 각 주장에 `technology_references`를 요구합니다. `supported`는 모든 해당 기술에 canonical owner가 일치하는 원문·span을 하나 이상 선택해야 하며, 적격 원문이 없는 기술은 해당 판정 분기를 제공하지 않습니다. 다른 판정은 기술별 참조를 null로 남길 수 있습니다. 기술 ID가 없는 범용 사실의 supported 판정도 등록된 원문 참조가 최소 한 개 필요합니다. 참조를 중복 제거해 실제 원문 인용으로 연결한 뒤 기존 hash·locator·문단 인용·ownership 검사를 다시 수행합니다. 인용문을 포함하는 판정은 해당 주장의 실제 citation과 기술 owner가 맞는 `claim_reference`를 필수로 선택합니다. 일치하는 원문이 없으면 인용 없는 unsupported/uncertain만 허용하며, contradicted와 supported는 근거 없이 반환할 수 없습니다.
+
+최종 rubric도 strict schema로 네 평가 축·모든 PDF block·두 기술의 시장 12개 cell을 요구합니다. 모델이 선택한 실제 unit ID와 해당 unit의 claim으로 원문 인용을 controller가 연결합니다. 계약 검증은 분리된 snapshot에서 수행해 실패 응답의 점수나 gate가 최종 결과에 남지 않도록 합니다. 숫자 주장과 검증된 원문 인용을 별도 재대조 컨텍스트로 제공하고, 기존 supported 판정도 연도·기준 금액·종료 금액·CAGR을 다시 확인합니다. 감사 집계와 미검증 핵심 주장도 함께 전달하며, semantic 판정을 임의로 바꾸거나 원문을 줄이지 않습니다.
 
 ### Judge 응답 캐시와 계약 보정
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from collections import Counter
+from copy import deepcopy
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -391,7 +392,16 @@ a stronger or contradictory assertion. Do not repair a claim by inventing facts.
     "rubric": """Read the ENTIRE rendered PDF again, all audited atomic
 claims and EVERY supplied original evidence record. Review unused, unfavorable
 and contrary originals as well as cited sources; citation-based audit selection
-does not excuse omitted contrary evidence. Return axes with EXACT keys groundedness,neutrality,bias_control,
+does not excuse omitted contrary evidence. Canonical reference validation is not semantic proof:
+an earlier supported audit can be wrong. Re-evaluate ALL numeric_recheck_cases against actual
+report_quote and verified original quotes before H1 and groundedness, preserving fixed audit records.
+Check base year/value, end year/value and CAGR interval together: 2025=USD138.4 million,
+2026=USD213.6 million cannot support '2026 starts at USD138 million'; 2024–2030 CAGR
+cannot prove 2025–2030 CAGR. These are generic checking examples, never substitute sources.
+Use audit_summary and unverified_core_claim_ids without rewriting fixed semantic verdicts:
+groundedness 4/5 requires every core claim traced with exact conditions; unresolved core
+audits preclude 4/5. Score each of the four axes independently, never copy one axis's score.
+Return axes with EXACT keys groundedness,neutrality,bias_control,
 perspective_coverage, each {score:integer 1..5,reason,claim_ids}. Anchors:
 Groundedness 1 fabricated/core contradiction, 2 material attribution/condition
 loss, 3 minor unsupported links, 4 all core claims trace with conditions, 5 all
@@ -555,6 +565,45 @@ def _audit_schema(data: dict) -> dict:
             "properties": checks, "required": claim_ids}}, "$defs": definitions}
 
 
+def _rubric_schema(data: dict) -> dict:
+    claims = [claim["claim_id"] for claim in data.get("claims", [])]
+    units = [unit["block_id"] for unit in data.get("units", [])]
+    blocks = [block["block_id"] for block in data.get("blocks", [])]
+    sources = [source["evidence_id"] for source in data.get("evidence", [])]
+    if any(not values or len(values) != len(set(values)) for values in (claims, units, blocks, sources)):
+        raise JudgeContractError("Strict rubric requires registered unique claims, units, blocks and originals")
+    def object_schema(properties):
+        return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+    def identifiers(name, **limits):
+        return {"type": "array", "items": {"$ref": f"#/$defs/{name}"}, **limits}
+    definitions = {"claim_id": {"type": "string", "enum": claims},
+        "report_unit_id": {"type": "string", "enum": units},
+        "evidence_id": {"type": "string", "enum": sources},
+        "technology_id": {"type": "string", "enum": ["SW-01", "HW-01"]},
+        "role": {"anyOf": [{"type": "string", "enum": ["technical", "domain", "market", "stakeholders"]}, {"type": "null"}]},
+        "target": {"type": "string", "enum": ["report", "upstream", "human"]}}
+    text = {"type": "string", "minLength": 1}
+    definitions["axis"] = object_schema({"score": {"type": "integer", "minimum": 1, "maximum": 5},
+        "reason": text, "claim_ids": identifiers("claim_id", minItems=1)})
+    definitions["market_cell"] = object_schema({"analysis_present": {"type": "boolean"},
+        "gap_handled": {"type": "boolean"},
+        "report_unit_id": {"anyOf": [{"$ref": "#/$defs/report_unit_id"}, {"type": "null"}]},
+        "claim_ids": identifiers("claim_id")})
+    definitions["finding"] = object_schema({"severity": {"type": "string", "enum": ["critical", "major", "minor"]},
+        "type": text, "reason": text, "claim_ids": identifiers("claim_id"),
+        "target": {"$ref": "#/$defs/target"}, "role": {"$ref": "#/$defs/role"},
+        "technology_ids": identifiers("technology_id"),
+        "criterion_ids": {"type": "array", "items": text}, "evidence_ids": identifiers("evidence_id")})
+    properties = {"axes": object_schema({name: {"$ref": "#/$defs/axis"} for name in WEIGHTS}),
+        "block_coverage": object_schema({identifier: {"type": "boolean"} for identifier in blocks}),
+        "market_coverage": object_schema({technology: object_schema({criterion: {"$ref": "#/$defs/market_cell"}
+            for criterion in MARKET_CRITERIA}) for technology in ("SW-01", "HW-01")}),
+        **{name: {"type": "array", "items": text} for name in (
+            "critical_fact_errors", "untraced_core_claims", "recommendations", "missing_perspectives")},
+        "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}}
+    return {**object_schema(properties), "$defs": definitions}
+
+
 def _provider_prompt(phase: str, data: dict) -> str:
     prompt = _judge_prompt(phase, _audit_payload(data) if phase == "audit" else data)
     if phase == "atomize":
@@ -591,6 +640,17 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "The controller merges and deduplicates claim, technology and extra references, then binds real "
                    "supporting_quotes and evidence_ids from these references. Do not write quote strings or "
                    "combine spans yourself. The JSON schema defines the response structure.")
+    elif phase == "rubric":
+        prompt += ("\nFor this strict rubric request return axes as an object with exactly the four named axes; "
+                   "block_coverage as an object keyed by EVERY physical report block ID with boolean values; "
+                   "market_coverage as SW-01/HW-01 objects each keyed by ALL six market criteria. Each market "
+                   "cell selects report_unit_id from the supplied actual line units and registered claim_ids. "
+                   "If analysis_present or gap_handled is true, select an actual substantive unit and at least "
+                   "one claim anchored to that unit. The controller binds report_quote to the exact unit text; "
+                   "do not write or invent quote strings. A truly missing cell may use both flags false, "
+                   "report_unit_id=null and claim_ids=[]. Keep the whole rendered report, every audited claim "
+                   "and ALL original evidence including unused, unfavorable and contrary sources in view. "
+                   "Do not hide material errors to achieve a passing score. The JSON schema defines all fields.")
     if data.get("contract_feedback"):
         prompt += ("\nThe previous untrusted judgment failed the controller contract. Correct that JSON once "
                    "using the same immutable report units/claims, technology/citation identities and all original "
@@ -600,6 +660,84 @@ def _provider_prompt(phase: str, data: dict) -> str:
 
 
 def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
+    if phase == "rubric":
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise JudgeContractError("Structured rubric duplicated an object key")
+                result[key] = value
+            return result
+        try:
+            answer = json.loads(raw, object_pairs_hook=unique_object)
+        except (ValueError, TypeError) as exc:
+            raise JudgeContractError("Structured rubric is not valid unique-key JSON") from exc
+        schema = _rubric_schema(data or {})
+        if not isinstance(answer, dict) or set(answer) != set(schema["properties"]):
+            raise JudgeContractError("Structured rubric omitted or invented a root field")
+        claims = {claim["claim_id"]: claim for claim in data["claims"]}
+        units = {unit["block_id"]: unit for unit in data["units"]}
+        sources = {source["evidence_id"] for source in data["evidence"]}
+        def ids(values, registered, *, required=False):
+            if (not isinstance(values, list) or required and not values
+                    or any(not isinstance(value, str) or value not in registered for value in values)
+                    or len(values) != len(set(values))):
+                raise JudgeContractError("Structured rubric has missing, duplicate or unregistered IDs")
+        axes = answer["axes"]
+        if not isinstance(axes, dict) or set(axes) != set(WEIGHTS):
+            raise JudgeContractError("Structured rubric omitted or invented an axis")
+        for axis in axes.values():
+            if (not isinstance(axis, dict) or set(axis) != {"score", "reason", "claim_ids"}
+                    or type(axis["score"]) is not int or axis["score"] not in range(1, 6)
+                    or not isinstance(axis["reason"], str) or not axis["reason"].strip()):
+                raise JudgeContractError("Structured rubric has an invalid axis score or reason")
+            ids(axis["claim_ids"], claims, required=True)
+        coverage = answer["block_coverage"]
+        if (not isinstance(coverage, dict) or set(coverage) != {block["block_id"] for block in data["blocks"]}
+                or any(type(value) is not bool for value in coverage.values())):
+            raise JudgeContractError("Structured rubric omitted or invented a report block")
+        market = answer["market_coverage"]
+        if not isinstance(market, dict) or set(market) != {"SW-01", "HW-01"}:
+            raise JudgeContractError("Structured rubric omitted or invented a market technology")
+        rows = []
+        for technology, criteria in market.items():
+            if not isinstance(criteria, dict) or set(criteria) != set(MARKET_CRITERIA):
+                raise JudgeContractError("Structured rubric omitted or invented a market criterion")
+            for criterion, cell in criteria.items():
+                if (not isinstance(cell, dict) or set(cell) != {"analysis_present", "gap_handled", "report_unit_id", "claim_ids"}
+                        or type(cell["analysis_present"]) is not bool or type(cell["gap_handled"]) is not bool):
+                    raise JudgeContractError("Structured rubric has an invalid market disposition")
+                active = cell["analysis_present"] or cell["gap_handled"]
+                ids(cell["claim_ids"], claims, required=active)
+                identifier = cell["report_unit_id"]
+                if (identifier is not None and (not isinstance(identifier, str) or identifier not in units)
+                        or active and (identifier is None or not any(
+                            claims[key]["block_id"] == identifier for key in cell["claim_ids"]))):
+                    raise JudgeContractError("Structured rubric market cell has no actual unit/claim anchor")
+                rows.append({**cell, "technology_id": technology, "criterion_id": criterion,
+                             "report_quote": units[identifier]["text"] if identifier is not None else ""})
+        for name in ("critical_fact_errors", "untraced_core_claims", "recommendations", "missing_perspectives"):
+            values = answer[name]
+            if not isinstance(values, list) or any(not isinstance(value, str) or not value.strip() for value in values):
+                raise JudgeContractError("Structured rubric omitted hard-gate excerpt lists")
+        if not isinstance(answer["findings"], list):
+            raise JudgeContractError("Structured rubric omitted findings")
+        for finding in answer["findings"]:
+            if (not isinstance(finding, dict) or set(finding) != set(schema["$defs"]["finding"]["properties"])
+                    or finding["severity"] not in {"critical", "major", "minor"}
+                    or finding["target"] not in {"report", "upstream", "human"}
+                    or finding["role"] not in {None, "technical", "domain", "market", "stakeholders"}
+                    or any(not isinstance(finding[name], str) or not finding[name].strip() for name in ("type", "reason"))
+                    or not isinstance(finding["criterion_ids"], list)
+                    or any(not isinstance(value, str) or not value for value in finding["criterion_ids"])):
+                raise JudgeContractError("Structured rubric has an invalid finding")
+            ids(finding["claim_ids"], claims)
+            ids(finding["technology_ids"], {"SW-01", "HW-01"})
+            ids(finding["evidence_ids"], sources)
+            if finding["target"] == "upstream" and (finding["role"] is None or not finding["criterion_ids"]):
+                raise JudgeContractError("Structured rubric upstream finding has no repair scope")
+        return {**answer, "block_coverage": [{"block_id": block["block_id"], "complete": coverage[block["block_id"]]}
+                    for block in data["blocks"]], "market_coverage": rows}
     if phase == "atomize":
         try:
             answer = json.loads(raw)
@@ -714,6 +852,9 @@ def _provider(model: str, *, phase: str | None = None, data: dict | None = None)
         elif phase == "audit":
             format = {"type": "json_schema", "name": "report_original_span_audit", "strict": True,
                       "schema": _audit_schema(data or {})}
+        elif phase == "rubric":
+            format = {"type": "json_schema", "name": "report_full_corpus_rubric", "strict": True,
+                      "schema": _rubric_schema(data or {})}
         if phase is not None and data is not None:
             prompt = _provider_prompt(phase, data)
         with openai_client(timeout=300 if phase in {"audit", "rubric"} else 120, max_retries=0) as client:
@@ -1095,7 +1236,7 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
             cache_readers += [JudgeResponseCache(path) for path in candidates]
 
     def verified(phase, data, validate):
-        schema = _atomize_schema(data) if phase == "atomize" else _audit_schema(data)
+        schema = {"atomize": _atomize_schema, "audit": _audit_schema, "rubric": _rubric_schema}[phase](data)
         request = {"version": 1, "phase": phase, "model": model,
                    "instructions": JUDGE_INSTRUCTIONS, "prompt": _provider_prompt(phase, data), "schema": schema}
         for reader in cache_readers if responder is None else []:
@@ -1218,12 +1359,29 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         ledger_path = output / f"quality.claims-{attempt}.json"
         ledger_path.write_bytes(ledger_bytes)
         result["claims_path"] = str(ledger_path)
-        rubric = ask("rubric", {"blocks": blocks, "units": units, "unit_dispositions": unit_dispositions,
+        check_map = {check["claim_id"]: check for check in checks}
+        numeric_recheck_cases = [{"claim": claim, "audit": check_map[claim["claim_id"]]} for claim in claims
+            if re.search(r"\d|[%$]|USD|KRW|tokens?|토큰", claim["text"], re.I)]
+        rubric_data = {"blocks": blocks, "units": units, "unit_dispositions": unit_dispositions,
+            "numeric_recheck_cases": numeric_recheck_cases,
+            "audit_summary": {"total": len(checks), **{verdict: sum(check["verdict"] == verdict for check in checks)
+                for verdict in ("supported", "contradicted", "unsupported", "uncertain")}},
+            "unverified_core_claim_ids": [claim["claim_id"] for claim in claims
+                if claim["core"] and check_map[claim["claim_id"]]["verdict"] != "supported"],
             "claim_ids": [claim["claim_id"] for claim in claims],
             "claims": claims, "checks": checks, "documents": review_input.get("documents", {}),
             "evidence": evidence,
             "evidence_scope": {"selection": "all_originals_rubric", "evidence_ids": [source["evidence_id"] for source in evidence]},
-            "source_inventory": [{key: source[key] for key in ("evidence_id", "doc_id", "source_hash", "method", "independence", "technology_relevance")} for source in evidence]})
+            "source_inventory": [{key: source[key] for key in ("evidence_id", "doc_id", "source_hash", "method", "independence", "technology_relevance")} for source in evidence]}
+        def validate_rubric(answer):
+            probe = deepcopy(result)
+            def probe_gate(name, passed, details=""):
+                probe["gates"][name] = {"status": "pass" if passed else "fail", "details": details}
+            def probe_finish(route, failure=None):
+                return {"route": route, "failure_type": str(failure) if failure else None}
+            return _complete_result(probe, deepcopy(answer), claims, checks, blocks,
+                                    probe_gate, probe_finish, tex, pdf, review_input)
+        rubric, _ = verified("rubric", rubric_data, validate_rubric)
         return _complete_result(result, rubric, claims, checks, blocks, gate, finish, tex, pdf, review_input)
     except (TimeoutError, httpx.TimeoutException) as exc:
         gate("all_checks_completed", False, str(exc))

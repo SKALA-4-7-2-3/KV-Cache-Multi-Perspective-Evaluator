@@ -129,6 +129,9 @@ class OfflineBoundaries:
     def quality(self, **kwargs):
         self.qualities.append(deepcopy(kwargs))
         route = self.routes[min(len(self.qualities) - 1, len(self.routes) - 1)]
+        completed = route != "contract_failure"
+        if route == "contract_failure":
+            route = "review_required"
         requests = []
         if route == "report_repair":
             requests = [{"target": "report", "role": None, "technology_ids": [],
@@ -145,6 +148,7 @@ class OfflineBoundaries:
                          "instructions": "OFFLINE TEST ONLY: recheck the TRL justification."}]
         return {"route": route, "attempt": kwargs["attempt"], "repair_requests": requests,
                 "failure_type": None if route == "passed" else "offline_synthetic_feedback",
+                "gates": {"all_checks_completed": {"status": "pass" if completed else "fail"}},
                 "offline_test_only": True}
 
 
@@ -339,6 +343,42 @@ class OrchestrationIntegrationTests(unittest.TestCase):
         self.assertEqual((len(fake.reports), len(fake.qualities)), (2, 2))
         self.assertEqual(result["phase"], "failed_quality")
         self.assertEqual(result["termination_reason"], "quality_attempt_limit")
+
+    def test_three_completed_content_assessments_exhaust_default_repair_limit(self):
+        fake = OfflineBoundaries(routes=("report_repair",))
+        context = self.context(fake)
+        result = self.invoke(context, accepted=self.accepted(context))
+        self.assertEqual((len(fake.reports), len(fake.qualities)), (3, 3))
+        self.assertEqual(result["phase"], "failed_quality")
+        self.assertEqual(context.store.get(result["quality_ref"])["controller"]["completed_content_assessments"], 3)
+
+    def test_contract_failures_do_not_consume_completed_content_repair_limit(self):
+        from pipeline.graph import quality_resume_state
+        fake = OfflineBoundaries(routes=("contract_failure", "contract_failure", "contract_failure",
+                                         "report_repair", "passed"))
+        context = self.context(fake, max_quality_attempts=3)
+        graph = self.build_graph(context)
+        result = graph.invoke(self.initial_state(context, accepted_refs=self.accepted(context)))
+        for _ in range(3):
+            if result["phase"] != "review_required": break
+            result = graph.invoke(quality_resume_state(context, result))
+        self.assertEqual(result["phase"], "content_quality_pass")
+        self.assertEqual([q["attempt"] for q in fake.qualities], [1, 2, 3, 4, 5])
+        self.assertEqual(len(fake.reports), 2)
+        controller = context.store.get(result["quality_ref"])["controller"]
+        self.assertEqual(controller["completed_content_assessments"], 2)
+
+    def test_reused_quality_base_does_not_increment_completed_counter_twice(self):
+        from pipeline.graph import quality_resume_state
+        fake = OfflineBoundaries(routes=("passed",))
+        context = self.context(fake)
+        graph = self.build_graph(context)
+        first = graph.invoke(self.initial_state(context, accepted_refs=self.accepted(context)))
+        repeated = quality_resume_state(context, first)
+        repeated["quality_attempt"] = 0  # Re-enter the exact same cached Quality stage.
+        second = graph.invoke(repeated)
+        self.assertEqual(len(fake.qualities), 1)
+        self.assertEqual(context.store.get(second["quality_ref"])["controller"]["completed_content_assessments"], 1)
 
     def test_quality_trl_feedback_regenerates_technical_without_perspective_workers(self):
         fake = OfflineBoundaries(routes=("technical_replan", "passed"))
