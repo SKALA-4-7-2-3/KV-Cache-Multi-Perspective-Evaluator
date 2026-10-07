@@ -19,6 +19,7 @@ from .models import (
     Judgment,
     REQUIRED_CRITERIA,
     RoleStatus,
+    ScopedDomainAgentOutput,
     TargetAlignment,
     TechnicalAssessment,
     TechnologyDomainAssessment,
@@ -49,6 +50,9 @@ class PreparedInput:
     evidence: dict[str, Evidence]
     missing_evidence_ids: tuple[str, ...]
     round: int
+    active_cells: tuple[tuple[str, DomainCriterion], ...] = ()
+    feedback: tuple[str, ...] = ()
+    prior_cells: dict[str, Any] | None = None
 
     @property
     def technology_ids(self) -> tuple[str, ...]:
@@ -62,9 +66,18 @@ class PreparedInput:
             )
             for technology in self.technical.technologies
         }
+        active_techs = {tech for tech, _ in self.active_cells}
+        active_criteria = {criterion for _, criterion in self.active_cells}
+        domain = self.domain.model_dump(mode="json")
+        technical = self.technical.model_dump(mode="json")
+        if self.active_cells:
+            domain["requirements"] = [row for row in domain["requirements"]
+                                      if DomainCriterion(row["criterion_id"]) in active_criteria]
+            technical["technologies"] = [row for row in technical["technologies"]
+                                         if row["technology_id"] in active_techs]
         return {
-            "domain": self.domain.model_dump(mode="json"),
-            "technical": self.technical.model_dump(mode="json"),
+            "domain": domain,
+            "technical": technical,
             "evidence": {
                 key: value.model_dump(mode="json") for key, value in self.evidence.items()
             },
@@ -72,6 +85,10 @@ class PreparedInput:
             "allowed_evidence_ids_by_technology": allowed_by_technology,
             "missing_evidence_ids": list(self.missing_evidence_ids),
             "round": self.round,
+            "active_cells": [{"technology_id": tech, "criterion_id": criterion.value}
+                             for tech, criterion in self.active_cells],
+            "feedback": list(self.feedback),
+            "previous_accepted_cells": self.prior_cells or {},
         }
 
 
@@ -131,7 +148,18 @@ def _prepare_state(raw_state: dict[str, Any]) -> PreparedInput:
     selected = {key: registry[key] for key in sorted(requested_ids) if key in registry}
     missing = tuple(sorted(requested_ids - set(registry)))
     round_number = int(state.review.get("round", 0))
-    return PreparedInput(domain, technical, selected, missing, round_number)
+    raw_cells = state.worker_scope.get("active_cells", [])
+    active_cells = tuple((str(row["technology_id"]), DomainCriterion(row["criterion_id"]))
+                         for row in raw_cells)
+    known = {item.technology_id for item in technical.technologies}
+    if any(tech not in known for tech, _ in active_cells):
+        raise InputContractError("worker_scope contains an unknown technology")
+    feedback = tuple(str(item) for item in state.worker_scope.get("feedback", []))
+    prior_cells = state.worker_scope.get("prior_cells", {})
+    if not isinstance(prior_cells, dict):
+        raise InputContractError("worker_scope.prior_cells must be an object")
+    return PreparedInput(domain, technical, selected, missing, round_number, active_cells,
+                         feedback, prior_cells)
 
 
 def _unknown_output(prepared: PreparedInput, reason: str) -> DomainAgentOutput:
@@ -221,10 +249,11 @@ def failed_output(raw_state: dict[str, Any], message: str) -> DomainAgentOutput:
     )
 
 
-def _validate_output(output: DomainAgentOutput, prepared: PreparedInput) -> DomainAgentOutput:
-    expected_tech_ids = set(prepared.technology_ids)
+def _validate_output(output, prepared: PreparedInput):
+    expected_tech_ids = ({tech for tech, _ in prepared.active_cells}
+                         if prepared.active_cells else set(prepared.technology_ids))
     actual_tech_ids = {item.technology_id for item in output.assessments}
-    if actual_tech_ids != expected_tech_ids or len(output.assessments) != 2:
+    if actual_tech_ids != expected_tech_ids or len(output.assessments) != len(expected_tech_ids):
         raise OutputContractError(
             f"technology mismatch: expected={sorted(expected_tech_ids)}, "
             f"actual={sorted(actual_tech_ids)}"
@@ -243,6 +272,10 @@ def _validate_output(output: DomainAgentOutput, prepared: PreparedInput) -> Doma
         )
         technology.technology_name = expected_name
         allowed = allowed_by_technology[technology.technology_id]
+        expected_criteria = ({criterion for tech, criterion in prepared.active_cells if tech == technology.technology_id}
+                             if prepared.active_cells else set(REQUIRED_CRITERIA))
+        if {item.criterion_id for item in technology.criteria} != expected_criteria:
+            raise OutputContractError(f"{technology.technology_id}: scoped criteria mismatch")
         for item in technology.criteria:
             unknown_ids = set(item.evidence_ids) - allowed
             if unknown_ids:
@@ -314,11 +347,8 @@ class DomainEvaluator:
         ]
         try:
             raw_output = self.structured_model.invoke(messages)
-            output = (
-                raw_output
-                if isinstance(raw_output, DomainAgentOutput)
-                else DomainAgentOutput.model_validate(raw_output)
-            )
+            schema = ScopedDomainAgentOutput if prepared.active_cells else DomainAgentOutput
+            output = raw_output if isinstance(raw_output, schema) else schema.model_validate(raw_output)
         except ValidationError as exc:
             raise OutputContractError(str(exc)) from exc
         output = output.model_copy(deep=True)
@@ -333,7 +363,8 @@ def create_openai_structured_model(
     model_name: str = "gpt-4.1-mini",
     *,
     timeout: float = 60.0,
-    max_retries: int = 1,
+    max_retries: int = 0,
+    output_schema=DomainAgentOutput,
 ) -> Invokable:
     """Build the only external call used by this agent: an LLM, with no tools bound."""
 
@@ -344,14 +375,16 @@ def create_openai_structured_model(
             "Install the OpenAI extra: pip install -e '.[openai]'"
         ) from exc
 
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=0,
-        timeout=timeout,
-        max_retries=max_retries,
-    )
+    kwargs = dict(model=model_name, temperature=0, timeout=timeout, max_retries=max_retries)
+    try:
+        from pipeline import governance
+        if governance._ledger is not None:
+            kwargs["http_client"] = governance.http_client(timeout=timeout)
+    except ImportError:
+        pass
+    llm = ChatOpenAI(**kwargs)
     return llm.with_structured_output(
-        DomainAgentOutput,
+        output_schema,
         method="json_schema",
         strict=True,
     )
