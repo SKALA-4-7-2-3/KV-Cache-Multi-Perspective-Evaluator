@@ -119,7 +119,7 @@ H1은 원문과 모순되는 `contradicted` 판정이나 중대 사실 오류를
 
 통합 CLI는 `--max-judge-calls`로 **각 Quality 시도의 호출 상한**을 설정하며 기본값은 64회입니다. 독립 `evaluate_report` 함수의 기본값은 36회입니다. 이 로컬 상한과 후속 공통 모델 한도는 함께 적용됩니다. Judge·planner·worker·TRL·Review·Report의 실제 API 시도는 모두 `--max-model-calls` 안에 포함되며, Judge 상한만 늘려 공통 예산을 우회할 수 없습니다.
 
-원문 감사의 strict schema는 각 주장에 `technology_references`를 요구합니다. `supported`는 모든 해당 기술에 canonical owner가 일치하는 원문·span을 하나 이상 선택해야 하며, 적격 원문이 없는 기술은 해당 판정 분기를 제공하지 않습니다. 다른 판정은 기술별 참조를 null로 남길 수 있습니다. 기술 ID가 없는 범용 사실은 별도의 원문 참조가 최소 한 개 필요합니다. 참조를 중복 제거해 실제 원문 인용으로 연결한 뒤 기존 hash·locator·문단 인용·ownership 검사를 다시 수행합니다.
+원문 감사의 strict schema는 각 주장에 `technology_references`를 요구합니다. `supported`는 모든 해당 기술에 canonical owner가 일치하는 원문·span을 하나 이상 선택해야 하며, 적격 원문이 없는 기술은 해당 판정 분기를 제공하지 않습니다. 다른 판정은 기술별 참조를 null로 남길 수 있습니다. 기술 ID가 없는 범용 사실의 supported 판정도 등록된 원문 참조가 최소 한 개 필요합니다. 참조를 중복 제거해 실제 원문 인용으로 연결한 뒤 기존 hash·locator·문단 인용·ownership 검사를 다시 수행합니다. 인용문을 포함하는 판정은 해당 주장의 실제 citation과 기술 owner가 맞는 `claim_reference`를 필수로 선택합니다. 일치하는 원문이 없으면 인용 없는 unsupported/uncertain만 허용하며, contradicted와 supported는 근거 없이 반환할 수 없습니다.
 
 ### Judge 응답 캐시와 계약 보정
 
@@ -195,6 +195,7 @@ uv run --frozen python -m pipeline --run-rag \
 - PDF 내용·경로, 요청, RAG 모드, 공통 `--model` 또는 조사 기준일을 바꾸면 새 출력 경로를 사용합니다. 보고서·Judge 전용 모델 변경은 위의 단계별 무효화 계약을 따릅니다. 예산 증액은 아래 `--extend-budget` 절차를 따릅니다. 완료 역할은 해당 역할 source fingerprint와 artifact hash로 채택 여부를 판단합니다. 역할 fingerprint에는 `pipeline/governance.py` 전체와 `pyproject.toml`, `uv.lock`이 포함되며, 보고서 생성·Quality만 바뀌면 입력·artifact가 유효한 완료 역할을 재사용할 수 있습니다.
 - API를 이미 보냈으나 응답·완료 기록 전에 중단된 경우 완전한 exactly-once 호출을 보장하지 않습니다. ledger는 해당 예약을 미확인 사용량으로 남기고, 완료가 기록된 artifact를 기준으로 재사용합니다.
 - SQLite saver는 단일 로컬 실행 프로세스용입니다. 같은 출력 경로에서 여러 프로세스를 동시에 실행하지 않습니다.
+- Quality만 재개할 때 최신 Report revision과 Review 참조·파일 hash 및 성공 단계 fingerprint를 확인합니다. 관련 worker와 TRL·Review·Report 코드가 그대로인 경우만 직접 Quality에 진입하며, 기존 평가 시도 수·재계획 수·예산 사용량을 유지합니다. 과거 manifest 또는 선행 코드 변경은 기존 재구축 경로를 따릅니다.
 
 TRL·Review·Report·Quality의 완료 캐시는 전체 저장소 hash 대신 **단계별 source fingerprint**와 실제 입력·모델·기준일로 stamp를 계산합니다. 관련 없는 단계 수정으로 완료 API 호출이 반복되는 것을 줄입니다. 단계의 source hash는 `events.jsonl`의 `stage_code_sha256`에 기록합니다.
 

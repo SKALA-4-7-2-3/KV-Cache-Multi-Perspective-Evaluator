@@ -121,7 +121,7 @@ def main():
             raise RuntimeError(f"Missing configuration: {name}")
 
     from .governance import BudgetLedger, configure
-    from .graph import PipelineContext, build_graph, initial_state
+    from .graph import PipelineContext, build_graph, initial_state, quality_resume_state
     from .checkpoint import SQLiteCheckpoint
     ledger = BudgetLedger(output, limits={"tokens":args.max_tokens,"llm":args.max_model_calls,
         "search":args.max_search_calls,"extract":args.max_extract_calls,"fetch":args.max_fetch_calls,
@@ -154,9 +154,11 @@ def main():
             "judge_model":args.judge_model or args.model,"report_model":args.report_model or args.model}}
     snapshot = graph.get_state(configuration)
     old_code = manifest.get("orchestration_code_sha256")
-    from .artifacts import role_fingerprints
+    from .artifacts import role_fingerprints, stage_fingerprint
     role_hashes = role_fingerprints(ROOT)
     old_role_hashes = manifest.get("role_code_sha256",{})
+    stage_hashes = {name: stage_fingerprint(ROOT,name) for name in ("trl","review","report","quality")}
+    old_stage_hashes = manifest.get("stage_code_sha256",{})
     manifest["orchestration_code_sha256"] = context.code_hash
     manifest["role_code_sha256"] = role_hashes
     manifest["engine"] = "orchestrator-workers"
@@ -190,11 +192,24 @@ def main():
         from .contracts import CATALOG, all_cells
         selected = [r for r in args.rerun if r in CATALOG]
         pending = all_cells(selected) if selected else None
-        invocation = initial_state(context,accepted_refs=prior_refs,pending_cells=pending,
-                                   revision=snapshot.values.get("plan_revision",0))
+        quality_only = (previous and args.resume and not snapshot.next and args.stop_after == "quality"
+            and set(args.rerun) == {"quality"}
+            and prior_refs == snapshot.values.get("accepted_refs",{})
+            and all(old_stage_hashes.get(name) == stage_hashes[name] for name in ("trl","review","report")))
+        invocation = (quality_resume_state(context,snapshot.values) if quality_only else
+            initial_state(context,accepted_refs=prior_refs,pending_cells=pending,
+                          revision=snapshot.values.get("plan_revision",0)))
     try:
         result = snapshot.values if invocation == "complete" else graph.invoke(invocation,configuration)
         context.store.put("state.final.json",result)
+        completed_stage_hashes = dict(old_stage_hashes)
+        if result.get("review_ref") and result.get("review_input_ref"):
+            completed_stage_hashes.update(trl=stage_hashes["trl"],review=stage_hashes["review"])
+        if result.get("report_ref"):
+            completed_stage_hashes["report"] = stage_hashes["report"]
+        if result.get("quality_ref"):
+            completed_stage_hashes["quality"] = stage_hashes["quality"]
+        manifest["stage_code_sha256"] = completed_stage_hashes
         manifest.update(status=result["phase"],termination_reason=result.get("termination_reason"),
             state_ref=context.store.put("state.result.json",result),stop_after=args.stop_after)
         if result.get("report_ref"):

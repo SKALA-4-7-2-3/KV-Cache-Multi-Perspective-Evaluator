@@ -479,6 +479,7 @@ def _audit_schema(data: dict) -> dict:
         raise JudgeContractError("Strict audit requires registered claims and original evidence")
     definitions = {
         "non_supported_verdict": {"type": "string", "enum": ["contradicted", "unsupported", "uncertain"]},
+        "quote_free_verdict": {"type": "string", "enum": ["unsupported", "uncertain"]},
         "target": {"type": "string", "enum": ["report", "upstream", "human"]},
         "role": {"anyOf": [{"type": "string", "enum": ["technical", "domain", "market", "stakeholders"]}, {"type": "null"}]}}
     reference_options = []
@@ -506,23 +507,37 @@ def _audit_schema(data: dict) -> dict:
         "references": {"type": "array", "items": {"$ref": "#/$defs/source_reference"}},
         "target": {"$ref": "#/$defs/target"}, "role": {"$ref": "#/$defs/role"},
         "criterion_ids": {"type": "array", "items": {"type": "string"}}}
-    checks = {}
+    checks, anchor_references = {}, {}
     for claim in data["claims"]:
         actual_technologies = list(dict.fromkeys(claim.get("technology_ids", [])))
+        actual_keys = set(claim.get("citation_keys", []))
+        anchor_indices = tuple(index for index, source in enumerate(data["evidence"])
+            if (not actual_technologies or isinstance(source.get("technology_ids"), list)
+                and set(actual_technologies) & set(source["technology_ids"]))
+            and (not actual_keys or (data.get("documents") or {}).get(source.get("doc_id"), {}).get("citation_key") in actual_keys))
+        if anchor_indices and anchor_indices not in anchor_references:
+            name = f"claim_reference_{len(anchor_references)}"
+            definitions[name] = {"anyOf": [reference_options[index] for index in anchor_indices]}
+            anchor_references[anchor_indices] = {"$ref": f"#/$defs/{name}"}
         branches = []
-        for supported in (True, False):
-            if supported and any(technology not in owner_references for technology in actual_technologies):
+        for mode in ("supported", "quoted", "quote_free"):
+            if mode != "quote_free" and not anchor_indices:
+                continue  # No eligible actual citation/owner means only a quote-free honest verdict.
+            if mode == "supported" and any(technology not in owner_references for technology in actual_technologies):
                 continue  # No original owner means the schema cannot offer a supported verdict.
-            table = {technology: (owner_references[technology] if supported else
+            table = {technology: ({"type": "null"} if mode == "quote_free" else
+                     owner_references[technology] if mode == "supported" else
                      {"anyOf": [owner_references[technology], {"type": "null"}]}
                      if technology in owner_references else {"type": "null"})
                      for technology in actual_technologies}
             properties = {**common,
-                "verdict": {"type": "string", "enum": ["supported"]} if supported else {"$ref": "#/$defs/non_supported_verdict"},
+                "verdict": {"type": "string", "enum": ["supported"]} if mode == "supported" else
+                           {"$ref": "#/$defs/quote_free_verdict" if mode == "quote_free" else "#/$defs/non_supported_verdict"},
+                "claim_reference": {"type": "null"} if mode == "quote_free" else anchor_references[anchor_indices],
                 "technology_references": {"type": "object", "properties": table,
                     "required": actual_technologies, "additionalProperties": False}}
-            if supported and not actual_technologies:
-                properties["references"] = {**common["references"], "minItems": 1}
+            if mode == "quote_free":
+                properties["references"] = {**common["references"], "maxItems": 0}
             branches.append({"type": "object", "properties": properties,
                              "required": list(properties), "additionalProperties": False})
         checks[claim["claim_id"]] = {"anyOf": branches} if len(branches) > 1 else branches[0]
@@ -545,19 +560,26 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "Every key is required; the JSON schema defines the response structure.")
     elif phase == "audit":
         prompt += ("\nFor this strict audit request, checks must be an object keyed by EVERY fixed claim ID. "
+                   "Every quote-bearing verdict requires a non-null claim_reference: a registered evidence_id/"
+                   "span_index whose source owns at least one claim technology (any original for a generic claim) "
+                   "AND whose document citation_key is one of the claim's own citation_keys when these are nonempty. "
+                   "Resolve citation ownership through source.doc_id and documents; other paragraph citations "
+                   "cannot replace the claim's selected citation. If no such anchor exists, only quote-free "
+                   "unsupported/uncertain is available. Quote-free checks must have claim_reference=null, all "
+                   "technology_references=null and references=[]; contradicted always needs an original anchor. "
                    "Each check must include technology_references keyed by exactly that claim's technology_ids. "
                    "For supported, every technology needs a non-null registered evidence_id/span_index reference "
                    "whose source technology_ids includes that technology. If no eligible original exists for a "
                    "required technology, supported is unavailable: return an honest other verdict. For "
                    "contradicted/unsupported/uncertain, each technology reference may be null or refer to its own "
                    "eligible source. A generic claim with no technology_ids needs an empty technology_references "
-                   "object and at least one registered reference to be supported. Return references[] for extra "
+                   "object and a registered claim_reference to be supported. Return references[] for extra "
                    "original spans, using registered evidence_id and its zero-based span_index. "
                    "Each evidence record's quote_spans contains its entire unmodified original text in order. "
                    "Read all spans including contrary evidence and conditions. Select every original span needed "
                    "to support the verdict; do not assume one technology's original proves another technology. "
                    "Quoted sources must obey the claim's actual citation and physical paragraph ownership. "
-                   "The controller merges and deduplicates technology and extra references, then binds real "
+                   "The controller merges and deduplicates claim, technology and extra references, then binds real "
                    "supporting_quotes and evidence_ids from these references. Do not write quote strings or "
                    "combine spans yourself. The JSON schema defines the response structure.")
     if data.get("contract_feedback"):
@@ -614,8 +636,10 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
             technologies = set(claim.get("technology_ids", []))
             if not isinstance(technology_references, dict) or set(technology_references) != technologies:
                 raise JudgeContractError("Structured audit omitted or invented a claim technology reference")
+            if "claim_reference" not in row:
+                raise JudgeContractError("Structured audit omitted its original claim anchor")
             references, seen = [], set()
-            def bind(reference, technology=None):
+            def bind(reference, technology=None, *, anchor=False):
                 identifier = reference.get("evidence_id") if isinstance(reference, dict) else None
                 index = reference.get("span_index") if isinstance(reference, dict) else None
                 if (not isinstance(reference, dict) or set(reference) != {"evidence_id", "span_index"}
@@ -625,9 +649,23 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
                 if technology is not None and (not isinstance(sources[identifier].get("technology_ids"), list)
                         or technology not in sources[identifier]["technology_ids"]):
                     raise JudgeContractError("Structured audit technology reference belongs to another technology")
+                if anchor:
+                    owners = sources[identifier].get("technology_ids")
+                    keys = set(claim.get("citation_keys", []))
+                    document = ((data or {}).get("documents") or {}).get(sources[identifier].get("doc_id"), {})
+                    if (technologies and (not isinstance(owners, list) or not technologies & set(owners))
+                            or keys and document.get("citation_key") not in keys):
+                        raise JudgeContractError("Structured audit claim anchor has no actual citation/technology ownership")
                 if (identifier, index) not in seen:
                     seen.add((identifier, index))
                     references.append((identifier, index))
+            anchor = row["claim_reference"]
+            if anchor is None:
+                if (row.get("verdict") not in {"unsupported", "uncertain"} or row["references"]
+                        or any(reference is not None for reference in technology_references.values())):
+                    raise JudgeContractError("Quote-free audit must have an honest verdict and only null/empty references")
+            else:
+                bind(anchor, anchor=True)
             for technology in dict.fromkeys(claim.get("technology_ids", [])):
                 reference = technology_references[technology]
                 if reference is None:
@@ -643,7 +681,7 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
             for identifier, index in references:
                 span = sources[identifier]["quote_spans"][index]
                 quotes.append({"evidence_id": identifier, "quote": span["text"]})
-            normalized.append({**{key: value for key, value in row.items() if key not in {"references", "technology_references"}},
+            normalized.append({**{key: value for key, value in row.items() if key not in {"references", "technology_references", "claim_reference"}},
                 "claim_id": claim["claim_id"], "evidence_ids": list(dict.fromkeys(quote["evidence_id"] for quote in quotes)),
                 "supporting_quotes": quotes})
         return {"checks": normalized}

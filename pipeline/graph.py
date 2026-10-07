@@ -79,6 +79,23 @@ def initial_state(context, *, accepted_refs=None, pending_cells=None, revision=0
         "phase":"plan","termination_reason":None}
 
 
+def quality_resume_state(context, state):
+    """Rejudge the latest completed report without rebuilding an earlier revision."""
+    resumed = dict(state)
+    for name in ("review_ref", "review_input_ref", "report_ref"):
+        if not resumed.get(name):
+            raise ValueError(f"Quality-only resume has no latest {name}")
+        context.store.get(resumed[name])
+    report = context.store.get(resumed["report_ref"])
+    for kind in ("pdf", "tex"):
+        path = Path(report[f"{kind}_path"])
+        if not path.exists() or sha256(path.read_bytes()).hexdigest() != report.get(f"{kind}_sha256"):
+            raise ValueError("Final report artifact changed; rerun report and quality")
+    resumed.update(run_id=context.run_id, phase="quality", termination_reason=None,
+                   feedback=[], pending_cells=[])
+    return resumed
+
+
 def current_outcomes(state):
     result = {}
     for task in state.get("tasks",[]):
@@ -115,6 +132,10 @@ def quality_gate(state):
     if state["phase"] == "report_repair": return "report"
     if state["phase"] == "plan": return "plan"
     return END
+
+
+def graph_entry(state):
+    return "quality" if state.get("phase") == "quality" else "plan"
 
 
 _ALIASES = {
@@ -322,7 +343,7 @@ def build_graph(context, checkpointer=None):
     for name,action in (("plan",plan),("dispatch",lambda state:{}),("worker",worker),("aggregate",aggregate),
                         ("review",review),("report",report),("quality",quality)):
         graph.add_node(name,action)
-    graph.add_edge(START,"plan")
+    graph.add_conditional_edges(START,graph_entry,["plan","quality"])
     graph.add_edge("plan","dispatch")
     graph.add_conditional_edges("dispatch",dispatch,["worker","aggregate"])
     graph.add_edge("worker","aggregate")

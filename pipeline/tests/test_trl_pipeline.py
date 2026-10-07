@@ -55,7 +55,7 @@ class TRLPipelineTests(unittest.TestCase):
                  "evidence_ids": list(item["evidence"])}
                 for item in payload["items"]]}
 
-        def report(markdown, output_dir, *, model, draft, attribution_first):
+        def report(markdown, output_dir, *, model, draft, attribution_first, **kwargs):
             self.assertTrue(draft)
             self.assertTrue(attribution_first)
             parsed_reports.append(parse_report_input(
@@ -66,6 +66,16 @@ class TRLPipelineTests(unittest.TestCase):
             tex.write_text("% OFFLINE TEST ONLY: report boundary\n")
             pdf.write_bytes(b"%PDF-OFFLINE-TEST-ONLY\n")
             return {"tex_path": str(tex), "pdf_path": str(pdf)}
+
+        quality_calls = []
+        def quality(**kwargs):
+            quality_calls.append(kwargs)
+            if len(quality_calls) == 1:
+                return {"route": "report_repair", "failure_type": None,
+                        "repair_requests": [{"target": "report", "role": None,
+                            "technology_ids": [], "criterion_ids": [],
+                            "instructions": ["OFFLINE TEST ONLY: revise report"]}]}
+            return {"route": "passed", "failure_type": None, "repair_requests": []}
 
         with ExitStack() as stack:
             stack.enter_context(patch("dotenv.load_dotenv", return_value=False))
@@ -82,13 +92,16 @@ class TRLPipelineTests(unittest.TestCase):
                 "draft": stack.enter_context(patch("pipeline.trl._respond", side_effect=draft)),
                 "audit": stack.enter_context(patch("team_review.review.call_trl_grounding", side_effect=audit)),
                 "report": stack.enter_context(patch("pipeline.reporting.generate_report", side_effect=report)),
+                "quality": stack.enter_context(patch("pipeline.report_quality.evaluate_report", side_effect=quality)),
             }
             yield mocks, parsed_reports
 
-    def run_cli(self, output, *, resume=False, rerun=()):
+    def run_cli(self, output, *, resume=False, rerun=(), stop_after="report", judge_model=None):
         argv = ["pipeline", "--input", str(ROOT / "config/pipeline.json"),
                 "--output", str(output), "--model", "offline-test", "--as-of", "2026-10-07",
-                "--draft", "--stop-after", "report"]
+                "--draft", "--stop-after", stop_after]
+        if judge_model:
+            argv.extend(["--judge-model", judge_model])
         if resume:
             argv.append("--resume")
         if rerun:
@@ -174,6 +187,42 @@ class TRLPipelineTests(unittest.TestCase):
                 self.assertEqual(mocks[boundary].call_count,0,boundary)
             self.assertEqual(json.loads((output / "state.result.json").read_text())["accepted_refs"],accepted)
             self.assertEqual(mocks["report"].call_count,1)
+
+    def test_quality_only_resume_keeps_latest_repaired_report_and_attempt_state(self):
+        with tempfile.TemporaryDirectory(prefix="trl-quality-resume-") as directory, self.boundaries() as (mocks, parsed):
+            output = Path(directory)
+            self.run_cli(output, stop_after="quality")
+            first = json.loads((output / "state.result.json").read_text())
+            self.assertEqual(first["quality_attempt"], 2)
+            latest_report = first["report_ref"]
+            latest_pdf = json.loads((output / latest_report["relative_path"]).read_text())["pdf_path"]
+            for mock in mocks.values(): mock.reset_mock()
+
+            self.run_cli(output, resume=True, stop_after="quality", judge_model="offline-independent-judge")
+
+            resumed = json.loads((output / "state.result.json").read_text())
+            self.assertEqual(resumed["report_ref"], latest_report)
+            self.assertEqual(resumed["quality_attempt"], 3)
+            self.assertEqual(mocks["quality"].call_args.kwargs["pdf_path"], latest_pdf)
+            for boundary in ("planner", "domain", "stakeholders", "market", "draft", "audit", "report"):
+                self.assertEqual(mocks[boundary].call_count, 0, boundary)
+
+    def test_quality_only_resume_rebuilds_when_a_worker_fingerprint_changed(self):
+        from pipeline.artifacts import role_fingerprints as actual_role_fingerprints
+        with tempfile.TemporaryDirectory(prefix="trl-quality-worker-change-") as directory, self.boundaries() as (mocks, parsed):
+            output = Path(directory)
+            self.run_cli(output, stop_after="quality")
+            for mock in mocks.values(): mock.reset_mock()
+            changed = actual_role_fingerprints(ROOT)
+            changed["market"] = "changed-market-worker"
+
+            with patch("pipeline.graph.fingerprint", return_value="changed-worker-code"), patch(
+                    "pipeline.artifacts.role_fingerprints", return_value=changed):
+                self.run_cli(output, resume=True, stop_after="quality",
+                             judge_model="offline-independent-judge")
+
+            self.assertEqual(mocks["market"].call_count, 1)
+            self.assertGreaterEqual(mocks["planner"].call_count, 1)
 
 
 if __name__ == "__main__":

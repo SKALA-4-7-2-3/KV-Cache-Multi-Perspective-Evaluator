@@ -64,8 +64,14 @@ def raw_audit_checks(answer, data):
     """Convert the explicit offline normalized responder into the provider wire contract."""
     claims = {claim["claim_id"]: claim for claim in data["claims"]}
     sources = {source["evidence_id"]: source for source in data["evidence"]}
+    def anchor(row):
+        claim = claims[row["claim_id"]]
+        return next(({"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]
+                     if (not claim["technology_ids"] or set(claim["technology_ids"]) & set(sources[identifier]["technology_ids"]))
+                     and (not claim["citation_keys"] or data["documents"][sources[identifier]["doc_id"]]["citation_key"] in claim["citation_keys"])), None)
     return {"checks": {row["claim_id"]: {**{key: value for key, value in row.items()
         if key not in {"claim_id", "supporting_quotes", "evidence_ids"}},
+        "claim_reference": anchor(row),
         "technology_references": {technology: next((
             {"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]
             if technology in sources[identifier]["technology_ids"]), None)
@@ -668,6 +674,7 @@ class ReportQualityTests(unittest.TestCase):
                 calls.append(kwargs)
                 return SimpleNamespace(status="completed", output_text=json.dumps({"checks": {
                     claim["claim_id"]: {"verdict": "supported", "reason": "OFFLINE original condition",
+                        "claim_reference": {"evidence_id": source["evidence_id"], "span_index": 2},
                         "technology_references": {"SW-01": {"evidence_id": source["evidence_id"], "span_index": 2}},
                         "references": [{"evidence_id": source["evidence_id"], "span_index": 2}],
                         "target": "report", "role": None, "criterion_ids": []}}}))
@@ -700,6 +707,7 @@ class ReportQualityTests(unittest.TestCase):
             def create(self, **kwargs):
                 return SimpleNamespace(status="completed", output_text=json.dumps({"checks": {
                     "fixed-claim": {"verdict": "supported", "reason": "OFFLINE invalid reference",
+                        "claim_reference": {"evidence_id": source["evidence_id"], "span_index": 0},
                         "technology_references": {},
                         "references": [reference], "target": "report", "role": None, "criterion_ids": []}}}))
         for reference in ({"evidence_id": "invented", "span_index": 0},
@@ -722,6 +730,7 @@ class ReportQualityTests(unittest.TestCase):
         documents = {**canonical()["documents"], "HW-01": {"sha256": "b" * 64, "citation_key": "HW01_PHOTONIC_CXL"}}
         data = {"claims": [claim], "evidence": [sw, hw], "documents": documents}
         row = {"verdict": "supported", "reason": "OFFLINE two-source contract fixture, not a semantic judgment",
+            "claim_reference": {"evidence_id": sw["evidence_id"], "span_index": 0},
             "technology_references": {"SW-01": {"evidence_id": sw["evidence_id"], "span_index": 0},
                                       "HW-01": {"evidence_id": hw["evidence_id"], "span_index": 0}},
             "references": [{"evidence_id": sw["evidence_id"], "span_index": 0},
@@ -765,6 +774,7 @@ class ReportQualityTests(unittest.TestCase):
             {"evidence_id": sw["evidence_id"], "quote": sw["excerpt"][800:]}])
         self.assertEqual(check["evidence_ids"], [sw["evidence_id"], hw["evidence_id"]])
         self.assertNotIn("technology_references", check)
+        self.assertNotIn("claim_reference", check)
         self.assertEqual(data, immutable)
         self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], "supported")
 
@@ -783,6 +793,7 @@ class ReportQualityTests(unittest.TestCase):
             normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
             self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], verdict)
         row["technology_references"]["SW-01"] = None
+        row["claim_reference"] = None
         row["references"] = []
         self.assertTrue(schema_accepts(schema, answer))
         self.assertEqual(_normalize_provider_answer("audit", json.dumps(answer), data)["checks"][0]["evidence_ids"], [])
@@ -792,15 +803,80 @@ class ReportQualityTests(unittest.TestCase):
         data["claims"][0]["technology_ids"] = []
         row = answer["checks"]["two-technology-claim"]
         row["technology_references"] = {}
+        row["claim_reference"] = None
         row["references"] = []
         schema = _audit_schema(data)
         self.assertFalse(schema_accepts(schema, answer))
         with self.assertRaises(JudgeContractError):
             _normalize_provider_answer("audit", json.dumps(answer), data)
-        row["references"] = [{"evidence_id": "SW-laboratory", "span_index": 0}]
+        row["claim_reference"] = {"evidence_id": "SW-laboratory", "span_index": 0}
         self.assertTrue(schema_accepts(schema, answer))
         normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
         self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], "supported")
+
+    def test_claim_anchor_selects_the_claims_actual_citation_within_collective_paragraph_sources(self):
+        data, answer = self.technology_audit_fixture()
+        claim = data["claims"][0]
+        claim["technology_ids"] = ["SW-01"]
+        claim["citation_keys"] = ["SW01_RDKV"]
+        claim["rendered_citation_keys"] = ["SW01_RDKV", "OTHER_SW"]
+        other = {**deepcopy(data["evidence"][0]), "evidence_id": "other-SW-original", "doc_id": "other-SW"}
+        data["evidence"].append(other)
+        data["documents"]["other-SW"] = {"sha256": "a" * 64, "citation_key": "OTHER_SW"}
+        row = answer["checks"][claim["claim_id"]]
+        row["technology_references"].pop("HW-01")
+        row["references"] = [{"evidence_id": "other-SW-original", "span_index": 0}]
+        schema = _audit_schema(data)
+        for verdict in ("supported", "contradicted", "unsupported", "uncertain"):
+            row["verdict"] = verdict
+            row["claim_reference"] = {"evidence_id": "SW-laboratory", "span_index": 0}
+            self.assertTrue(schema_accepts(schema, answer))
+            normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
+            self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], verdict)
+            row["claim_reference"] = {"evidence_id": "other-SW-original", "span_index": 0}
+            self.assertFalse(schema_accepts(schema, answer))
+            with self.assertRaises(JudgeContractError):
+                _normalize_provider_answer("audit", json.dumps(answer), data)
+
+    def test_quote_free_verdict_has_null_anchor_null_technology_table_and_no_extra_reference(self):
+        data, answer = self.technology_audit_fixture()
+        row = answer["checks"]["two-technology-claim"]
+        row.update(verdict="uncertain", claim_reference=None, references=[],
+                   technology_references={"SW-01": None, "HW-01": None})
+        schema = _audit_schema(data)
+        for verdict in ("unsupported", "uncertain"):
+            row["verdict"] = verdict
+            self.assertTrue(schema_accepts(schema, answer))
+            self.assertEqual(_normalize_provider_answer("audit", json.dumps(answer), data)["checks"][0]["supporting_quotes"], [])
+        for change in ({"verdict": "contradicted"},
+                       {"references": [{"evidence_id": "SW-laboratory", "span_index": 0}]},
+                       {"technology_references": {"SW-01": {"evidence_id": "SW-laboratory", "span_index": 0}, "HW-01": None}}):
+            broken = {"checks": {"two-technology-claim": {**row, **change}}}
+            self.assertFalse(schema_accepts(schema, broken))
+            with self.assertRaises(JudgeContractError):
+                _normalize_provider_answer("audit", json.dumps(broken), data)
+
+    def test_no_owner_and_actual_citation_anchor_offers_only_quote_free_honest_verdicts(self):
+        data, answer = self.technology_audit_fixture()
+        data["claims"][0]["technology_ids"] = ["HW-01"]
+        data["claims"][0]["citation_keys"] = ["SW01_RDKV"]
+        row = answer["checks"]["two-technology-claim"]
+        row.update(technology_references={"HW-01": None}, claim_reference=None, references=[])
+        schema = _audit_schema(data)
+        for verdict in ("supported", "contradicted", "unsupported", "uncertain"):
+            row["verdict"] = verdict
+            self.assertEqual(schema_accepts(schema, answer), verdict in {"unsupported", "uncertain"})
+            if verdict in {"unsupported", "uncertain"}:
+                self.assertEqual(_normalize_provider_answer("audit", json.dumps(answer), data)["checks"][0]["evidence_ids"], [])
+            else:
+                with self.assertRaises(JudgeContractError):
+                    _normalize_provider_answer("audit", json.dumps(answer), data)
+        for reference in ({"evidence_id": "SW-laboratory", "span_index": 0},
+                          {"evidence_id": "HW-original", "span_index": 0}):
+            row.update(verdict="uncertain", claim_reference=reference)
+            self.assertFalse(schema_accepts(schema, answer))
+            with self.assertRaises(JudgeContractError):
+                _normalize_provider_answer("audit", json.dumps(answer), data)
 
     def test_shared_source_schema_fits_provider_limits_for_213_originals_and_twenty_claims(self):
         sources = [{"evidence_id": f"original-{index:03d}-" + "x" * 180,
