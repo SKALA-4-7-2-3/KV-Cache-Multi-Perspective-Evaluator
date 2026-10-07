@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from pipeline.report_quality import (evaluate_report, canonical_evidence, _audit, JudgeContractError,
-                                     _judge_prompt, _provider, _normalize_provider_answer, JUDGE_INSTRUCTIONS)
+                                     _audit_schema, _judge_prompt, _provider, _normalize_provider_answer, JUDGE_INSTRUCTIONS)
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "report/tests/fixtures"
@@ -26,6 +26,52 @@ def canonical():
                 "technology_ids": ["SW-01"], "excerpt": "The authors report laboratory GPU experiments.",
                 "page": 1, "location": "Results", "method": "GPU experiment",
                 "provenance": {"source_hash": "a" * 64}}}}
+
+
+def schema_accepts(schema, value, root=None):
+    """Offline JSON Schema subset evaluator, independent of Judge normalization."""
+    root = schema if root is None else root
+    if "$ref" in schema:
+        target = root
+        for key in schema["$ref"].removeprefix("#/").split("/"):
+            target = target[key]
+        return schema_accepts(target, value, root)
+    if "anyOf" in schema and not any(schema_accepts(branch, value, root) for branch in schema["anyOf"]):
+        return False
+    if "enum" in schema and value not in schema["enum"]:
+        return False
+    kind = schema.get("type")
+    types = {"object": dict, "array": list, "string": str, "integer": int, "null": type(None)}
+    if kind in types and type(value) is not types[kind]:
+        return False
+    if kind == "object":
+        properties = schema.get("properties", {})
+        if not set(schema.get("required", [])) <= set(value):
+            return False
+        if schema.get("additionalProperties") is False and not set(value) <= set(properties):
+            return False
+        return all(schema_accepts(properties[key], item, root) for key, item in value.items() if key in properties)
+    if kind == "array":
+        if len(value) < schema.get("minItems", 0) or len(value) > schema.get("maxItems", float("inf")):
+            return False
+        return all(schema_accepts(schema.get("items", {}), item, root) for item in value)
+    if kind == "integer":
+        return schema.get("minimum", float("-inf")) <= value <= schema.get("maximum", float("inf"))
+    return True
+
+
+def raw_audit_checks(answer, data):
+    """Convert the explicit offline normalized responder into the provider wire contract."""
+    claims = {claim["claim_id"]: claim for claim in data["claims"]}
+    sources = {source["evidence_id"]: source for source in data["evidence"]}
+    return {"checks": {row["claim_id"]: {**{key: value for key, value in row.items()
+        if key not in {"claim_id", "supporting_quotes", "evidence_ids"}},
+        "technology_references": {technology: next((
+            {"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]
+            if technology in sources[identifier]["technology_ids"]), None)
+            for technology in claims[row["claim_id"]]["technology_ids"]},
+        "references": [{"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]]}
+        for row in answer["checks"]}}
 
 
 class ReportQualityTests(unittest.TestCase):
@@ -622,6 +668,7 @@ class ReportQualityTests(unittest.TestCase):
                 calls.append(kwargs)
                 return SimpleNamespace(status="completed", output_text=json.dumps({"checks": {
                     claim["claim_id"]: {"verdict": "supported", "reason": "OFFLINE original condition",
+                        "technology_references": {"SW-01": {"evidence_id": source["evidence_id"], "span_index": 2}},
                         "references": [{"evidence_id": source["evidence_id"], "span_index": 2}],
                         "target": "report", "role": None, "criterion_ids": []}}}))
         with patch("pipeline.governance.openai_client", return_value=Client()):
@@ -629,8 +676,8 @@ class ReportQualityTests(unittest.TestCase):
         format = calls[0]["text"]["format"]
         self.assertEqual(format["type"], "json_schema")
         self.assertEqual(format["schema"]["properties"]["checks"]["required"], [claim["claim_id"]])
-        self.assertEqual(format["schema"]["$defs"]["evidence_id"]["enum"], [source["evidence_id"]])
-        reference = format["schema"]["$defs"]["source_reference"]["anyOf"][0]["properties"]
+        self.assertEqual(format["schema"]["$defs"]["source_reference"]["anyOf"], [{"$ref": "#/$defs/source_0"}])
+        reference = format["schema"]["$defs"]["source_0"]["properties"]
         self.assertEqual(reference["evidence_id"]["enum"], [source["evidence_id"]])
         self.assertEqual(reference["span_index"], {"type": "integer", "minimum": 0, "maximum": 2})
         projected = payload(calls[0]["input"])["evidence"][0]
@@ -653,6 +700,7 @@ class ReportQualityTests(unittest.TestCase):
             def create(self, **kwargs):
                 return SimpleNamespace(status="completed", output_text=json.dumps({"checks": {
                     "fixed-claim": {"verdict": "supported", "reason": "OFFLINE invalid reference",
+                        "technology_references": {},
                         "references": [reference], "target": "report", "role": None, "criterion_ids": []}}}))
         for reference in ({"evidence_id": "invented", "span_index": 0},
                           {"evidence_id": source["evidence_id"], "span_index": 50},
@@ -661,6 +709,133 @@ class ReportQualityTests(unittest.TestCase):
             with self.subTest(reference=reference), patch("pipeline.governance.openai_client", return_value=Client()):
                 with self.assertRaises(JudgeContractError):
                     _provider("offline-model", phase="audit", data=data)(JUDGE_INSTRUCTIONS, _judge_prompt("audit", data))
+
+    def technology_audit_fixture(self):
+        sw = canonical_evidence(canonical())[0]
+        sw["excerpt"] = "원본 SW 조건.\n" + "S" * 810
+        hw = {**deepcopy(sw), "evidence_id": "HW-original", "doc_id": "HW-01",
+              "technology_ids": ["HW-01"], "source_hash": "b" * 64,
+              "excerpt": "원본 HW 조건.\n"}
+        claim = {"claim_id": "two-technology-claim", "technology_ids": ["SW-01", "HW-01"],
+                 "citation_keys": ["SW01_RDKV", "HW01_PHOTONIC_CXL"],
+                 "rendered_citation_keys": ["SW01_RDKV", "HW01_PHOTONIC_CXL"]}
+        documents = {**canonical()["documents"], "HW-01": {"sha256": "b" * 64, "citation_key": "HW01_PHOTONIC_CXL"}}
+        data = {"claims": [claim], "evidence": [sw, hw], "documents": documents}
+        row = {"verdict": "supported", "reason": "OFFLINE two-source contract fixture, not a semantic judgment",
+            "technology_references": {"SW-01": {"evidence_id": sw["evidence_id"], "span_index": 0},
+                                      "HW-01": {"evidence_id": hw["evidence_id"], "span_index": 0}},
+            "references": [{"evidence_id": sw["evidence_id"], "span_index": 0},
+                           {"evidence_id": sw["evidence_id"], "span_index": 1}],
+            "target": "report", "role": None, "criterion_ids": []}
+        return data, {"checks": {claim["claim_id"]: row}}
+
+    def test_supported_wire_schema_requires_original_reference_for_every_actual_technology(self):
+        data, answer = self.technology_audit_fixture()
+        schema = _audit_schema(data)
+        self.assertTrue(schema_accepts(schema, answer))
+        invalid_rows = []
+        original = answer["checks"]["two-technology-claim"]
+        for replacement in (None, {"evidence_id": "SW-laboratory", "span_index": 0},
+                            {"evidence_id": "HW-original", "span_index": 1},
+                            {"evidence_id": "HW-original", "span_index": True}):
+            row = deepcopy(original)
+            row["technology_references"]["HW-01"] = replacement
+            invalid_rows.append(row)
+        missing, extra, no_table = deepcopy(original), deepcopy(original), deepcopy(original)
+        del missing["technology_references"]["HW-01"]
+        extra["technology_references"]["OTHER"] = None
+        del no_table["technology_references"]
+        invalid_rows.extend((missing, extra, no_table))
+        for row in invalid_rows:
+            raw = {"checks": {"two-technology-claim": row}}
+            with self.subTest(row=row):
+                self.assertFalse(schema_accepts(schema, raw))
+                with self.assertRaises(JudgeContractError):
+                    _normalize_provider_answer("audit", json.dumps(raw), data)
+
+    def test_technology_references_bind_original_spans_and_deduplicate_extra_quotes(self):
+        data, answer = self.technology_audit_fixture()
+        immutable = deepcopy(data)
+        normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
+        check = normalized["checks"][0]
+        sw, hw = data["evidence"]
+        self.assertEqual(check["supporting_quotes"], [
+            {"evidence_id": sw["evidence_id"], "quote": sw["excerpt"][:800]},
+            {"evidence_id": hw["evidence_id"], "quote": hw["excerpt"]},
+            {"evidence_id": sw["evidence_id"], "quote": sw["excerpt"][800:]}])
+        self.assertEqual(check["evidence_ids"], [sw["evidence_id"], hw["evidence_id"]])
+        self.assertNotIn("technology_references", check)
+        self.assertEqual(data, immutable)
+        self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], "supported")
+
+    def test_missing_technology_original_removes_supported_branch_but_allows_honest_partial_verdict(self):
+        data, answer = self.technology_audit_fixture()
+        data["evidence"] = data["evidence"][:1]
+        row = answer["checks"]["two-technology-claim"]
+        row["technology_references"]["HW-01"] = None
+        schema = _audit_schema(data)
+        self.assertFalse(schema_accepts(schema, answer))
+        with self.assertRaises(JudgeContractError):
+            _normalize_provider_answer("audit", json.dumps(answer), data)
+        for verdict in ("contradicted", "unsupported", "uncertain"):
+            row["verdict"] = verdict
+            self.assertTrue(schema_accepts(schema, answer))
+            normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
+            self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], verdict)
+        row["technology_references"]["SW-01"] = None
+        row["references"] = []
+        self.assertTrue(schema_accepts(schema, answer))
+        self.assertEqual(_normalize_provider_answer("audit", json.dumps(answer), data)["checks"][0]["evidence_ids"], [])
+
+    def test_generic_supported_fact_requires_at_least_one_registered_original(self):
+        data, answer = self.technology_audit_fixture()
+        data["claims"][0]["technology_ids"] = []
+        row = answer["checks"]["two-technology-claim"]
+        row["technology_references"] = {}
+        row["references"] = []
+        schema = _audit_schema(data)
+        self.assertFalse(schema_accepts(schema, answer))
+        with self.assertRaises(JudgeContractError):
+            _normalize_provider_answer("audit", json.dumps(answer), data)
+        row["references"] = [{"evidence_id": "SW-laboratory", "span_index": 0}]
+        self.assertTrue(schema_accepts(schema, answer))
+        normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
+        self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], "supported")
+
+    def test_shared_source_schema_fits_provider_limits_for_213_originals_and_twenty_claims(self):
+        sources = [{"evidence_id": f"original-{index:03d}-" + "x" * 180,
+                    "technology_ids": ["SW-01" if index % 2 else "HW-01"], "excerpt": "X" * 1601}
+                   for index in range(213)]
+        claims = [{"claim_id": f"claim-{index}", "technology_ids": ["SW-01", "HW-01"]} for index in range(20)]
+        schema = _audit_schema({"claims": claims, "evidence": sources})
+        serialized = json.dumps(schema)
+        for source in sources:
+            self.assertEqual(serialized.count(json.dumps(source["evidence_id"])), 1)
+        counts = {"enums": 0, "properties": 0, "string_chars": 0}
+        def count(node):
+            if isinstance(node, dict):
+                counts["enums"] += len(node.get("enum", []))
+                counts["properties"] += len(node.get("properties", {}))
+                counts["string_chars"] += sum(len(key) for key in node)
+                for value in node.values(): count(value)
+            elif isinstance(node, list):
+                for value in node: count(value)
+            elif isinstance(node, str):
+                counts["string_chars"] += len(node)
+        def depth(node):
+            if "$ref" in node:
+                return depth(schema["$defs"][node["$ref"].split("/")[-1]])
+            choices = [depth(branch) for branch in node.get("anyOf", [])]
+            if node.get("type") == "object":
+                return 1 + max([depth(value) for value in node.get("properties", {}).values()] + [0])
+            if node.get("type") == "array":
+                return 1 + depth(node.get("items", {}))
+            return max(choices + [0])
+        count(schema)
+        self.assertLessEqual(counts["enums"], 1000)
+        self.assertLessEqual(counts["properties"], 5000)
+        self.assertLessEqual(counts["string_chars"], 120000)  # Conservative: every schema string/key.
+        self.assertLessEqual(depth(schema), 10)
 
     def test_structured_provider_rejects_omitted_fixed_units_and_claims(self):
         from types import SimpleNamespace
@@ -721,10 +896,7 @@ class ReportQualityTests(unittest.TestCase):
                         "claims": [{key: value for key, value in claim.items() if key != "report_quote"} for claim in row["claims"]]}
                         for row in answer["blocks"]}}
                 elif phase == "audit":
-                    raw = {"checks": {row["claim_id"]: {**{key: value for key, value in row.items()
-                        if key not in {"claim_id", "supporting_quotes", "evidence_ids"}},
-                        "references": [{"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]]}
-                        for row in answer["checks"]}}
+                    raw = raw_audit_checks(answer, data)
                 else:
                     raw = answer
                 respond.raw_response = json.dumps(raw)
@@ -763,10 +935,7 @@ class ReportQualityTests(unittest.TestCase):
                         "claims": [{key: value for key, value in claim.items() if key != "report_quote"} for claim in row["claims"]]}
                         for row in answer["blocks"]}}
                 elif phase == "audit":
-                    raw = {"checks": {row["claim_id"]: {**{key: value for key, value in row.items()
-                        if key not in {"claim_id", "supporting_quotes", "evidence_ids"}},
-                        "references": [{"evidence_id": identifier, "span_index": 0} for identifier in row["evidence_ids"]]}
-                        for row in answer["checks"]}}
+                    raw = raw_audit_checks(answer, data)
                 else:
                     raw = answer
                 respond.raw_response = json.dumps(raw)

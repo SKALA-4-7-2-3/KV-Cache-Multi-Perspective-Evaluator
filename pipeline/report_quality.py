@@ -474,29 +474,61 @@ def _audit_payload(data: dict) -> dict:
 def _audit_schema(data: dict) -> dict:
     claim_ids = [claim["claim_id"] for claim in data.get("claims", [])]
     evidence_ids = [source["evidence_id"] for source in data.get("evidence", [])]
-    if not claim_ids or not evidence_ids or len(claim_ids) != len(set(claim_ids)):
+    if (not claim_ids or not evidence_ids or len(claim_ids) != len(set(claim_ids))
+            or len(evidence_ids) != len(set(evidence_ids))):
         raise JudgeContractError("Strict audit requires registered claims and original evidence")
+    definitions = {
+        "non_supported_verdict": {"type": "string", "enum": ["contradicted", "unsupported", "uncertain"]},
+        "target": {"type": "string", "enum": ["report", "upstream", "human"]},
+        "role": {"anyOf": [{"type": "string", "enum": ["technical", "domain", "market", "stakeholders"]}, {"type": "null"}]}}
     reference_options = []
-    for source in data["evidence"]:
+    for index, source in enumerate(data["evidence"]):
         if not isinstance(source.get("excerpt"), str) or not source["excerpt"]:
             raise JudgeContractError("Strict audit original must have at least one quote span")
-        reference_options.append({"type": "object", "additionalProperties": False,
+        name = f"source_{index}"
+        definitions[name] = {"type": "object", "additionalProperties": False,
             "required": ["evidence_id", "span_index"], "properties": {
                 "evidence_id": {"type": "string", "enum": [source["evidence_id"]]},
                 "span_index": {"type": "integer", "minimum": 0,
-                               "maximum": (len(source["excerpt"]) - 1) // 800}}})
-    properties = {"verdict": {"$ref": "#/$defs/verdict"}, "reason": {"type": "string"},
+                               "maximum": (len(source["excerpt"]) - 1) // 800}}}
+        reference_options.append({"$ref": f"#/$defs/{name}"})
+    definitions["source_reference"] = {"anyOf": reference_options}
+    technologies = sorted({technology for claim in data["claims"] for technology in claim.get("technology_ids", [])})
+    owner_references = {}
+    for index, technology in enumerate(technologies):
+        choices = [reference_options[source_index] for source_index, source in enumerate(data["evidence"])
+                   if isinstance(source.get("technology_ids"), list) and technology in source["technology_ids"]]
+        if choices:
+            name = f"technology_{index}_reference"
+            definitions[name] = {"anyOf": choices}
+            owner_references[technology] = {"$ref": f"#/$defs/{name}"}
+    common = {"reason": {"type": "string"},
         "references": {"type": "array", "items": {"$ref": "#/$defs/source_reference"}},
-        "target": {"type": "string", "enum": ["report", "upstream", "human"]},
-        "role": {"anyOf": [{"type": "string", "enum": ["technical", "domain", "market", "stakeholders"]}, {"type": "null"}]},
+        "target": {"$ref": "#/$defs/target"}, "role": {"$ref": "#/$defs/role"},
         "criterion_ids": {"type": "array", "items": {"type": "string"}}}
-    check = {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+    checks = {}
+    for claim in data["claims"]:
+        actual_technologies = list(dict.fromkeys(claim.get("technology_ids", [])))
+        branches = []
+        for supported in (True, False):
+            if supported and any(technology not in owner_references for technology in actual_technologies):
+                continue  # No original owner means the schema cannot offer a supported verdict.
+            table = {technology: (owner_references[technology] if supported else
+                     {"anyOf": [owner_references[technology], {"type": "null"}]}
+                     if technology in owner_references else {"type": "null"})
+                     for technology in actual_technologies}
+            properties = {**common,
+                "verdict": {"type": "string", "enum": ["supported"]} if supported else {"$ref": "#/$defs/non_supported_verdict"},
+                "technology_references": {"type": "object", "properties": table,
+                    "required": actual_technologies, "additionalProperties": False}}
+            if supported and not actual_technologies:
+                properties["references"] = {**common["references"], "minItems": 1}
+            branches.append({"type": "object", "properties": properties,
+                             "required": list(properties), "additionalProperties": False})
+        checks[claim["claim_id"]] = {"anyOf": branches} if len(branches) > 1 else branches[0]
     return {"type": "object", "additionalProperties": False, "required": ["checks"],
         "properties": {"checks": {"type": "object", "additionalProperties": False,
-            "properties": {identifier: check for identifier in claim_ids}, "required": claim_ids}},
-        "$defs": {"evidence_id": {"type": "string", "enum": evidence_ids},
-                  "source_reference": {"anyOf": reference_options},
-                  "verdict": {"type": "string", "enum": ["supported", "contradicted", "unsupported", "uncertain"]}}}
+            "properties": checks, "required": claim_ids}}, "$defs": definitions}
 
 
 def _provider_prompt(phase: str, data: dict) -> str:
@@ -513,10 +545,19 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "Every key is required; the JSON schema defines the response structure.")
     elif phase == "audit":
         prompt += ("\nFor this strict audit request, checks must be an object keyed by EVERY fixed claim ID. "
-                   "Return references containing registered evidence_id and its zero-based span_index. "
+                   "Each check must include technology_references keyed by exactly that claim's technology_ids. "
+                   "For supported, every technology needs a non-null registered evidence_id/span_index reference "
+                   "whose source technology_ids includes that technology. If no eligible original exists for a "
+                   "required technology, supported is unavailable: return an honest other verdict. For "
+                   "contradicted/unsupported/uncertain, each technology reference may be null or refer to its own "
+                   "eligible source. A generic claim with no technology_ids needs an empty technology_references "
+                   "object and at least one registered reference to be supported. Return references[] for extra "
+                   "original spans, using registered evidence_id and its zero-based span_index. "
                    "Each evidence record's quote_spans contains its entire unmodified original text in order. "
                    "Read all spans including contrary evidence and conditions. Select every original span needed "
-                   "to support the verdict and each actual citation/technology owner. The controller binds real "
+                   "to support the verdict; do not assume one technology's original proves another technology. "
+                   "Quoted sources must obey the claim's actual citation and physical paragraph ownership. "
+                   "The controller merges and deduplicates technology and extra references, then binds real "
                    "supporting_quotes and evidence_ids from these references. Do not write quote strings or "
                    "combine spans yourself. The JSON schema defines the response structure.")
     if data.get("contract_feedback"):
@@ -569,16 +610,40 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
             row = rows[claim["claim_id"]]
             if not isinstance(row, dict) or not isinstance(row.get("references"), list):
                 raise JudgeContractError("Structured audit has no original references")
-            quotes = []
-            for reference in row["references"]:
+            technology_references = row.get("technology_references")
+            technologies = set(claim.get("technology_ids", []))
+            if not isinstance(technology_references, dict) or set(technology_references) != technologies:
+                raise JudgeContractError("Structured audit omitted or invented a claim technology reference")
+            references, seen = [], set()
+            def bind(reference, technology=None):
                 identifier = reference.get("evidence_id") if isinstance(reference, dict) else None
                 index = reference.get("span_index") if isinstance(reference, dict) else None
-                if (not isinstance(identifier, str) or identifier not in sources or type(index) is not int
+                if (not isinstance(reference, dict) or set(reference) != {"evidence_id", "span_index"}
+                        or not isinstance(identifier, str) or identifier not in sources or type(index) is not int
                         or not 0 <= index < len(sources[identifier]["quote_spans"])):
                     raise JudgeContractError(f"Structured audit has an unregistered source/span reference: {identifier!r}, index={index!r}")
+                if technology is not None and (not isinstance(sources[identifier].get("technology_ids"), list)
+                        or technology not in sources[identifier]["technology_ids"]):
+                    raise JudgeContractError("Structured audit technology reference belongs to another technology")
+                if (identifier, index) not in seen:
+                    seen.add((identifier, index))
+                    references.append((identifier, index))
+            for technology in dict.fromkeys(claim.get("technology_ids", [])):
+                reference = technology_references[technology]
+                if reference is None:
+                    if row.get("verdict") == "supported":
+                        raise JudgeContractError("Supported audit omitted an original for a required technology")
+                else:
+                    bind(reference, technology)
+            for reference in row["references"]:
+                bind(reference)
+            if row.get("verdict") == "supported" and not references:
+                raise JudgeContractError("Supported audit has no registered original reference")
+            quotes = []
+            for identifier, index in references:
                 span = sources[identifier]["quote_spans"][index]
                 quotes.append({"evidence_id": identifier, "quote": span["text"]})
-            normalized.append({**{key: value for key, value in row.items() if key != "references"},
+            normalized.append({**{key: value for key, value in row.items() if key not in {"references", "technology_references"}},
                 "claim_id": claim["claim_id"], "evidence_ids": list(dict.fromkeys(quote["evidence_id"] for quote in quotes)),
                 "supporting_quotes": quotes})
         return {"checks": normalized}

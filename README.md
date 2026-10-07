@@ -64,15 +64,25 @@ flowchart TD
 
 ## Quality and TRL
 
-**Generator와 Judge는 별도 호출·프롬프트를 사용합니다.** Report가 작성한 주장 목록을 평가의 정답으로 사용하지 않고, Quality Judge가 최종 PDF의 텍스트에서 주장과 인용을 추출해 canonical 원문과 대조합니다. 같은 `--model`을 사용하더라도 생성과 평가의 책임은 분리되어 있습니다. `--report-model`로 보고서 작성 모델을 따로 지정할 수 있습니다.
+**Generator와 Judge는 별도 호출·프롬프트를 사용합니다.** Report가 작성한 주장 목록을 평가의 정답으로 사용하지 않고, Quality Judge가 최종 PDF의 텍스트에서 주장과 인용을 추출해 canonical 원문과 대조합니다. `--report-model`은 보고서 작성 모델, `--judge-model`은 Quality 평가 모델을 따로 지정하며, 둘 다 생략하면 `--model`을 사용합니다. 같은 모델이어도 생성과 평가의 책임은 분리되어 있습니다.
 
-Quality는 PDF의 모든 비어 있지 않은 줄을 처리하고, 각 주장의 실제 인용 문서 집합에 속한 원문을 통째로 함께 검사합니다. 복수 인용의 근거를 서로 다른 shard로 나누지 않습니다. 미인용 주장과 최종 rubric에는 전체 canonical 원문을 전달하며, 기본 원문 집합 한도는 JSON 기준 1,000,000자입니다. 연속 원문 인용·문서 hash·인용 ownership을 코드로 검사하고, 한도 초과나 검사 누락을 통과로 바꾸지 않습니다.
+Quality는 PDF의 모든 비어 있지 않은 줄에 ID를 부여하고 strict schema로 각 ID의 주장 또는 구체적인 비주장 이유를 요구합니다. 누락·중복·빈 처리는 반려합니다. 주장에 연결되는 PDF 원문 줄은 controller가 그대로 부여하며, 근거 인용도 모델이 반환한 등록 `evidence_id`와 해당 원문의 실제 범위 안에 있는 `span_index`를 연결해 구성합니다. 정확한 팀 추정 안내문과 실제 페이지 번호는 고정 비주장으로 검사하되 전체 줄 분모와 최종 rubric 입력에 유지합니다. 두 기술을 함께 다룬 주장을 `supported`로 판정하려면 각 기술의 적격 원문 참조를 각각 선택해야 합니다. 기술과 무관한 범용 사실도 실제 원문 참조 없이 통과할 수 없습니다.
+
+문단에 실제 표시된 인용은 같은 문단의 줄바꿈·페이지 이어짐에 연결해 **주장이 선택할 수 있는 후보 범위**로 사용합니다. 제목·새 들여쓰기·목록·참고문헌은 별도 경계로 처리합니다. 핵심 주장 추적 gate인 H2는 각 주장이 실제 선택한 `citation_keys`를 검사하며, 문단의 후보 목록만으로 인용된 주장으로 인정하지 않습니다.
+
+웹 근거는 수집된 전체 원문의 SHA-256과 문서·URL·인용 키·기술 identity를 확인합니다. 일부 인용 발췌로 전체 원문을 대신하거나 출처를 걸러내고 자르지 않습니다. 인용된 주장은 문단의 후보 문서 집합에 속한 완전한 원문과 함께 검사하고, 실제 선택한 인용과 quote 집합의 기술 ownership을 확인합니다. 문단의 모든 참고문헌이 모든 개별 주장을 입증해야 하는 계약은 아닙니다. `citation_keys=[]`인 미인용 주장에는 문단에 인용이 있어도 전체 canonical 원문을 전달하며, 핵심 미인용 사실은 H2에서 반려합니다. 최종 rubric도 전체 원문을 받습니다. 기본 원문 집합 한도는 JSON 기준 1,000,000자이며, 한도 초과·원문 불일치·검사 누락은 미검사로 종료합니다.
+
+실제 Judge의 주장 추출·원문 감사 응답은 현재 normalizer와 validator를 통과한 raw 응답만 캐시합니다. 재사용할 때도 현재 검사를 다시 실행합니다. 계약 오류 수정은 원문·줄·주장 목록을 유지한 채 최대 한 번이며, 수정 프롬프트로 검증된 응답은 원래 요청의 alias와 실제 프롬프트 hash를 함께 보존합니다. 캐시는 최종 Quality 승인이나 점수를 대신하지 않습니다. [캐시·보정 상세](docs/orchestration.md#judge-응답-캐시와-계약-보정)를 참고하세요.
 
 보고서 작성 전 출처 독해는 원문 인용 계약이 어긋나면 최대 한 번 수정 요청합니다. 실패 candidate·raw response·오류를 보존하고, 재사용할 때 `source_id`, `title`, `url`, `citation_key`, `role`, `technology_ids`의 여섯 identity 필드와 인용문을 다시 검사합니다.
 
 Hybrid Quality는 형식·인용·TRL 보존·실제 PDF의 **전체 10쪽 이하** 조건을 코드로 검사하고, groundedness·중립성·편향 통제·네 관점의 포함을 Judge로 평가합니다. 채택 기준과 수정 대상은 [상세 품질 절](docs/orchestration.md#hybrid-quality)에 명시합니다. `SUMMARY`와 `REFERENCE`를 포함한 기존 보고서 구성을 유지합니다. `--stop-after report`는 Quality 이전 종료이므로 제출 품질을 확인한 상태가 아닙니다.
 
+보고서에는 내부 검사 상태·반복 진단 부록을 붙이지 않고 실제 근거의 한계와 미확인을 본문에 설명합니다. 구조화 시장 자료가 12개 셀을 모두 포함하면, 두 기술의 여섯 시장 항목마다 보이는 제목과 분석을 작성하도록 생성·수정·검증 계약을 적용합니다. 숫자 범위는 `128K--256K`처럼 표시하며, 조판 단계는 숫자·단위·인용을 보존하고 prose의 `~` 범위 기호만 바꿉니다. URL·수식은 제외하고 남은 형식 오류는 반려합니다.
+
 **TRL은 공개 정보에 근거한 팀 추정이며 공식 TRL 인증이 아닙니다.** 모델은 1~9단계의 `met/not_met/unknown` 초안을 제안하고, Review가 원문·대상 기술·검증 방식·의미를 확인한 뒤 1단계부터 연속으로 충족한 최고 단계만 기록합니다. 근거가 부족하면 미확인을 유지합니다. 일반 CXL 제품이나 인접 기술의 상용화 실적을 선정 구현의 높은 TRL 근거로 대신 사용하지 않습니다.
+
+기술별 TRL 초안은 `trl-drafts/`에 저장합니다. 같은 입력·모델·프롬프트·스키마·TRL 코드의 성공 초안을 재사용하고, 현재 근거와 검증 방식은 다시 검사합니다. 연결·시간 초과 계열 오류만 최대 한 번 재시도하며, 실패를 완료나 충족 판정으로 바꾸지 않습니다.
 
 ## Tech Stack
 
@@ -108,7 +118,7 @@ uv run --frozen python -m pipeline \
 
 ### 재개와 부분 재실행
 
-기존 실행과 같은 입력·요청·평가 모델·조사 기준일·예산 옵션을 사용합니다. 아래 날짜는 예시 실행과 동일하게 유지합니다.
+기존 실행과 같은 입력·요청·공통 `--model`·조사 기준일·예산 옵션을 사용합니다. 아래 날짜는 예시 실행과 동일하게 유지합니다.
 
 ```bash
 # 중단 지점 재개 또는 완료 결과 재사용
@@ -126,7 +136,9 @@ uv run --frozen python -m pipeline \
 
 셀 단위 재조사는 Review/Quality의 구조화 피드백으로 제어합니다. CLI `--rerun market`는 해당 역할 전체 범위를 선택합니다. 더 많은 명령과 재개 조건은 [실행·재개 상세](docs/orchestration.md#실행재개부분-재실행)를 참고하세요.
 
-완료된 worker 결과의 역할 fingerprint에는 `pipeline/governance.py` 전체와 `pyproject.toml`, `uv.lock`이 포함됩니다. 보고서 생성·Quality 코드만 바뀌고 입력과 저장 artifact hash가 그대로이면 완료된 역할 결과를 재사용합니다.
+완료된 worker는 역할 fingerprint, TRL·Review·Report·Quality는 단계별 source fingerprint로 재사용 여부를 판단합니다. 역할 fingerprint에는 `pipeline/governance.py` 전체와 `pyproject.toml`, `uv.lock`이 포함되며 생성된 캐시 디렉터리는 제외합니다. 입력·모델·artifact가 동일하면 Quality 코드만 수정해 재개할 때 채택된 worker와 Review·Report 결과를 재사용할 수 있습니다. 단계별 조건은 [재개 계약](docs/orchestration.md#재개-계약)을 참고하세요.
+
+같은 실행에서 `--judge-model` 또는 `--max-judge-calls`만 바꾸면 저장된 `quality_settings`와 비교해 **Quality만 다시 평가**합니다. 유효한 조사·TRL·Review·Report는 보존합니다. `--report-model` 변경은 Report 이후를 다시 처리하며, 후속 공통 예산과 이미 사용한 호출 수는 유지됩니다.
 
 ### 예산 적용 범위
 
@@ -146,6 +158,7 @@ uv run --frozen python -m pipeline \
 | `research.bundle.json`, `research.context_manifest.json` | 원본 조사 결과·후속 입력의 원문 연결 기록 |
 | `domain.output.json`, `stakeholders.output.json`, `market.output.json` | 채택된 관점 결과 |
 | `trl.output.json`, `review.input.json`, `review.output.json`, `review.output.md` | TRL 초안·검증 입력·최종 팀 추정·종합 |
+| `trl-drafts/<technology>-<stamp>.json` | 기술별 성공 TRL 초안 캐시 |
 | `reports/revision-N/{report.tex, report.pdf, report.result.json}` | 각 보고서 revision의 원본·PDF·생성 기록 |
 | `report.output.json`, `quality.json`, `quality/attempt-N/` | 현재 보고서 경로·최종 Quality 결과·Judge 기록 |
 | `usage.json` | 후속 API 시도·실제/미확인/예약 토큰·예산 종료 이유 |
