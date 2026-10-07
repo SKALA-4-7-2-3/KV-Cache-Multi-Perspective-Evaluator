@@ -298,7 +298,7 @@ def build_graph(context, checkpointer=None):
         def operation():
             options = {"model":ctx.report_model or ctx.model,"draft":ctx.draft,"attribution_first":True}
             if requests:
-                options.update(revision_feedback=[r["instructions"] for r in requests],
+                options.update(revision_feedback=requests,
                     revision_candidate=Path(prior["tex_path"]).read_text(),source_coverage_repair=False)
             value = (ctx.report or generate_report)(markdown,report_dir,**options)
             for kind in ("tex","pdf"):

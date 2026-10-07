@@ -1128,10 +1128,19 @@ def _complete_result(result, rubric, claims, checks, blocks, gate, finish, tex, 
             raise JudgeContractError("Invalid quality finding or repair target")
     result["findings"] = findings
     gate("unresolved_major_findings", not any(finding["severity"] in {"critical", "major"} for finding in findings))
-    result["repair_requests"] = [{"target": finding["target"], "role": finding.get("role"),
+    claim_by_id = {claim["claim_id"]: claim for claim in claims}
+    check_by_id = {check["claim_id"]: check for check in checks}
+    def repair_request(request):
+        identifiers = request["claim_ids"]
+        if any(identifier not in claim_by_id or identifier not in check_by_id for identifier in identifiers):
+            raise JudgeContractError("Repair request refers to an unknown or unchecked claim")
+        return {**deepcopy(request), "claim_contexts": [
+            {"claim": deepcopy(claim_by_id[identifier]), "audit": deepcopy(check_by_id[identifier])}
+            for identifier in identifiers], "report_revision": deepcopy(result["hashes"])}
+    result["repair_requests"] = [repair_request({"target": finding["target"], "role": finding.get("role"),
         "technology_ids": finding.get("technology_ids", []), "criterion_ids": finding.get("criterion_ids", []),
         "claim_ids": finding.get("claim_ids", []), "evidence_ids": finding.get("evidence_ids", []),
-        "instructions": finding["reason"]} for finding in findings]
+        "instructions": finding["reason"]}) for finding in findings]
     if all(value["status"] == "pass" for value in result["gates"].values()):
         return finish("passed")
     if any(request["target"] == "human" for request in result["repair_requests"]) or not hashes_unchanged:
@@ -1139,9 +1148,9 @@ def _complete_result(result, rubric, claims, checks, blocks, gate, finish, tex, 
     if any(request["target"] == "upstream" for request in result["repair_requests"]):
         return finish("upstream_replan", FailureType.EVIDENCE_GAP)
     if not result["repair_requests"]:
-        result["repair_requests"] = [{"target": "report", "role": None, "technology_ids": [],
+        result["repair_requests"] = [repair_request({"target": "report", "role": None, "technology_ids": [],
             "criterion_ids": [], "claim_ids": list(claim_ids), "evidence_ids": [],
-            "instructions": "4축 점수·gate 미달 사유를 원래 출처와 대조해 수정하라: " + _json(axes)}]
+            "instructions": "4축 점수·gate 미달 사유를 원래 출처와 대조해 수정하라: " + _json(axes)})]
     failure = FailureType.FACT_ERROR if not result["gates"]["H1"]["status"] == "pass" else FailureType.RUBRIC_LOW
     return finish("report_repair", failure)
 

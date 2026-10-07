@@ -265,7 +265,9 @@ class TRLPipelineTests(unittest.TestCase):
             self.assertEqual(controller["completed_content_assessments"], 2)
             self.assertEqual(mocks["report"].call_count, 1)
             self.assertEqual(mocks["report"].call_args.kwargs["revision_feedback"],
-                             ["OFFLINE TEST ONLY: preserve this repair feedback"])
+                             [{"target": "report", "role": None, "technology_ids": [],
+                               "criterion_ids": [],
+                               "instructions": "OFFLINE TEST ONLY: preserve this repair feedback"}])
             self.assertTrue(mocks["report"].call_args.kwargs["revision_candidate"])
             for boundary in ("planner", "domain", "stakeholders", "market", "draft", "audit"):
                 self.assertEqual(mocks[boundary].call_count, 0, boundary)

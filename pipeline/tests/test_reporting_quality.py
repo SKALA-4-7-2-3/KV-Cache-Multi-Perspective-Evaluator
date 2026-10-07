@@ -16,13 +16,14 @@ FIXTURES = Path(__file__).resolve().parents[2] / "report/tests/fixtures"
 
 
 class ReportingQualityTests(unittest.TestCase):
-    def run_revision(self, responses, *, expect_error=False):
+    def run_revision(self, responses, *, expect_error=False, feedback=None):
         """Offline model/compiler boundaries with real parsing, preparation and format validation."""
         source = {"source_id": "offline-original", "excerpt": "UNIQUE ORIGINAL\n" + "Exact source condition. " * 100,
                   "technology_ids": ["SW-01"], "url": "https://example.test/original"}
         markdown = (FIXTURES / "trl-runtime.input.md").read_text() + (
             "\n<!-- USABLE_SOURCE_REPORTS_JSON\n" + json.dumps([source]) + "\nEND_USABLE_SOURCE_REPORTS_JSON -->\n")
-        feedback = ["OFFLINE Quality feedback: preserve attribution and the actual source year."]
+        if feedback is None:
+            feedback = ["OFFLINE Quality feedback: preserve attribution and the actual source year."]
         calls, compiled = [], []
         def respond(instructions, prompt):
             calls.append({"instructions": instructions, "prompt": prompt})
@@ -89,6 +90,35 @@ class ReportingQualityTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(len(compiled), 1)
         self.assertNotIn("report.revision-validation-2.json", records)
+
+    def test_structured_feedback_survives_revision_and_bounded_format_repair(self):
+        # Explicit offline data; quote validity is tested at the Quality boundary.
+        feedback = [{"target": "report", "role": None, "technology_ids": ["SW-01"],
+            "criterion_ids": [], "claim_ids": ["offline-claim"], "evidence_ids": ["offline-original"],
+            "instructions": "Verify this exact assertion against the original source year.",
+            "claim_contexts": [{"claim": {"claim_id": "offline-claim", "text": "Exact atomic assertion.",
+                "report_quote": "Wrapped assertion\ncontinues here.", "citation_keys": [],
+                "rendered_citation_keys": ["SW01_RDKV"], "page": 2, "technology_ids": ["SW-01"],
+                "canonical_extra": {"immutable": True}},
+                "audit": {"claim_id": "offline-claim", "verdict": "supported",
+                    "supporting_quotes": [{"evidence_id": "offline-original", "quote": "Exact source condition."}],
+                    "source_locations": [{"evidence_id": "offline-original", "source_hash": "a" * 64,
+                                          "location": "Original section", "span_index": 0}]}}],
+            "report_revision": {"tex": "b" * 64, "pdf": "c" * 64,
+                                "canonical_evidence": "d" * 64, "claims": "e" * 64}}]
+        valid = (FIXTURES / "trl-runtime.tex").read_text()
+        broken = valid.replace(r"\subsection{도메인 적용성}", r"\subsection{잘못된 제목}")
+        result, calls, _, records, source, _ = self.run_revision([broken, valid], feedback=feedback)
+        self.assertEqual(result["attempts"], 2)
+        self.assertEqual(result["trl"], {"SW-01": 4, "HW-01": None})
+        self.assertEqual(json.loads(records["report.feedback.json"]), feedback)
+        for call in calls:
+            match = re.search(r"---REPORT_FEEDBACK_[0-9a-f]{16}---\n([\s\S]*?)\n---END_", call["prompt"])
+            self.assertIsNotNone(match)
+            self.assertEqual(json.loads(match.group(1)), feedback)
+            self.assertIn(records["report.input.md"], call["prompt"])
+            self.assertIn(json.dumps([source]), call["prompt"])
+            self.assertEqual(call["prompt"].count("[Review 최종 TRL 보존 계약]"), 1)
 
     def test_revision_receives_original_sources_and_final_trl_contract(self):
         parsed = parse_report_input((FIXTURES / "trl-runtime.input.md").read_text())

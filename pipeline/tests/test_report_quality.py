@@ -577,6 +577,74 @@ class ReportQualityTests(unittest.TestCase):
         audit = next(call for call in self.calls if call["phase"] == "audit")
         self.assertEqual(audit["evidence_scope"]["selection"], "all_originals_uncited")
 
+    def test_repair_context_copies_complete_verified_claim_audit_and_revision(self):
+        from pipeline.report_quality import _complete_result
+        def responder(instructions, prompt):
+            answer = self.responder(instructions, prompt)
+            if payload(prompt)["phase"] == "atomize":
+                answer["blocks"][0]["claims"][0]["citation_keys"] = []
+            return answer
+        with patch("pipeline.report_quality._complete_result", wraps=_complete_result) as completion:
+            result = self.evaluate(responder)
+        completed_claims, completed_checks = completion.call_args.args[2:4]
+        ledger = json.loads(Path(result["claims_path"]).read_text())
+        claims = {row["claim_id"]: row for row in ledger["claims"]}
+        checks = {row["claim_id"]: row for row in ledger["checks"]}
+        request = next(row for row in result["repair_requests"] if row["claim_ids"]
+                       and not claims[row["claim_ids"][0]]["citation_keys"])
+        context = request["claim_contexts"][0]
+        identifier = request["claim_ids"][0]
+        self.assertEqual(context, {"claim": claims[identifier], "audit": checks[identifier]})
+        self.assertEqual(request["report_revision"], result["hashes"])
+        self.assertEqual(context["claim"]["citation_keys"], [])
+        self.assertEqual(context["claim"]["rendered_citation_keys"], ["SW01_RDKV"])
+        self.assertTrue(context["audit"]["supporting_quotes"])
+        self.assertTrue(context["audit"]["source_locations"])
+        self.assertEqual(result["gates"]["H2"]["status"], "fail")
+        self.assertEqual(result["route"], "report_repair")
+        original = deepcopy((completed_claims, completed_checks, result["hashes"]))
+        context["claim"]["citation_keys"].append("invented")
+        context["audit"]["supporting_quotes"][0]["quote"] = "changed downstream"
+        request["report_revision"]["tex"] = "changed downstream"
+        self.assertEqual((completed_claims, completed_checks, result["hashes"]), original)
+
+    def test_generic_repair_context_is_empty_and_unknown_claim_id_is_rejected(self):
+        def generic(instructions, prompt):
+            answer = self.responder(instructions, prompt)
+            if payload(prompt)["phase"] == "rubric":
+                answer["findings"] = [{"type": "wording", "severity": "major", "target": "report",
+                    "reason": "OFFLINE fixture: revise general wording.", "claim_ids": []}]
+            return answer
+        result = self.evaluate(generic)
+        self.assertEqual(result["route"], "report_repair")
+        self.assertEqual(result["repair_requests"][0]["claim_contexts"], [])
+        self.assertEqual(result["repair_requests"][0]["report_revision"], result["hashes"])
+        def unknown(instructions, prompt):
+            answer = generic(instructions, prompt)
+            if payload(prompt)["phase"] == "rubric":
+                answer["findings"][0]["claim_ids"] = ["unknown-exact-claim-id"]
+            return answer
+        result = self.evaluate(unknown)
+        self.assertEqual(result["route"], "review_required")
+        self.assertEqual(result["failure_type"], "judge_contract_invalid")
+        self.assertEqual(result["repair_requests"], [])
+
+    def test_axis_only_fallback_includes_each_complete_claim_context(self):
+        def responder(instructions, prompt):
+            answer = self.responder(instructions, prompt)
+            if payload(prompt)["phase"] == "rubric":
+                answer["axes"]["groundedness"]["score"] = 3
+            return answer
+        result = self.evaluate(responder)
+        ledger = json.loads(Path(result["claims_path"]).read_text())
+        request = result["repair_requests"][0]
+        self.assertEqual(result["route"], "report_repair")
+        self.assertEqual({context["claim"]["claim_id"] for context in request["claim_contexts"]},
+                         {claim["claim_id"] for claim in ledger["claims"]})
+        self.assertEqual(request["report_revision"], result["hashes"])
+        self.assertTrue(all(context["audit"]["claim_id"] == context["claim"]["claim_id"]
+                            for context in request["claim_contexts"]))
+
     def test_exact_report_qualification_and_last_page_number_remain_in_denominator(self):
         from pipeline.report_quality import rendered_units, _atomize, _atomize_schema
         blocks = [{"block_id": "p001-b001", "page": 1, "text": (

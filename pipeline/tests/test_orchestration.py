@@ -315,7 +315,10 @@ class OrchestrationIntegrationTests(unittest.TestCase):
         self.assertEqual(fake.workers, [])
         self.assertEqual((len(fake.reviews), len(fake.reports), len(fake.qualities)), (1, 2, 2))
         self.assertEqual([q["attempt"] for q in fake.qualities], [1, 2])
-        self.assertIn("revision_feedback", fake.reports[1]["options"])
+        self.assertEqual(fake.reports[1]["options"]["revision_feedback"], [{
+            "target": "report", "role": None, "technology_ids": [], "criterion_ids": [],
+            "claim_ids": [], "evidence_ids": [],
+            "instructions": "OFFLINE TEST ONLY: repair this report's wording."}])
         self.assertEqual(fake.reports[1]["options"]["revision_candidate"],
                          "% OFFLINE TEST ONLY: report generation boundary\n")
         self.assertEqual(result["phase"], "content_quality_pass")

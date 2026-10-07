@@ -230,7 +230,7 @@ use_in_report=true이면 observations를 비우지 않는다. 숫자·비교 기
 
 
 def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool = False,
-                    attribution_first: bool = False, revision_feedback: list[str] | None = None,
+                    attribution_first: bool = False, revision_feedback: list[str | dict] | None = None,
                     revision_candidate: str | None = None, source_coverage_repair: bool = True,
                     source_reading_model: str | None = None) -> dict:
     """Generate LaTeX and PDF, repairing compilation errors with the same agent.
