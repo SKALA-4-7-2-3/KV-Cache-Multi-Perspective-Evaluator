@@ -257,6 +257,74 @@ class ReportQualityTests(unittest.TestCase):
         self.assertEqual(result["route"], "report_repair")
         self.assertGreater(result["checked_claims"]["uncited_facts"], 0)
         self.assertEqual(result["gates"]["H2"]["status"], "fail")
+        audit = next(call for call in self.calls if call["phase"] == "audit")
+        self.assertEqual(audit["evidence_scope"]["selection"], "all_originals_uncited")
+
+    def test_exact_report_qualification_and_last_page_number_remain_in_denominator(self):
+        from pipeline.report_quality import rendered_units, _atomize, _atomize_schema
+        blocks = [{"block_id": "p001-b001", "page": 1, "text": (
+            "공개 정보 기반 팀 추정이며 공식 인증이 아니다.\n"
+            "RDKV는 공식 인증이 아니다.\n1\n다른 본문\n   1\n")}]
+        units = rendered_units(blocks)
+        self.assertEqual(len(units), 5)
+        self.assertEqual([bool(u.get("required_non_claim_reason")) for u in units], [True, False, False, False, True])
+        data = {"blocks": units, "citation_numbers": {"1": "SW01_RDKV"}}
+        schema = _atomize_schema(data)["properties"]["blocks"]["properties"]
+        self.assertEqual(schema[units[0]["block_id"]]["properties"]["claims"]["maxItems"], 0)
+        rows = [{"block_id":u["block_id"], "claims":[],
+                 "non_claim_reason":u.get("required_non_claim_reason", "offline non-claim")}
+                for u in units]
+        self.assertEqual(_atomize({"blocks":rows}, units, {"SW01_RDKV"}), [])
+        rows[0]["non_claim_reason"] = "Unverified replacement reason"
+        with self.assertRaises(JudgeContractError):
+            _atomize({"blocks":rows}, units, {"SW01_RDKV"})
+
+    def test_collective_paragraph_references_allow_each_assertions_actual_support(self):
+        from pipeline.report_quality import _audit
+        data = canonical()
+        data["documents"]["other"] = {"sha256": "b" * 64, "citation_key": "WEB_OTHER"}
+        data["evidence"]["other"] = {"id": "other", "doc_id": "other", "technology_ids":["SW-01"],
+            "excerpt":"Other registered original.", "location":"Body", "provenance":{"source_hash":"b"*64}}
+        evidence = canonical_evidence(data)
+        claim = {"claim_id":"fixed", "technology_ids":["SW-01"], "citation_keys":["SW01_RDKV", "WEB_OTHER"],
+            "rendered_citation_keys":["SW01_RDKV", "WEB_OTHER"]}
+        source = next(e for e in evidence if e["evidence_id"] == "SW-laboratory")
+        check = {"claim_id":"fixed", "verdict":"supported", "reason":"Original experiment supports this assertion",
+            "evidence_ids":[source["evidence_id"]], "supporting_quotes":[{"evidence_id":source["evidence_id"], "quote":source["excerpt"]}],
+            "target":"report", "role":None, "criterion_ids":[]}
+        self.assertEqual(len(_audit({"checks":[deepcopy(check)]},[claim],evidence,data["documents"])), 1)
+        claim["rendered_citation_keys"] = ["WEB_OTHER"]
+        with self.assertRaises(JudgeContractError):
+            _audit({"checks":[deepcopy(check)]},[claim],evidence,data["documents"])
+        claim["rendered_citation_keys"] = ["SW01_RDKV", "WEB_OTHER"]
+        claim["citation_keys"] = ["WEB_OTHER"]
+        with self.assertRaises(JudgeContractError):
+            _audit({"checks":[deepcopy(check)]},[claim],evidence,data["documents"])
+
+    def test_uncited_claim_in_cited_paragraph_still_receives_unrelated_originals(self):
+        from pipeline.report_quality import _audit_groups
+        sources = [{"evidence_id":"one", "doc_id":"one", "excerpt":"First complete original"},
+                   {"evidence_id":"two", "doc_id":"two", "excerpt":"Second complete original"}]
+        documents = {"one":{"citation_key":"ONE"}, "two":{"citation_key":"TWO"}}
+        claim = {"claim_id":"fixed", "citation_keys":[], "rendered_citation_keys":["ONE"]}
+        groups = _audit_groups([claim],sources,documents,10000,10000)
+        self.assertEqual(groups[0]["evidence_scope"]["selection"], "all_originals_uncited")
+        self.assertEqual(groups[0]["evidence"], sources)
+
+    def test_failed_later_audit_preserves_only_completed_claim_counts(self):
+        def responder(instructions, prompt):
+            data = payload(prompt)
+            answer = self.responder(instructions, prompt)
+            if data["phase"] == "atomize":
+                answer["blocks"][1]["claims"][0]["citation_keys"] = []
+            if data["phase"] == "audit" and any("b002" in c["claim_id"] for c in data["claims"]):
+                raise JudgeContractError("OFFLINE remaining audit rejected")
+            return answer
+        result = self.evaluate(responder)
+        self.assertEqual(result["route"], "review_required")
+        self.assertEqual(result["checked_claims"]["total"], 2)
+        self.assertEqual(result["checked_claims"]["checked"], 1)
+        self.assertEqual(result["checked_claims"]["supported"], 1)
 
     def test_quote_spanning_wrapped_lines_is_rejected_without_normalization(self):
         self.blocks[0]["text"] += "\nRDKV 검증은 시뮬레이션으로\n수행되었으며 실제 운용 검증은 아니다 [1]."

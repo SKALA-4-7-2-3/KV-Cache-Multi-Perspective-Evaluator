@@ -194,15 +194,22 @@ def rendered_units(blocks: list[dict]) -> list[dict]:
                     "page": block["page"], "text": line})
             else:
                 active = False
+    for unit in units:
+        if " ".join(unit["text"].split()) == "공개 정보 기반 팀 추정이며 공식 인증이 아니다.":
+            unit["required_non_claim_reason"] = "팀 TRL 추정의 성격을 명시하는 보고서 메타데이터"
+    for page in {unit["page"] for unit in units}:
+        last = [unit for unit in units if unit["page"] == page][-1]
+        if last["text"].strip() == str(page):
+            last["required_non_claim_reason"] = "페이지 번호"
     # The report uses an indented first line for each new prose paragraph.
     # A page break can split that paragraph before its closing citations.
     for previous, current in zip(blocks, blocks[1:]):
         if current["page"] != previous["page"] + 1:
             continue
         before = [unit for unit in units if unit["parent_block_id"] == previous["block_id"]
-                  and unit["text"].strip() != str(previous["page"])]
+                  and unit.get("required_non_claim_reason") != "페이지 번호"]
         after = [unit for unit in units if unit["parent_block_id"] == current["block_id"]
-                 and unit["text"].strip() != str(current["page"])]
+                 and unit.get("required_non_claim_reason") != "페이지 번호"]
         if not before or not after:
             continue
         first = after[0]["text"]
@@ -439,6 +446,11 @@ def _atomize_schema(data: dict) -> dict:
              "required": ["non_claim_reason", "claims"], "properties": {
                  "non_claim_reason": {"type": "string", "minLength": 1},
                  "claims": {"type": "array", "maxItems": 0, "items": claim}}}]}
+        if unit.get("required_non_claim_reason"):
+            blocks[unit["block_id"]] = {"type": "object", "additionalProperties": False,
+                "required": ["non_claim_reason", "claims"], "properties": {
+                    "non_claim_reason": {"type": "string", "enum": [unit["required_non_claim_reason"]]},
+                    "claims": {"type": "array", "maxItems": 0, "items": claim}}}
     return {"type": "object", "additionalProperties": False, "required": ["blocks"],
         "properties": {"blocks": {"type": "object", "properties": blocks,
                                   "required": list(blocks), "additionalProperties": False}},
@@ -635,6 +647,9 @@ def _atomize(answer: dict, blocks: list[dict], allowed_keys: set[str]) -> list[d
     claims = []
     for row in rows:
         items = row.get("claims")
+        required_reason = originals[row["block_id"]].get("required_non_claim_reason")
+        if required_reason and (items != [] or row.get("non_claim_reason") != required_reason):
+            raise JudgeContractError("Known layout or report metadata must retain its explicit non-claim disposition")
         if not isinstance(items, list) or (not items and not row.get("non_claim_reason")):
             raise JudgeContractError("Rendered block has neither claims nor a non-claim explanation")
         for index, claim in enumerate(items, 1):
@@ -695,8 +710,11 @@ def _audit(answer: dict, claims: list[dict], evidence: list[dict], documents: di
             locations.append({key: source[key] for key in ("evidence_id", "doc_id", "source_hash", "page", "location", "locator")})
         if set(ids) != quote_ids or check["verdict"] in {"supported", "contradicted"} and not quotes:
             raise JudgeContractError("Semantic support requires original quotes for every linked evidence ID")
-        if quotes and (not set(claim_map[check["claim_id"]]["technology_ids"]) <= owners
-                       or not set(claim_map[check["claim_id"]]["citation_keys"]) <= citation_keys):
+        claim = claim_map[check["claim_id"]]
+        actual_keys = set(claim["citation_keys"])
+        paragraph_keys = set(claim.get("rendered_citation_keys", claim["citation_keys"]))
+        if quotes and (not set(claim["technology_ids"]) <= owners
+                       or actual_keys and (not actual_keys & citation_keys or not citation_keys <= paragraph_keys)):
             raise JudgeContractError("Claim technology or actual citation is not owned by its quoted sources")
         check["source_locations"] = locations
     return checks
@@ -722,7 +740,7 @@ def _audit_groups(claims: list[dict], evidence: list[dict], documents: dict,
     """
     grouped = {}
     for claim in claims:
-        keys = tuple(sorted(set(claim.get("rendered_citation_keys", claim["citation_keys"]))))
+        keys = tuple(sorted(set(claim.get("rendered_citation_keys", claim["citation_keys"])))) if claim["citation_keys"] else ()
         grouped.setdefault(keys, []).append(claim)
     groups = []
     for keys, items in grouped.items():
@@ -1027,6 +1045,7 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         if not claims:
             raise JudgeContractError("No atomic claims were extracted from the final report")
         result["checked_claims"]["total"] = len(claims)
+        result["checked_claims"]["uncited_facts"] = sum(not claim["citation_keys"] and claim["kind"] in {"fact", "author_report"} for claim in claims)
         checks = []
         groups = _audit_groups(claims, evidence, review_input.get("documents", {}), max_evidence_chars, max_block_chars)
         result["audit_batches"] = len(groups)
@@ -1036,16 +1055,16 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
             _, audited = verified("audit", {**group, "page_context": context, "documents": review_input.get("documents", {})},
                 lambda answer: _audit(answer, chunk, group["evidence"], review_input.get("documents", {})))
             checks += audited
+            result["checked_claims"]["checked"] = len(checks)
+            counts = Counter(check["verdict"] for check in checks)
+            for verdict in ("supported", "contradicted", "unsupported", "uncertain"):
+                result["checked_claims"][verdict] = counts[verdict]
         ledger = {"claims": claims, "checks": checks, "blocks": blocks, "units": units, "unit_dispositions": unit_dispositions}
         ledger_bytes = (json.dumps(ledger, ensure_ascii=False, indent=2) + "\n").encode()
         result["hashes"]["claims"] = sha256(ledger_bytes).hexdigest()
         ledger_path = output / f"quality.claims-{attempt}.json"
         ledger_path.write_bytes(ledger_bytes)
         result["claims_path"] = str(ledger_path)
-        result["checked_claims"]["checked"] = len(checks)
-        for check in checks:
-            result["checked_claims"][check["verdict"]] += 1
-        result["checked_claims"]["uncited_facts"] = sum(not claim["citation_keys"] and claim["kind"] in {"fact", "author_report"} for claim in claims)
         rubric = ask("rubric", {"blocks": blocks, "units": units, "unit_dispositions": unit_dispositions,
             "claim_ids": [claim["claim_id"] for claim in claims],
             "claims": claims, "checks": checks, "documents": review_input.get("documents", {}),
