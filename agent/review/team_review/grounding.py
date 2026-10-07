@@ -146,7 +146,10 @@ def validate_audit(value, payload):
 
 
 def call_grounding(payload, *, model):
-    from openai import OpenAI
+    try:
+        from pipeline.governance import openai_client as OpenAI
+    except ModuleNotFoundError:
+        from openai import OpenAI
     with OpenAI(timeout=120, max_retries=0) as client:
         response = client.responses.parse(
             model=model, temperature=0, store=False, max_output_tokens=4500,

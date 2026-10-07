@@ -204,12 +204,14 @@ def render_review_markdown(state, result):
                     lines += metric_lines(metric, metric_index, state["evidence"])
                 lines.append("")
     section(5)
-    lines += ["기술 조사 Agent가 단계별 근거를 제공하고, 검증·종합 Agent가 출처와 단계의 연속성을 검사해 최종 추정 TRL을 정한다.",
+    lines += ["기술 조사 Agent가 단계별 근거를 제공하고, 검증·종합 Agent가 출처·모델 초안의 의미 지지·단계의 연속성을 검사해 최종 추정 TRL을 정한다.",
               "시장·이해관계자·도메인 평가만으로 TRL을 추정하지 않는다. 보고서 Agent는 아래 판정과 한계를 유지한다.", ""]
+    lines += ["<!-- REVIEW_TRL_JSON", json.dumps(syn["trl"], ensure_ascii=False), "END_REVIEW_TRL_JSON -->", ""]
     for tech, name in TECHNOLOGIES.items():
         trl = syn["trl"].get(tech, {})
         pending = trl.get("next_unconfirmed") or {}
-        lines += [f"### {name}", "", f"- 추정 TRL: {trl.get('level') or 'unknown'}", f"- 판정 기준 시점: {trl.get('basis_version', 'unknown')}",
+        lines += [f"### {name}", "", f"- 추정 TRL: {trl.get('level') or 'unknown'}", f"- 판정 기준 버전: {trl.get('basis_version', 'unknown')}",
+                  "- 판정 성격: 공개 정보 기반 팀 추정; 공식 TRL 인증·내부 배포 수준의 확정이 아님",
                   f"- 충족한 최고 단계: {trl.get('level') or 'unknown'}"]
         listing(lines, "충족 근거", cited(trl.get("evidence_ids", [])))
         next_evidence = pending.get("required_evidence") or ("팀 기준 9단계까지 확인" if trl.get("level") == 9 else "기술 조사 Agent의 단계별 근거 입력 필요")
@@ -223,6 +225,11 @@ def render_review_markdown(state, result):
             for check in trl["checks"]:
                 refs = " / ".join(cited(check["evidence_ids"])) or "없음"
                 lines.append(f"| {check['level']} | {check['status']} | {text(check['reason'])} | {text(refs)} |")
+            lines.append("")
+            for check in trl["checks"]:
+                if check.get("generation_method") == "model":
+                    lines.append(f"- TRL {check['level']} 초안 의미 검사: {check['semantic_validation_status']}; "
+                                 f"{text(check.get('semantic_reason') or '별도 확인 필요')}")
             lines.append("")
         else:
             lines += ["기술 조사 결과 누락·실패 또는 입력 오류로 단계별 판정을 보류한다. 다른 관점의 의견으로 대체하지 않는다.", ""]
@@ -355,6 +362,7 @@ def render_review_markdown(state, result):
             if source.doc_id != doc["doc_id"] or source.id != eid or not source_is_available(source, document) or source.page != entry["page"] or source.location != entry["location"]:
                 raise ValueError("출력 출처와 검증 결과가 일치하지 않습니다.")
             lines += [f"### [{eid}]", "", f"- 연결 Reference ID: {doc['doc_id']}", f"- 문서 ID: {doc['doc_id']}",
+                      f"- 관련 기술: {' / '.join(source.technology_ids)}",
                       f"- 문서명: {text(doc['title'])}", f"- 출처 유형: {references[doc['doc_id']]['source_type']}",
                       f"- 저자 또는 기관: {text(author)}", f"- 발행일: {text(doc.get('published_at') or '미확인')}", f"- URL: {doc['url']}",
                       f"- 위치: {('PDF/보존본 p.' + str(source.page) + '; ') if source.page is not None else ''}{text(source.location or '절·표·그림 미제공')}",
@@ -640,18 +648,18 @@ def read_report_input(markdown, *, require_allowed=True, for_submission=False):
     return header, raw_body
 
 
-def review_handoff_node(state):
-    """API 없는 검증 모드. 새 의견이 필요하면 review_agent_node를 사용한다."""
+def review_handoff_node(state, *, trl_auditor=None):
+    """종합 생성 없이 검수한다. 모델 TRL 초안은 주입된 검사기로 의미 대조한다."""
     from .review import review_node
-    result = review_node(state)
+    result = review_node(state, trl_auditor=trl_auditor)
     return {**result, "report_input_md": render_review_markdown(state, result)}
 
 
-def review_agent_node(state, generator=None, auditor=None):
-    """규칙 검증 → 종합 → 의미 검사·최대 1회 수정 → 계약 MD."""
+def review_agent_node(state, generator=None, auditor=None, *, trl_auditor=None):
+    """규칙·TRL 초안 검증 → 종합 → 의미 검사·최대 1회 수정 → 계약 MD."""
     from .review import review_node
     from .synthesize import synthesize
-    result = review_node(state)
+    result = review_node(state, trl_auditor=trl_auditor)
     result["synthesis"]["integrated"] = synthesize(state, result, generator, auditor)
     if generator is not None or auditor is not None:
         result["synthesis"]["demo"] = True
