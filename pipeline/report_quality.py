@@ -247,15 +247,148 @@ human approval or substitute technical ranking for report quality.""",
 }
 
 
-def _provider(model: str) -> Responder:
+def _atomize_schema(data: dict) -> dict:
+    units = data.get("blocks", [])
+    keys = sorted(set(data.get("citation_numbers", {}).values()))
+    if not units or not keys or len({unit["block_id"] for unit in units}) != len(units):
+        raise JudgeContractError("Strict atomization requires unique units and registered citation keys")
+    blocks = {}
+    for unit in units:
+        properties = {"report_quote": {"type": "string", "enum": [unit["text"]]},
+            "text": {"type": "string"},
+            "kind": {"type": "string", "enum": ["author_report", "fact", "inference", "gap"]},
+            "technology_ids": {"type": "array", "items": {"type": "string", "enum": ["SW-01", "HW-01"]}},
+            "citation_keys": {"type": "array", "items": {"$ref": "#/$defs/citation_key"}},
+            "core": {"type": "boolean"}}
+        blocks[unit["block_id"]] = {"type": "object", "additionalProperties": False,
+            "required": ["non_claim_reason", "claims"], "properties": {
+                "non_claim_reason": {"type": "string"}, "claims": {"type": "array", "items": {
+                    "type": "object", "properties": properties, "required": list(properties),
+                    "additionalProperties": False}}}}
+    return {"type": "object", "additionalProperties": False, "required": ["blocks"],
+        "properties": {"blocks": {"type": "object", "properties": blocks,
+                                  "required": list(blocks), "additionalProperties": False}},
+        "$defs": {"citation_key": {"type": "string", "enum": keys}}}
+
+
+def _audit_payload(data: dict) -> dict:
+    sources = []
+    for source in data.get("evidence", []):
+        excerpt = source.get("excerpt")
+        if not isinstance(excerpt, str):
+            raise JudgeContractError("Audit original evidence has no text")
+        spans = [{"span_index": index, "start": start, "end": min(start + 800, len(excerpt)),
+                  "text": excerpt[start:start + 800]}
+                 for index, start in enumerate(range(0, len(excerpt), 800))]
+        sources.append({**{key: value for key, value in source.items() if key != "excerpt"}, "quote_spans": spans})
+    return {**data, "evidence": sources}
+
+
+def _audit_schema(data: dict) -> dict:
+    claim_ids = [claim["claim_id"] for claim in data.get("claims", [])]
+    evidence_ids = [source["evidence_id"] for source in data.get("evidence", [])]
+    if not claim_ids or not evidence_ids or len(claim_ids) != len(set(claim_ids)):
+        raise JudgeContractError("Strict audit requires registered claims and original evidence")
+    properties = {"verdict": {"$ref": "#/$defs/verdict"}, "reason": {"type": "string"},
+        "references": {"type": "array", "items": {"type": "object", "additionalProperties": False,
+            "required": ["evidence_id", "span_index"], "properties": {
+                "evidence_id": {"$ref": "#/$defs/evidence_id"},
+                "span_index": {"type": "integer", "minimum": 0}}}},
+        "target": {"type": "string", "enum": ["report", "upstream", "human"]},
+        "role": {"anyOf": [{"type": "string", "enum": ["technical", "domain", "market", "stakeholders"]}, {"type": "null"}]},
+        "criterion_ids": {"type": "array", "items": {"type": "string"}}}
+    check = {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+    return {"type": "object", "additionalProperties": False, "required": ["checks"],
+        "properties": {"checks": {"type": "object", "additionalProperties": False,
+            "properties": {identifier: check for identifier in claim_ids}, "required": claim_ids}},
+        "$defs": {"evidence_id": {"type": "string", "enum": evidence_ids},
+                  "verdict": {"type": "string", "enum": ["supported", "contradicted", "unsupported", "uncertain"]}}}
+
+
+def _provider_prompt(phase: str, data: dict) -> str:
+    prompt = _judge_prompt(phase, _audit_payload(data) if phase == "audit" else data)
+    if phase == "atomize":
+        prompt += ("\nFor this strict atomize request, blocks must be an object keyed by EVERY supplied "
+                   "canonical line-unit ID. For each unit use its exact whole original line as report_quote. "
+                   "Use SW-01/HW-01 technology IDs and registered citation keys from the schema. "
+                   "Every key is required; the JSON schema defines the response structure.")
+    elif phase == "audit":
+        prompt += ("\nFor this strict audit request, checks must be an object keyed by EVERY fixed claim ID. "
+                   "Return references containing registered evidence_id and its zero-based span_index. "
+                   "Each evidence record's quote_spans contains its entire unmodified original text in order. "
+                   "Read all spans including contrary evidence and conditions. Select every original span needed "
+                   "to support the verdict and each actual citation/technology owner. The controller binds real "
+                   "supporting_quotes and evidence_ids from these references. Do not write quote strings or "
+                   "combine spans yourself. The JSON schema defines the response structure.")
+    return prompt
+
+
+def _provider(model: str, *, phase: str | None = None, data: dict | None = None) -> Responder:
     def respond(instructions, prompt):
         from .governance import openai_client
+        format = {"type": "json_object"}
+        if phase == "atomize":
+            format = {"type": "json_schema", "name": "report_line_atomization", "strict": True,
+                      "schema": _atomize_schema(data or {})}
+        elif phase == "audit":
+            format = {"type": "json_schema", "name": "report_original_span_audit", "strict": True,
+                      "schema": _audit_schema(data or {})}
+        if phase is not None and data is not None:
+            prompt = _provider_prompt(phase, data)
         with openai_client(timeout=120, max_retries=0) as client:
             response = client.responses.create(model=model, temperature=0, store=False,
                 max_output_tokens=8000, instructions=instructions, input=prompt,
-                text={"format": {"type": "json_object"}})
+                text={"format": format})
+        if getattr(response, "status", None) != "completed":
+            raise JudgeContractError("Judge response did not complete")
         if not response.output_text:
             raise JudgeContractError("Judge returned no parsed text")
+        if phase == "atomize":
+            try:
+                answer = json.loads(response.output_text)
+            except json.JSONDecodeError as exc:
+                raise JudgeContractError("Structured atomization is not JSON") from exc
+            rows = answer.get("blocks") if isinstance(answer, dict) else None
+            units = (data or {}).get("blocks", [])
+            if not isinstance(rows, dict) or set(rows) != {unit["block_id"] for unit in units}:
+                raise JudgeContractError("Structured atomization omitted or invented a line-unit ID")
+            normalized = []
+            for unit in units:
+                row = rows[unit["block_id"]]
+                if (not isinstance(row, dict) or not isinstance(row.get("claims"), list)
+                        or any(not isinstance(claim, dict) or claim.get("report_quote") != unit["text"]
+                               for claim in row["claims"])):
+                    raise JudgeContractError("Structured atomization changed its anchored original line")
+                normalized.append({**row, "block_id": unit["block_id"]})
+            return {"blocks": normalized}
+        if phase == "audit":
+            try:
+                answer = json.loads(response.output_text)
+            except json.JSONDecodeError as exc:
+                raise JudgeContractError("Structured original audit is not JSON") from exc
+            rows = answer.get("checks") if isinstance(answer, dict) else None
+            claims = (data or {}).get("claims", [])
+            if not isinstance(rows, dict) or set(rows) != {claim["claim_id"] for claim in claims}:
+                raise JudgeContractError("Structured audit omitted or invented a claim ID")
+            sources = {source["evidence_id"]: source for source in _audit_payload(data or {})["evidence"]}
+            normalized = []
+            for claim in claims:
+                row = rows[claim["claim_id"]]
+                if not isinstance(row, dict) or not isinstance(row.get("references"), list):
+                    raise JudgeContractError("Structured audit has no original references")
+                quotes = []
+                for reference in row["references"]:
+                    identifier = reference.get("evidence_id") if isinstance(reference, dict) else None
+                    index = reference.get("span_index") if isinstance(reference, dict) else None
+                    if (not isinstance(identifier, str) or identifier not in sources or type(index) is not int
+                            or not 0 <= index < len(sources[identifier]["quote_spans"])):
+                        raise JudgeContractError("Structured audit has an unregistered original source/span reference")
+                    span = sources[identifier]["quote_spans"][index]
+                    quotes.append({"evidence_id": identifier, "quote": span["text"]})
+                normalized.append({**{key: value for key, value in row.items() if key != "references"},
+                    "claim_id": claim["claim_id"], "evidence_ids": list(dict.fromkeys(quote["evidence_id"] for quote in quotes)),
+                    "supporting_quotes": quotes})
+            return {"checks": normalized}
         return response.output_text
     return respond
 
@@ -401,7 +534,8 @@ def _audit_groups(claims: list[dict], evidence: list[dict], documents: dict,
                  "citation_keys": list(keys), "doc_ids": sorted(doc_ids),
                  "evidence_ids": [source["evidence_id"] for source in selected]}
         for chunk in _chunks(items, claim_limit):
-            groups.append({"claims": chunk, "evidence": selected, "evidence_scope": scope})
+            for start in range(0, len(chunk), 20):
+                groups.append({"claims": chunk[start:start + 20], "evidence": selected, "evidence_scope": scope})
     return groups
 
 
@@ -556,7 +690,7 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         if result["judge_calls"] >= max_judge_calls:
             raise JudgeContractError("Judge call limit reached before all checks completed")
         result["judge_calls"] += 1
-        prompt = _judge_prompt(phase, data)
+        prompt = _judge_prompt(phase, data) if responder else _provider_prompt(phase, data)
         entry = {"call": result["judge_calls"], "phase": phase,
                  "input_chars": len(prompt), "input_utf8_bytes": len(prompt.encode()),
                  "instructions_utf8_bytes": len(JUDGE_INSTRUCTIONS.encode()),
@@ -569,7 +703,7 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         input_plan["calls"].append(entry)
         input_plan["planned_input_utf8_bytes"] += entry["input_utf8_bytes"] + entry["instructions_utf8_bytes"]
         plan_path.write_text(json.dumps(input_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        answer = _ask(responder or _provider(model), phase, data)
+        answer = _ask(responder or _provider(model, phase=phase, data=data), phase, data)
         (output / f"quality.judge-{attempt}-{result['judge_calls']}.{phase}.json").write_text(
             json.dumps(answer, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return answer
@@ -617,8 +751,8 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
     try:
         units = rendered_units(blocks)
         result["checked_units"]["total"] = len(units)
-        block_chunks = [chunk[start:start + 45] for chunk in _chunks(units, max_block_chars)
-                        for start in range(0, len(chunk), 45)]
+        block_chunks = [chunk[start:start + 20] for chunk in _chunks(units, max_block_chars)
+                        for start in range(0, len(chunk), 20)]
         input_plan.update(canonical_evidence_count=len(evidence), canonical_evidence_chars=len(_json(evidence)),
                           canonical_evidence_utf8_bytes=len(_json(evidence).encode()))
         plan_path.write_text(json.dumps(input_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

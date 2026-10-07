@@ -380,7 +380,7 @@ class ReportQualityTests(unittest.TestCase):
             def responses(self): return self
             def create(self, **kwargs):
                 calls.append(kwargs)
-                return SimpleNamespace(output_text='{"offline": true}')
+                return SimpleNamespace(status="completed", output_text='{"offline": true}')
         with patch("pipeline.governance.openai_client", return_value=Client()):
             for phase in ("atomize", "audit", "rubric"):
                 prompt = _judge_prompt(phase, {"text": "plain fixture"})
@@ -403,6 +403,137 @@ class ReportQualityTests(unittest.TestCase):
             result = self.evaluate(responder)
         self.assertEqual(result["route"], "review_required")
         self.assertEqual(result["gates"]["H6"]["status"], "fail")
+
+    def test_atomize_provider_schema_requires_each_unit_and_registered_ids(self):
+        from types import SimpleNamespace
+        units = [{"block_id": "p001-b001-u001", "page": 1, "text": "첫 원문 줄 [1].\n"},
+                 {"block_id": "p001-b001-u002", "page": 1, "text": "둘째 원문 줄 [2].\n"}]
+        data = {"blocks": units, "citation_numbers": {"1": "SW01_RDKV", "2": "HW01_PHOTONIC_CXL"}}
+        calls = []
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                answer = {"blocks": {unit["block_id"]: {"non_claim_reason": "", "claims": [{
+                    "report_quote": unit["text"], "text": "OFFLINE assertion", "kind": "fact",
+                    "technology_ids": ["SW-01"], "citation_keys": ["SW01_RDKV"], "core": True}]}
+                    for unit in units}}
+                return SimpleNamespace(status="completed", output_text=json.dumps(answer))
+        with patch("pipeline.governance.openai_client", return_value=Client()):
+            answer = _provider("offline-model", phase="atomize", data=data)(JUDGE_INSTRUCTIONS, _judge_prompt("atomize", data))
+        format = calls[0]["text"]["format"]
+        self.assertEqual(format["type"], "json_schema")
+        self.assertIs(format["strict"], True)
+        schema = format["schema"]
+        blocks = schema["properties"]["blocks"]
+        self.assertEqual(set(blocks["required"]), {unit["block_id"] for unit in units})
+        self.assertIs(blocks["additionalProperties"], False)
+        for unit in units:
+            claim = blocks["properties"][unit["block_id"]]["properties"]["claims"]["items"]
+            properties = claim["properties"]
+            self.assertEqual(properties["report_quote"]["enum"], [unit["text"]])
+            self.assertEqual(properties["technology_ids"]["items"]["enum"], ["SW-01", "HW-01"])
+            self.assertEqual(properties["citation_keys"]["items"]["$ref"], "#/$defs/citation_key")
+            self.assertEqual(set(schema["$defs"]["citation_key"]["enum"]), set(data["citation_numbers"].values()))
+        self.assertEqual([row["block_id"] for row in answer["blocks"]], [unit["block_id"] for unit in units])
+
+    def test_incomplete_provider_response_never_reaches_atomization(self):
+        from types import SimpleNamespace
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def create(self, **kwargs):
+                return SimpleNamespace(status="incomplete", output_text='{"blocks": []}')
+        with patch("pipeline.governance.openai_client", return_value=Client()):
+            with self.assertRaises(JudgeContractError):
+                _provider("offline-model")(JUDGE_INSTRUCTIONS, _judge_prompt("audit", {}))
+
+    def test_atomization_batches_at_most_twenty_units_without_losing_units(self):
+        self.blocks[0]["text"] += "\n" + "\n".join("추가 원문 줄 " + str(i) for i in range(44))
+        result = self.evaluate(max_judge_calls=64)
+        self.assertEqual(result["route"], "passed")
+        batches = [call["blocks"] for call in self.calls if call["phase"] == "atomize"]
+        self.assertTrue(all(len(batch) <= 20 for batch in batches))
+        self.assertEqual(sum(len(batch) for batch in batches), result["checked_units"]["total"])
+        audits = [call["claims"] for call in self.calls if call["phase"] == "audit"]
+        self.assertTrue(all(len(batch) <= 20 for batch in audits))
+        self.assertEqual(sum(len(batch) for batch in audits), result["checked_claims"]["total"])
+
+    def test_strict_audit_uses_all_original_spans_and_binds_selected_reference(self):
+        from types import SimpleNamespace
+        source = canonical_evidence(canonical())[0]
+        source["excerpt"] = "A" * 800 + "B" * 800 + "Contrary condition remains original."
+        claim = {"claim_id": "fixed-claim", "technology_ids": ["SW-01"], "citation_keys": ["SW01_RDKV"]}
+        data = {"claims": [claim], "evidence": [source], "documents": canonical()["documents"]}
+        calls = []
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                return SimpleNamespace(status="completed", output_text=json.dumps({"checks": {
+                    claim["claim_id"]: {"verdict": "supported", "reason": "OFFLINE original condition",
+                        "references": [{"evidence_id": source["evidence_id"], "span_index": 2}],
+                        "target": "report", "role": None, "criterion_ids": []}}}))
+        with patch("pipeline.governance.openai_client", return_value=Client()):
+            answer = _provider("offline-model", phase="audit", data=data)(JUDGE_INSTRUCTIONS, _judge_prompt("audit", data))
+        format = calls[0]["text"]["format"]
+        self.assertEqual(format["type"], "json_schema")
+        self.assertEqual(format["schema"]["properties"]["checks"]["required"], [claim["claim_id"]])
+        self.assertEqual(format["schema"]["$defs"]["evidence_id"]["enum"], [source["evidence_id"]])
+        projected = payload(calls[0]["input"])["evidence"][0]
+        self.assertNotIn("excerpt", projected)
+        self.assertEqual("".join(span["text"] for span in projected["quote_spans"]), source["excerpt"])
+        self.assertTrue(all(len(span["text"]) <= 800 for span in projected["quote_spans"]))
+        self.assertEqual(answer["checks"][0]["supporting_quotes"], [{"evidence_id": source["evidence_id"],
+            "quote": "Contrary condition remains original."}])
+        self.assertEqual(_audit(answer, [claim], [source], data["documents"])[0]["verdict"], "supported")
+
+    def test_strict_audit_rejects_unregistered_source_and_invalid_span_without_copying_quotes(self):
+        from types import SimpleNamespace
+        source = canonical_evidence(canonical())[0]
+        data = {"claims": [{"claim_id": "fixed-claim"}], "evidence": [source]}
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def create(self, **kwargs):
+                return SimpleNamespace(status="completed", output_text=json.dumps({"checks": {
+                    "fixed-claim": {"verdict": "supported", "reason": "OFFLINE invalid reference",
+                        "references": [reference], "target": "report", "role": None, "criterion_ids": []}}}))
+        for reference in ({"evidence_id": "invented", "span_index": 0},
+                          {"evidence_id": source["evidence_id"], "span_index": 50},
+                          {"evidence_id": source["evidence_id"], "span_index": None},
+                          {"evidence_id": source["evidence_id"], "span_index": True}):
+            with self.subTest(reference=reference), patch("pipeline.governance.openai_client", return_value=Client()):
+                with self.assertRaises(JudgeContractError):
+                    _provider("offline-model", phase="audit", data=data)(JUDGE_INSTRUCTIONS, _judge_prompt("audit", data))
+
+    def test_structured_provider_rejects_omitted_fixed_units_and_claims(self):
+        from types import SimpleNamespace
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def create(self, **kwargs):
+                return SimpleNamespace(status="completed", output_text=json.dumps(answer))
+        cases = [("atomize", {"blocks": [{"block_id": "fixed-unit", "text": "original", "page": 1}],
+                   "citation_numbers": {"1": "SW01_RDKV"}}, {"blocks": {}}),
+                 ("audit", {"claims": [{"claim_id": "fixed-claim"}],
+                   "evidence": canonical_evidence(canonical())}, {"checks": {}})]
+        for phase, data, answer in cases:
+            with self.subTest(phase=phase), patch("pipeline.governance.openai_client", return_value=Client()):
+                with self.assertRaises(JudgeContractError):
+                    _provider("offline-model", phase=phase, data=data)(JUDGE_INSTRUCTIONS, _judge_prompt(phase, data))
 
 
 if __name__ == "__main__":
