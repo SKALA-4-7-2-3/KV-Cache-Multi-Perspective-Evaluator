@@ -13,6 +13,7 @@ import socket
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.utils import parsedate_to_datetime
+from functools import partial
 from typing import Literal, Protocol, TypeVar
 from urllib.parse import urljoin, urlsplit
 
@@ -70,17 +71,18 @@ class ModelProvider(Protocol):
 class OpenAIModel:
     def __init__(self, model: str, api_key: str, base_url: str | None = None,
                  timeout: float = 60):
-        if not api_key.strip():
+        factory, uses_api_key = ChatOpenAI, True
+        try:
+            from pipeline import governance
+            factory = partial(governance.chat_model, api_factory=ChatOpenAI)
+            uses_api_key = governance.model_provider() == 'openai_api'
+        except ImportError:
+            pass
+        if not api_key.strip() and uses_api_key:
             raise ProviderError("모델 API 키가 설정되지 않았습니다.")
         kwargs=dict(model=model, api_key=api_key, base_url=base_url,
                     timeout=timeout, max_retries=0)
-        try:
-            from pipeline import governance
-            if governance._ledger is not None:
-                kwargs["http_client"] = governance.http_client(timeout=timeout)
-        except ImportError:
-            pass
-        self._client = ChatOpenAI(**kwargs)
+        self._client = factory(**kwargs)
 
     def generate(self, schema: type[_T], system: str, payload: dict) -> _T:
         try:

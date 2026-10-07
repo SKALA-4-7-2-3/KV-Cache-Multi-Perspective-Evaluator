@@ -30,7 +30,9 @@ def main():
     parser.add_argument("--research", type=Path, help="Override the saved RAG output directory")
     parser.add_argument("--request", type=Path, help="Use an existing structured request JSON")
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/integration" / datetime.now().strftime("%Y%m%d-%H%M%S"))
-    parser.add_argument("--model", default="gpt-4.1-mini")
+    parser.add_argument("--model", help="API default: gpt-4.1-mini; Codex default: saved CLI model")
+    parser.add_argument("--model-provider", choices=["openai_api", "codex_cli_chatgpt"],
+                        help="Use OpenAI API or the locally authenticated Codex CLI")
     parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
     parser.add_argument("--as-of", default=datetime.now().date().isoformat())
     parser.add_argument("--resume", action="store_true")
@@ -42,6 +44,8 @@ def main():
     parser.add_argument("--report-model", help="Report writing model; defaults to --model")
     parser.add_argument("--judge-model", help="Independent report Quality model; defaults to --model")
     parser.add_argument("--max-judge-calls", type=int, default=64, help="Quality HTTP call ceiling per attempt, within the global model limit")
+    parser.add_argument("--max-quality-attempts", type=int, default=3,
+                        help="Completed Quality assessment ceiling; use 1 to stop after one final assessment")
     parser.add_argument("--max-tokens", type=int, default=5_000_000, help="Post-RAG actual+unconfirmed+reserved token ceiling")
     parser.add_argument("--max-model-calls", type=int, default=160, help="Post-RAG model HTTP attempt limit")
     parser.add_argument("--max-search-calls", type=int, default=24, help="Post-RAG web search HTTP attempt limit")
@@ -51,10 +55,18 @@ def main():
     args = parser.parse_args()
     if args.extend_budget and not args.resume:
         parser.error("--extend-budget requires --resume")
+    if args.max_quality_attempts < 1:
+        parser.error("--max-quality-attempts must be positive")
     from dotenv import load_dotenv
     load_dotenv(args.env_file, override=True)
     load_dotenv(ROOT / ".env", override=False)
     load_dotenv(ROOT / "agent/stakeholder/.env", override=False)
+    if args.model_provider:
+        os.environ["KV_MODEL_PROVIDER"] = args.model_provider
+    from .governance import model_provider
+    provider = model_provider()
+    if args.model is None:
+        args.model = "codex-default" if provider == "codex_cli_chatgpt" else "gpt-4.1-mini"
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     from .inputs import load_inputs
@@ -95,8 +107,11 @@ def main():
         run_rag=rag_mode == "live" and not reuse_live, job_id=preparing_run["run_id"]+"-rag")
     from .research_input import load_saved_research
     bundle = load_saved_research(research_source)
-    identity = digest({"research": bundle["run"], "evidence": bundle["evidence"], "request": request,
-                       "model": args.model, "as_of": args.as_of})
+    identity_data = {"research": bundle["run"], "evidence": bundle["evidence"], "request": request,
+                     "model": args.model, "as_of": args.as_of}
+    if provider != "openai_api":
+        identity_data["model_provider"] = provider
+    identity = digest(identity_data)
     if previous and previous.get("input_sha256"):
         if previous["input_sha256"] != identity:
             raise ValueError("Resume input/model differs; choose a new output directory")
@@ -112,11 +127,12 @@ def main():
     save(output / "research.bundle.json", bundle)
     save(output / "research.context_manifest.json", bundle["context_manifest"])
     save(output / "papers.compat.json", bundle["papers"])
+    manifest["model_provider"] = provider
     save(manifest_path, manifest)
     print(f"prepare: RAG mode={rag_mode}; loaded research; output={output}", flush=True)
     if args.stop_after == "prepare":
         return 0
-    for name in ["OPENAI_API_KEY", "TAVILY_API_KEY"]:
+    for name in (["OPENAI_API_KEY", "TAVILY_API_KEY"] if provider == "openai_api" else ["TAVILY_API_KEY"]):
         if not os.environ.get(name):
             raise RuntimeError(f"Missing configuration: {name}")
 
@@ -129,7 +145,8 @@ def main():
     configure(ledger)
     context = PipelineContext(output,bundle,request,manifest["run_id"],args.as_of,args.model,
         draft=args.draft,stop_after=args.stop_after,report_model=args.report_model,
-        judge_model=args.judge_model,max_judge_calls=args.max_judge_calls)
+        judge_model=args.judge_model,max_judge_calls=args.max_judge_calls,
+        max_quality_attempts=args.max_quality_attempts)
     report_settings = {"model":args.report_model or args.model,"draft":args.draft}
     old_settings = manifest.get("report_settings",report_settings)
     if old_settings["model"] != report_settings["model"]: args.rerun.append("report")
@@ -140,6 +157,7 @@ def main():
     if old_quality_settings != quality_settings:
         args.rerun.append("quality")
     manifest["quality_settings"] = quality_settings
+    manifest["quality_attempt_limit"] = args.max_quality_attempts
     order = ["trl","review","report","quality"]
     invalidated = set()
     for name in args.rerun:
@@ -151,6 +169,7 @@ def main():
         "recursion_limit":128,"run_name":"KV-Cache Orchestrator–Workers",
         "tags":["kv-cache","orchestrator-workers"],"metadata":{
             "evaluation_run_id":manifest["run_id"],"input_sha256":identity,"code_sha256":context.code_hash,
+            "model_provider": provider,
             "judge_model":args.judge_model or args.model,"report_model":args.report_model or args.model}}
     snapshot = graph.get_state(configuration)
     old_code = manifest.get("orchestration_code_sha256")

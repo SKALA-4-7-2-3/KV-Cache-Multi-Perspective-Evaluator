@@ -986,14 +986,17 @@ class ReportQualityTests(unittest.TestCase):
         with self.assertRaises(JudgeContractError):
             canonical_evidence(broken)
 
-    def test_web_original_hash_mismatch_is_rejected_and_sanitized_view_does_not_replace_raw(self):
+    def test_web_original_hash_mismatch_is_rejected_and_data_images_preserve_raw_identity(self):
         state, body = self.bridge_web_fixture()
         state["config"]["usable_source_reports"][0]["excerpt"] += " ALTERED"
         with self.assertRaises(JudgeContractError):
             canonical_evidence(state)
         state, body = self.bridge_web_fixture(image=True)
         report = state["config"]["usable_source_reports"][0]
-        self.assertNotEqual(report["excerpt"], body)
+        self.assertEqual(report["excerpt"], body)
+        # A matched quote must not force fallback to a shortened canonical quote
+        # when the source's collected raw body contains data-image markup.
+        state["evidence"]["web-offline-original"]["excerpt"] = "memory pooling"
         source = next(row for row in canonical_evidence(state) if row["evidence_id"] == "web-offline-original")
         self.assertEqual(source["excerpt"], body)
         self.assertEqual(sha256(source["excerpt"].encode()).hexdigest(), source["source_hash"])

@@ -225,7 +225,10 @@ class _Bridge:
             # This does not promote it to verified evidence or a confirmed finding.
             self.source_reports.append({
                 **source_metadata,
-                "excerpt": re.sub(r"!\[[^\]]*\]\(data:[^\s)]+\)", "", excerpt),
+                # Keep the exact collected original so its registered digest is
+                # verifiable. Model context is projected separately; deleting a
+                # data image here would invalidate the collected source identity.
+                "excerpt": excerpt,
                 "source_audit": audit,
                 "review_status": "source_report_not_independently_verified",
                 "usage_note": "실제 수집 본문에서 관련 내용을 분석해 인용할 수 있습니다. 업체 주장·인접 기술 사례는 해당 출처에 귀속하고, 메뉴·탐색 문구만 있거나 관련 없는 자료는 사용하지 않습니다.",

@@ -412,6 +412,23 @@ Return a JSON object only, following the requested phase schema.
 """
 
 PHASE_INSTRUCTIONS = {
+    "corpus": """Independently inspect EVERY supplied original span in this source window
+against the immutable report claims. This is original text, not the report author's
+source reading. Find support, contrary evidence, numeric/timeframe discrepancies,
+qualifications, and relevant omitted risks, including unused or unfavorable sources.
+Return observations with actual claim_ids, relation (support/contradiction/condition/context),
+registered span_indices and a specific explanation. Select every span needed to preserve
+numbers, negations and conditions, not merely favorable excerpts. Never infer a fact from
+a title, navigation, or base64 image data. The controller binds original quotations.
+If no substantive observation is relevant, return observations=[] and a specific
+omission_reason. coverage_complete must be true only after reading all supplied spans.
+This window alone cannot establish that something is absent from the whole source.
+claim_dispositions must contain EVERY immutable claim ID: relevant references exactly
+the observation indices that name that claim; otherwise use no_relevant_statement_in_window,
+an empty observation_indices list and a specific bounded reason. These are window
+relevance dispositions, not final support verdicts. Omitted report risks may be context
+observations with empty claim_ids, and must still select their actual original spans.
+Do not judge or repair the report, change its claims, or manufacture quotations.""",
     "atomize": """For EVERY independently extracted rendered line unit return blocks:[{block_id,
 non_claim_reason, claims:[{report_quote,text,kind,technology_ids,citation_keys,core}]}].
 Split each factual assertion, numeric comparison, inference and explicit gap
@@ -562,16 +579,28 @@ def _atomize_schema(data: dict) -> dict:
         "$defs": {"citation_key": {"type": "string", "enum": keys}}}
 
 
+def _source_spans(source: dict) -> list[dict]:
+    projected = source.get("screened_quote_spans")
+    if projected is not None:
+        if (not isinstance(projected, list) or any(not isinstance(span, dict)
+                or span.get("span_index") != index or not isinstance(span.get("text"), str)
+                or not span["text"] for index, span in enumerate(projected))):
+            raise JudgeContractError("Screened original span projection is invalid")
+        return projected
+    excerpt = source.get("excerpt")
+    if not isinstance(excerpt, str):
+        raise JudgeContractError("Audit original evidence has no text")
+    return [{"span_index": index, "start": start, "end": min(start + 800, len(excerpt)),
+             "text": excerpt[start:start + 800]}
+            for index, start in enumerate(range(0, len(excerpt), 800))]
+
+
 def _audit_payload(data: dict) -> dict:
     sources = []
     for source in data.get("evidence", []):
-        excerpt = source.get("excerpt")
-        if not isinstance(excerpt, str):
-            raise JudgeContractError("Audit original evidence has no text")
-        spans = [{"span_index": index, "start": start, "end": min(start + 800, len(excerpt)),
-                  "text": excerpt[start:start + 800]}
-                 for index, start in enumerate(range(0, len(excerpt), 800))]
-        sources.append({**{key: value for key, value in source.items() if key != "excerpt"}, "quote_spans": spans})
+        spans = _source_spans(source)
+        sources.append({**{key: value for key, value in source.items()
+                          if key not in {"excerpt", "screened_quote_spans"}}, "quote_spans": spans})
     return {**{key: value for key, value in data.items() if key != "page_context"},
             "rendered_report_context": data.get("page_context", []), "evidence": sources}
 
@@ -589,14 +618,15 @@ def _audit_schema(data: dict) -> dict:
         "role": {"anyOf": [{"type": "string", "enum": ["technical", "domain", "market", "stakeholders"]}, {"type": "null"}]}}
     reference_options = []
     for index, source in enumerate(data["evidence"]):
-        if not isinstance(source.get("excerpt"), str) or not source["excerpt"]:
+        spans = _source_spans(source)
+        if not spans:
             raise JudgeContractError("Strict audit original must have at least one quote span")
         name = f"source_{index}"
         definitions[name] = {"type": "object", "additionalProperties": False,
             "required": ["evidence_id", "span_index"], "properties": {
                 "evidence_id": {"type": "string", "enum": [source["evidence_id"]]},
                 "span_index": {"type": "integer", "minimum": 0,
-                               "maximum": (len(source["excerpt"]) - 1) // 800}}}
+                               "maximum": len(spans) - 1}}}
         reference_options.append({"$ref": f"#/$defs/{name}"})
     definitions["source_reference"] = {"anyOf": reference_options}
     technologies = sorted({technology for claim in data["claims"] for technology in claim.get("technology_ids", [])})
@@ -651,6 +681,215 @@ def _audit_schema(data: dict) -> dict:
             "properties": checks, "required": claim_ids}}, "$defs": definitions}
 
 
+def _corpus_schema(data: dict) -> dict:
+    claim_ids = [claim["claim_id"] for claim in data.get("claims", [])]
+    spans = data.get("quote_spans", [])
+    if not claim_ids or not spans:
+        raise JudgeContractError("Corpus window requires immutable claims and original spans")
+    observation = {"claim_ids": {"type": "array", "items": {"type": "string", "enum": claim_ids}},
+        "relation": {"type": "string", "enum": ["support", "contradiction", "condition", "context"]},
+        "span_indices": {"type": "array", "minItems": 1,
+                         "items": {"type": "integer", "minimum": 0, "maximum": len(spans)-1}},
+        "reason": {"type": "string", "minLength": 1}}
+    disposition = {"verdict": {"type": "string", "enum": ["relevant", "no_relevant_statement_in_window"]},
+        "observation_indices": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "reason": {"type": "string", "minLength": 1}}
+    properties = {"coverage_complete": {"type": "boolean", "enum": [True]},
+        "observations": {"type": "array", "items": {"type": "object", "additionalProperties": False,
+            "properties": observation, "required": list(observation)}},
+        "claim_dispositions": {"type": "object", "additionalProperties": False,
+            "required": claim_ids, "properties": {identifier: {"type": "object", "additionalProperties": False,
+                "properties": disposition, "required": list(disposition)} for identifier in claim_ids}},
+        "omission_reason": {"type": "string"}}
+    return {"type": "object", "additionalProperties": False,
+            "properties": properties, "required": list(properties)}
+
+
+def _corpus_wire_schema(data: dict) -> dict:
+    """Compress repeated judgments in transit; the internal contract stays complete."""
+    claim_ids = [claim["claim_id"] for claim in data.get("claims", [])]
+    spans = data.get("quote_spans", [])
+    if (not claim_ids or not spans or any(not isinstance(value, str) or not value for value in claim_ids)
+            or len(claim_ids) != len(set(claim_ids))):
+        raise JudgeContractError("Corpus wire requires unique immutable claims and original spans")
+    def object_schema(properties):
+        return {"type": "object", "additionalProperties": False,
+                "properties": properties, "required": list(properties)}
+    claim_indices = {"type": "array", "items": {"type": "integer", "minimum": 0,
+                                               "maximum": len(claim_ids)-1}}
+    reason_index = {"type": "integer", "minimum": 0}
+    observation = object_schema({"claim_indices": claim_indices,
+        "relation": {"type": "string", "enum": ["support", "contradiction", "condition", "context"]},
+        "span_indices": {"type": "array", "minItems": 1,
+            "items": {"type": "integer", "minimum": 0, "maximum": len(spans)-1}},
+        "reason_index": reason_index})
+    group = object_schema({"claim_indices": {**claim_indices, "minItems": 1},
+        "verdict": {"type": "string", "enum": ["relevant", "no_relevant_statement_in_window"]},
+        "observation_indices": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "reason_index": reason_index})
+    return object_schema({"codec_version": {"type": "string", "enum": ["corpus-groups-v1"]},
+        "coverage_complete": {"type": "boolean", "enum": [True]},
+        "reason_pool": {"type": "array", "minItems": 1,
+                        "items": {"type": "string", "minLength": 1}},
+        "observations": {"type": "array", "items": observation},
+        "disposition_groups": {"type": "array", "minItems": 1, "maxItems": len(claim_ids), "items": group},
+        "omission_reason": {"type": "string"}})
+
+
+def _expand_corpus_wire(answer: dict, data: dict) -> dict:
+    from jsonschema import Draft202012Validator
+    try:
+        Draft202012Validator(_corpus_wire_schema(data)).validate(answer)
+    except Exception as exc:
+        raise JudgeContractError("Independent corpus wire violates its transport contract") from exc
+    claim_ids = [claim["claim_id"] for claim in data["claims"]]
+    reasons = answer["reason_pool"]
+    if any(not reason.strip() for reason in reasons):
+        raise JudgeContractError("Corpus wire contains an empty reason")
+    def indices(values, count):
+        if (any(type(value) is not int or not 0 <= value < count for value in values)
+                or len(values) != len(set(values))):
+            raise JudgeContractError("Corpus wire has duplicate or unregistered indices")
+        return values
+    def reason(index):
+        if type(index) is not int or not 0 <= index < len(reasons):
+            raise JudgeContractError("Corpus wire has an unregistered reason index")
+        return reasons[index]  # Preserve the model's exact complete reason, including whitespace.
+    observations = [{"claim_ids": [claim_ids[index] for index in indices(row["claim_indices"], len(claim_ids))],
+        "relation": row["relation"], "span_indices": indices(row["span_indices"], len(data["quote_spans"])),
+        "reason": reason(row["reason_index"])} for row in answer["observations"]]
+    dispositions = {}
+    for group in answer["disposition_groups"]:
+        selected = indices(group["claim_indices"], len(claim_ids))
+        observation_indices = indices(group["observation_indices"], len(observations))
+        group_reason = reason(group["reason_index"])
+        for index in selected:
+            identifier = claim_ids[index]
+            if identifier in dispositions:
+                raise JudgeContractError("Corpus wire assigned a claim more than once")
+            dispositions[identifier] = {"verdict": group["verdict"],
+                "observation_indices": list(observation_indices), "reason": group_reason}
+    if set(dispositions) != set(claim_ids):
+        raise JudgeContractError("Corpus wire omitted an immutable claim")
+    normalized = {"coverage_complete": answer["coverage_complete"], "observations": observations,
+        "claim_dispositions": {identifier: dispositions[identifier] for identifier in claim_ids},
+        "omission_reason": answer["omission_reason"]}
+    _validate_corpus_window(normalized, data)  # Keep the original full-claim relevance and span gate.
+    return normalized  # The caller adds bound quotes only after revalidating this original schema.
+
+
+def _corpus_windows(source: dict, window_chars: int = 80_000) -> list[dict]:
+    """Cover the complete original, with one 800-char overlap at boundaries."""
+    if window_chars < 1600 or window_chars % 800:
+        raise JudgeContractError("Corpus window must be an aligned bounded span size")
+    text = source["excerpt"]
+    windows, start = [], 0
+    while start < len(text):
+        end = min(start + window_chars, len(text))
+        spans = [{"span_index": index, "start": offset, "end": min(offset+800, end),
+                  "text": text[offset:min(offset+800, end)]}
+                 for index, offset in enumerate(range(start, end, 800))]
+        windows.append({"source": {key: value for key, value in source.items() if key != "excerpt"},
+            "window": {"start": start, "end": end, "original_chars": len(text),
+                       "original_excerpt_sha256": sha256(text.encode()).hexdigest()},
+            "quote_spans": spans})
+        if end == len(text):
+            break
+        start = end - 800
+    return windows
+
+
+def _validate_corpus_window(answer: dict, data: dict) -> dict:
+    from jsonschema import Draft202012Validator
+    try:
+        Draft202012Validator(_corpus_schema(data)).validate(answer)
+    except Exception as exc:
+        raise JudgeContractError("Independent corpus window response violates its contract") from exc
+    if not answer["observations"] and not answer["omission_reason"].strip():
+        raise JudgeContractError("Unselected corpus window must explain its omission")
+    rows = []
+    for observation in answer["observations"]:
+        indices = observation["span_indices"]
+        if len(indices) != len(set(indices)):
+            raise JudgeContractError("Corpus observation duplicated an original span")
+        rows.append({**observation, "supporting_quotes": [data["quote_spans"][index] for index in indices]})
+    for identifier, disposition in answer["claim_dispositions"].items():
+        indices = disposition["observation_indices"]
+        expected = {index for index, observation in enumerate(rows) if identifier in observation["claim_ids"]}
+        if (len(indices) != len(set(indices)) or set(indices) != expected
+                or (disposition["verdict"] == "relevant") != bool(expected)):
+            raise JudgeContractError("Corpus claim disposition disagrees with its actual observations")
+    return {**answer, "observations": rows, "source_id": data["source"]["evidence_id"],
+            "window": data["window"]}
+
+
+def _screen_corpus(evidence: list[dict], claims: list[dict], verified, output: Path,
+                   attempt: int, limit: int, *, report_context=None, artifact_identity=None) -> tuple[list[dict], dict]:
+    """Independent whole-corpus reading; projections never become new originals."""
+    projections, coverage = [], []
+    for source in evidence:
+        text = source["excerpt"]
+        if len(text) <= 8_000:
+            projections.append(source)
+            coverage.append({"evidence_id": source["evidence_id"], "mode": "whole_original_final_judge",
+                             "original_excerpt_sha256": sha256(text.encode()).hexdigest(),
+                             "original_chars": len(text), "windows": []})
+            continue
+        readings, selected = [], {}
+        for window in _corpus_windows(source):
+            data = {**window, "claims": claims, "rendered_report_context": report_context or [],
+                    "artifact_identity": artifact_identity or {}, "projection_policy": "full_corpus_windows_v1"}
+            _, reading = verified("corpus", data, lambda answer, data=data: _validate_corpus_window(answer, data))
+            readings.append(reading)
+            for observation in reading["observations"]:
+                for span in observation["supporting_quotes"]:
+                    if span["text"] != text[span["start"]:span["end"]]:
+                        raise JudgeContractError("Corpus span differs from the registered original")
+                    selected[(span["start"], span["end"])] = span
+        cursor = 0
+        for reading in readings:
+            window = reading["window"]
+            if window["start"] > cursor or window["end"] <= cursor:
+                raise JudgeContractError("Independent corpus coverage has a gap or invalid window")
+            cursor = window["end"]
+        if cursor != len(text):
+            raise JudgeContractError("Independent corpus did not inspect the complete original")
+        # A real context span keeps source identity visible even when no relevant
+        # statement was found. It is not a fabricated substantive observation.
+        if not selected:
+            selected[(0, min(800, len(text)))] = {"start": 0, "end": min(800, len(text)), "text": text[:800]}
+        spans = [{**span, "span_index": index, "original_span_index": span["start"]//800}
+                 for index, (_, span) in enumerate(sorted(selected.items()))]
+        projected_indices = {(span["start"], span["end"]): span["span_index"] for span in spans}
+        observations = []
+        for reading in readings:
+            rows = []
+            for observation in reading["observations"]:
+                rows.append({**{key: value for key, value in observation.items()
+                                if key not in {"supporting_quotes", "span_indices"}},
+                    "window_span_indices": observation["span_indices"],
+                    "span_indices": [projected_indices[(span["start"], span["end"])]
+                                     for span in observation["supporting_quotes"]]})
+            observations.append({key: value for key, value in reading.items()
+                                 if key not in {"observations", "claim_dispositions"}} | {"observations": rows})
+        projections.append({**{key: value for key, value in source.items() if key != "excerpt"},
+            "excerpt": "", "screened_quote_spans": spans,
+            "projection_mode": "independent_complete_corpus_reading_exact_original_spans",
+            "corpus_observations": observations})
+        coverage.append({"evidence_id": source["evidence_id"], "mode": "complete_window_reading",
+            "original_excerpt_sha256": sha256(text.encode()).hexdigest(), "original_chars": len(text),
+            "windows": readings, "selected_original_spans": spans})
+        (output / f"quality.corpus-coverage-{attempt}.json").write_text(
+            json.dumps({"complete": False, "sources": coverage}, ensure_ascii=False, indent=2)+"\n")
+    manifest = {"complete": True, "canonical_evidence_ids": [source["evidence_id"] for source in evidence],
+                "sources": coverage}
+    (output / f"quality.corpus-coverage-{attempt}.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2)+"\n")
+    if len(_json(projections)) > limit:
+        raise JudgeContractError("Complete independent corpus projection exceeds the configured final input limit")
+    return projections, manifest
+
+
 def _rubric_schema(data: dict) -> dict:
     claims = [claim["claim_id"] for claim in data.get("claims", [])]
     units = [unit["block_id"] for unit in data.get("units", [])]
@@ -702,6 +941,22 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "Assign each assertion's own relevant citations; actual paragraph sources remain recorded "
                    "by the controller and are all sent to the original-source auditor. "
                    "Every key is required; the JSON schema defines the response structure.")
+    elif phase == "corpus":
+        prompt += ("\nFor this strict corpus request, use corpus-groups-v1 transport encoding. Read EVERY full "
+            "immutable claim and EVERY original span already supplied above. claim_indices are zero-based "
+            "positions in that unchanged claims list; span_indices retain the supplied original span positions. "
+            "Return every observation, including contrary evidence, conditions and context, using claim_indices "
+            "and reason_index into reason_pool. Store each complete literal reason once in reason_pool; never "
+            "replace specific qualifications with a generic summary. disposition_groups explicitly list every "
+            "claim index exactly once across all groups. Group claims ONLY when their verdict, exact "
+            "observation_indices and full reason are identical; otherwise use separate groups. Each claim still "
+            "requires its own examination: grouping is data encoding, not permission to assume a shared absence "
+            "or judgment. relevant must match precisely the observations naming that claim; an unrelated claim "
+            "uses no_relevant_statement_in_window with no observation indices and a complete specific reason. "
+            "A context observation may have an empty claim_indices list. The controller expands all groups back "
+            "to the complete original claim_dispositions contract and checks every claim and original span. "
+            "No claim may be skipped or duplicated; no window omission proves absence from a whole source. "
+            "The transport schema defines all fields, including unchanged coverage_complete and omission_reason.")
     elif phase == "audit":
         prompt += ("\nFor this strict audit request, checks must be an object keyed by EVERY fixed claim ID. "
                    "Every quote-bearing verdict requires a non-null claim_reference: a registered evidence_id/"
@@ -737,6 +992,15 @@ def _provider_prompt(phase: str, data: dict) -> str:
                    "report_unit_id=null and claim_ids=[]. Keep the whole rendered report, every audited claim "
                    "and ALL original evidence including unused, unfavorable and contrary sources in view. "
                    "Do not hide material errors to achieve a passing score. The JSON schema defines all fields.")
+    if phase in {"audit", "rubric"} and data.get("evidence_scope", {}).get("independent_corpus_screened"):
+        prompt += ("\nLong originals were independently read in full, in contiguous overlapping windows. "
+            "This single request contains a bounded projection: short originals whole, controller-bound exact "
+            "original spans from every independent corpus observation, and ALL support/contrary/condition/context "
+            "observations. The complete original bytes and per-claim window dispositions remain in the corpus "
+            "coverage artifact. This projection is not the entire long source in one call. Read every "
+            "observation and qualification; verify claims against its actual quotes rather than trusting the "
+            "reader's conclusion. A window omission never proves absence from a whole source. Any unresolved "
+            "material condition precludes supported/groundedness 4/5 and must remain a finding.")
     if data.get("contract_feedback"):
         prompt += ("\nThe previous untrusted judgment failed the controller contract. Correct that JSON once "
                    "using the same immutable report units/claims, technology/citation identities and all original "
@@ -746,6 +1010,22 @@ def _provider_prompt(phase: str, data: dict) -> str:
 
 
 def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
+    if phase == "corpus":
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise JudgeContractError("Structured corpus duplicated an object key")
+                result[key] = value
+            return result
+        try:
+            answer = json.loads(raw, object_pairs_hook=unique_object)
+        except (ValueError, TypeError) as exc:
+            raise JudgeContractError("Independent corpus response is not JSON") from exc
+        if isinstance(answer, dict) and "codec_version" in answer:
+            return _expand_corpus_wire(answer, data or {})
+        _validate_corpus_window(answer, data or {})  # Legacy full-schema responses remain strictly validated.
+        return answer
     if phase == "rubric":
         def unique_object(pairs):
             result = {}
@@ -923,7 +1203,7 @@ def _normalize_provider_answer(phase: str | None, raw: str, data: dict | None):
 
 def phase_output_limit(phase: str | None) -> int:
     """One reservation and transport limit for each complete Judge response."""
-    return 16384 if phase in {"audit", "rubric"} else 8000
+    return 16384 if phase in {"audit", "rubric", "corpus"} else 8000
 
 
 def _provider(model: str, *, phase: str | None = None, data: dict | None = None) -> Responder:
@@ -941,9 +1221,12 @@ def _provider(model: str, *, phase: str | None = None, data: dict | None = None)
         elif phase == "rubric":
             format = {"type": "json_schema", "name": "report_full_corpus_rubric", "strict": True,
                       "schema": _rubric_schema(data or {})}
+        elif phase == "corpus":
+            format = {"type": "json_schema", "name": "independent_original_corpus_window", "strict": True,
+                      "schema": _corpus_wire_schema(data or {})}
         if phase is not None and data is not None:
             prompt = _provider_prompt(phase, data)
-        with openai_client(timeout=300 if phase in {"audit", "rubric"} else 120, max_retries=0) as client:
+        with openai_client(timeout=300 if phase in {"audit", "rubric", "corpus"} else 120, max_retries=0) as client:
             response = client.responses.create(model=model, temperature=0, store=False,
                 max_output_tokens=phase_output_limit(phase), instructions=instructions, input=prompt,
                 text={"format": format})
@@ -1132,6 +1415,15 @@ def _audit_groups(claims: list[dict], evidence: list[dict], documents: dict,
     return groups
 
 
+def _corpus_receipt_unchanged(result: dict) -> bool:
+    if not result.get("corpus_coverage_path"):
+        return "corpus_coverage" not in result.get("hashes", {})
+    try:
+        return sha256(Path(result["corpus_coverage_path"]).read_bytes()).hexdigest() == result["hashes"].get("corpus_coverage")
+    except OSError:
+        return False
+
+
 def _complete_result(result, rubric, claims, checks, blocks, gate, finish, tex, pdf, review_input):
     claim_ids = {claim["claim_id"] for claim in claims}
     coverage = _rows(rubric, "block_coverage", "block_id", {block["block_id"] for block in blocks})
@@ -1186,7 +1478,8 @@ def _complete_result(result, rubric, claims, checks, blocks, gate, finish, tex, 
     hashes_unchanged = (result["hashes"]["tex"] == sha256(tex.read_bytes()).hexdigest()
         and result["hashes"]["pdf"] == sha256(pdf.read_bytes()).hexdigest()
         and result["hashes"]["canonical_evidence"] == _hash(_canonical_input(review_input))
-        and result["hashes"]["claims"] == sha256(Path(result["claims_path"]).read_bytes()).hexdigest())
+        and result["hashes"]["claims"] == sha256(Path(result["claims_path"]).read_bytes()).hexdigest()
+        and _corpus_receipt_unchanged(result))
     gate("H6", hashes_unchanged, "Hashes correspond to this checked revision")
     gate("H7", not core_gaps, "No omitted block or unverified core assertion")
     gate("axis_floor", all(axis["score"] >= 4 for axis in axes.values()))
@@ -1334,8 +1627,10 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
             cache_readers += [JudgeResponseCache(path) for path in candidates]
 
     def verified(phase, data, validate):
-        schema = {"atomize": _atomize_schema, "audit": _audit_schema, "rubric": _rubric_schema}[phase](data)
-        request = {"version": 1, "phase": phase, "model": model,
+        from .governance import model_provider
+        schema = {"atomize": _atomize_schema, "audit": _audit_schema, "rubric": _rubric_schema,
+                  "corpus": _corpus_wire_schema}[phase](data)
+        request = {"version": 1, "phase": phase, "model": model, "model_provider": model_provider(),
                    "instructions": JUDGE_INSTRUCTIONS, "prompt": _provider_prompt(phase, data), "schema": schema}
         for reader in cache_readers if responder is None else []:
             raw = reader.load(request)
@@ -1418,7 +1713,8 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         input_plan.update(canonical_evidence_count=len(evidence), canonical_evidence_chars=len(_json(evidence)),
                           canonical_evidence_utf8_bytes=len(_json(evidence).encode()))
         plan_path.write_text(json.dumps(input_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        if input_plan["canonical_evidence_chars"] > max_evidence_chars:
+        large_corpus = input_plan["canonical_evidence_chars"] > max_evidence_chars
+        if large_corpus and max_evidence_chars < 80_000:
             raise JudgeContractError("Complete canonical corpus exceeds the configured final rubric input limit")
         result["evidence_selection"] = "complete_citation_documents_with_all_originals_rubric"
         evidence_path = output / f"quality.evidence-{attempt}.json"
@@ -1452,14 +1748,30 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
             raise JudgeContractError("No atomic claims were extracted from the final report")
         result["checked_claims"]["total"] = len(claims)
         result["checked_claims"]["uncited_facts"] = sum(not claim["citation_keys"] and claim["kind"] in {"fact", "author_report"} for claim in claims)
+        model_evidence, corpus_manifest = evidence, None
+        if large_corpus:
+            print("quality: independently reading the complete original corpus in bounded windows", flush=True)
+            model_evidence, corpus_manifest = _screen_corpus(evidence, claims, verified, output, attempt, max_evidence_chars,
+                report_context=blocks, artifact_identity={key: result["hashes"][key] for key in ("tex", "pdf", "canonical_evidence")})
+            result["evidence_selection"] = "independent_complete_corpus_windows_exact_original_spans"
+            corpus_path = output / f"quality.corpus-coverage-{attempt}.json"
+            result["corpus_coverage_path"] = str(corpus_path)
+            result["hashes"]["corpus_coverage"] = sha256(corpus_path.read_bytes()).hexdigest()
+            result["corpus_coverage"] = {"complete": corpus_manifest["complete"], "sources": len(evidence),
+                "window_calls": sum(len(source["windows"]) for source in corpus_manifest["sources"]),
+                "projection_chars": len(_json(model_evidence))}
         checks = []
-        groups = _audit_groups(claims, evidence, review_input.get("documents", {}), max_evidence_chars, max_block_chars)
+        original_map = {source["evidence_id"]: source for source in evidence}
+        groups = _audit_groups(claims, model_evidence, review_input.get("documents", {}), max_evidence_chars, max_block_chars)
         result["audit_batches"] = len(groups)
         for group in groups:
             chunk = group["claims"]
             context = [block for block in blocks if block["page"] in {claim["page"] for claim in chunk}]
+            if large_corpus:
+                group["evidence_scope"]["independent_corpus_screened"] = True
             _, audited = verified("audit", {**group, "page_context": context, "documents": review_input.get("documents", {})},
-                lambda answer: _audit(answer, chunk, group["evidence"], review_input.get("documents", {})))
+                lambda answer: _audit(answer, chunk, [original_map[source["evidence_id"]] for source in group["evidence"]],
+                                      review_input.get("documents", {})))
             checks += audited
             result["checked_claims"]["checked"] = len(checks)
             counts = Counter(check["verdict"] for check in checks)
@@ -1483,8 +1795,10 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
                 if claim["core"] and check_map[claim["claim_id"]]["verdict"] != "supported"],
             "claim_ids": [claim["claim_id"] for claim in claims],
             "claims": claims, "checks": checks, "documents": review_input.get("documents", {}),
-            "evidence": evidence,
-            "evidence_scope": {"selection": "all_originals_rubric", "evidence_ids": [source["evidence_id"] for source in evidence]},
+            "evidence": model_evidence,
+            "evidence_scope": {"selection": "complete_corpus_windows_projection" if large_corpus else "all_originals_rubric",
+                               "independent_corpus_screened": large_corpus,
+                               "evidence_ids": [source["evidence_id"] for source in evidence]},
             "source_inventory": [{key: source[key] for key in ("evidence_id", "doc_id", "source_hash", "method", "independence", "technology_relevance")} for source in evidence]}
         def validate_rubric(answer):
             probe = deepcopy(result)

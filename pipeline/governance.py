@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 from threading import RLock
 import time
@@ -178,8 +179,41 @@ def http_client(**kwargs):
 
 
 def openai_client(**kwargs):
+    if model_provider() == "codex_cli_chatgpt":
+        from .codex_provider import CodexClient
+        # CLI startup and its own context exceed the API worker timeouts.
+        # The ledger still caps each subprocess by the remaining run deadline.
+        kwargs["timeout"] = max(300, kwargs.get("timeout", 300))
+        return CodexClient(**kwargs)
     from openai import OpenAI
     kwargs["max_retries"] = 0
     kwargs.setdefault("timeout", 120)
     kwargs.setdefault("http_client", http_client(timeout=kwargs["timeout"]))
     return OpenAI(**kwargs)
+
+
+def model_provider():
+    """Select the explicit local model transport; API remains the default."""
+    provider = os.getenv("KV_MODEL_PROVIDER", "openai_api")
+    if provider not in {"openai_api", "codex_cli_chatgpt"}:
+        raise ValueError("Unknown KV_MODEL_PROVIDER")
+    return provider
+
+
+def chat_model(*, api_factory=None, **kwargs):
+    if model_provider() == "codex_cli_chatgpt":
+        from .codex_provider import CodexChatModel
+        # Chat factories pass these API defaults even for local transports.
+        # A configured API endpoint/client is rejected rather than silently used.
+        kwargs.pop("api_key", None)
+        for name in ("base_url", "http_client"):
+            if kwargs.get(name) is None:
+                kwargs.pop(name, None)
+        kwargs["timeout"] = max(300, kwargs.get("timeout", 300))
+        return CodexChatModel(**kwargs)
+    if api_factory is None:
+        from langchain_openai import ChatOpenAI
+        api_factory = ChatOpenAI
+    if _ledger is not None and "http_client" not in kwargs:
+        kwargs["http_client"] = http_client(timeout=kwargs.get("timeout", 120))
+    return api_factory(**kwargs)

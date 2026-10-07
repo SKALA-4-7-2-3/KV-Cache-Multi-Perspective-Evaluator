@@ -150,9 +150,11 @@ class ReportAgent:
         *,
         responder: Responder | None = None,
         max_output_tokens: int = 12_000,
+        request_timeout: float = 300,
     ) -> None:
         self.model = model
         self.max_output_tokens = max_output_tokens
+        self.request_timeout = request_timeout
         self._responder = responder or self._openai_response
 
     def _openai_response(self, instructions: str, prompt: str) -> str:
@@ -164,7 +166,7 @@ class ReportAgent:
 
         # Full-source reports can exceed two minutes; the governed client still
         # caps every request by the run's remaining budget and performs no SDK retry.
-        client = OpenAI(timeout=300, max_retries=0)
+        client = OpenAI(timeout=self.request_timeout, max_retries=0)
         try:
             response = client.responses.create(
                 model=self.model,

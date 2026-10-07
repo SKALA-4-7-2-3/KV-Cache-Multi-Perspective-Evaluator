@@ -36,6 +36,8 @@ def role_fingerprints(root):
     common = [root / p for p in ("pipeline/__init__.py", "pipeline/runtime.py",
         "pipeline/worker_adapters.py", "pipeline/contracts.py", "pipeline/research_input.py",
         "pipeline/inputs.py", "pipeline/governance.py", "pyproject.toml", "uv.lock")]
+    if (root / "pipeline/codex_provider.py").is_file():
+        common.append(root / "pipeline/codex_provider.py")
     result = {}
     for role in ("domain", "market", "stakeholders"):
         directory = root / "agent" / ("stakeholder" if role == "stakeholders" else role)
@@ -51,6 +53,7 @@ def stage_fingerprint(root, name):
     stage = name.split("-", 1)[0]
     common = [root / relative for relative in (
         "pipeline/__init__.py", "pipeline/artifacts.py", "pipeline/governance.py", "pipeline/contracts.py",
+        "pipeline/codex_provider.py",
         "pipeline/research_input.py", "pipeline/inputs.py", "pyproject.toml", "uv.lock",
     )]
 

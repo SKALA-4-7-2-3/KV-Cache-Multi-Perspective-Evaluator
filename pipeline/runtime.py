@@ -27,6 +27,12 @@ def run_stakeholders(papers, request, *, run_id, as_of, model, active_cells=None
     input_chars = len(json.dumps(papers, ensure_ascii=False)) + len(json.dumps(request, ensure_ascii=False))
     config = replace(defaults, model=model, model_timeout=120,
                      max_input_chars=max(defaults.max_input_chars, input_chars))
+    from .governance import model_provider
+    provider = None
+    if model_provider() == "codex_cli_chatgpt":
+        from stakeholder_agent.providers import OpenAIModel
+        provider = OpenAIModel(model=config.model, api_key="",
+                               timeout=config.model_timeout)
     payload = papers
     if prior:
         usage = prior.get("usage", {}).get("used", {})
@@ -41,7 +47,7 @@ def run_stakeholders(papers, request, *, run_id, as_of, model, active_cells=None
                  "prior": prior}
     return run_stakeholder(payload, request=None if isinstance(payload, dict) else request,
         run_id=None if isinstance(payload, dict) else run_id, as_of=None if isinstance(payload, dict) else as_of,
-        config=config, mode="live", scope=scope)
+        config=config, mode="live", scope=scope, model=provider)
 
 
 def run_market(papers, request, *, as_of, model, active_cells=None, feedback=None, prior=None):

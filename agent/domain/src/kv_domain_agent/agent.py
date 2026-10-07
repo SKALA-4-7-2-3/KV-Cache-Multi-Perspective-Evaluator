@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Protocol
 
 from pydantic import ValidationError
@@ -376,13 +377,13 @@ def create_openai_structured_model(
         ) from exc
 
     kwargs = dict(model=model_name, temperature=0, timeout=timeout, max_retries=max_retries)
+    factory = ChatOpenAI
     try:
         from pipeline import governance
-        if governance._ledger is not None:
-            kwargs["http_client"] = governance.http_client(timeout=timeout)
+        factory = partial(governance.chat_model, api_factory=ChatOpenAI)
     except ImportError:
         pass
-    llm = ChatOpenAI(**kwargs)
+    llm = factory(**kwargs)
     return llm.with_structured_output(
         output_schema,
         method="json_schema",
