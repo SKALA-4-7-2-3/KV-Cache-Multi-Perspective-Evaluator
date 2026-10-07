@@ -46,6 +46,35 @@ def role_fingerprints(root):
     return result
 
 
+def stage_fingerprint(root, name):
+    """Hash only source dependencies that can change one persisted stage result."""
+    stage = name.split("-", 1)[0]
+    common = [root / relative for relative in (
+        "pipeline/__init__.py", "pipeline/artifacts.py", "pipeline/governance.py", "pipeline/contracts.py",
+        "pipeline/research_input.py", "pipeline/inputs.py", "pyproject.toml", "uv.lock",
+    )]
+
+    def sources(directory):
+        return [path for path in directory.rglob("*") if path.is_file()
+                and path.suffix in {".py", ".md", ".json"}
+                and not any(part in _FINGERPRINT_EXCLUDED_PARTS for part in path.parts)]
+
+    review_sources = sources(root / "agent/review/team_review")
+    report_sources = sources(root / "report/src")
+    relevant = {
+        "trl": [root / "pipeline/trl.py"] + [root / f"agent/review/team_review/{file}"
+            for file in ("__init__.py", "rubric.py", "schema.py", "contract.py", "review.py")],
+        "review": [root / "pipeline/review_bridge.py"] + review_sources,
+        "report": [root / "pipeline/reporting.py", root / "pipeline/reference_metadata.json"] + report_sources,
+        "quality": [root / "pipeline/report_quality.py"] + report_sources,
+    }
+    if stage not in relevant:
+        return fingerprint(root)
+    paths = {path for path in common + relevant[stage] if path.exists() and path.is_file()}
+    return digest({str(path.relative_to(root)): sha256(path.read_bytes()).hexdigest()
+                   for path in sorted(paths)})
+
+
 class ArtifactStore:
     def __init__(self, root):
         self.root = Path(root).resolve()

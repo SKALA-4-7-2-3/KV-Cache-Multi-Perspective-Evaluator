@@ -16,7 +16,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
 from . import ROOT
-from .artifacts import ArtifactStore, digest, fingerprint
+from .artifacts import ArtifactStore, digest, fingerprint, stage_fingerprint
 from .contracts import CATALOG, GraphState, TaskSpec, all_cells
 from .governance import task_context
 
@@ -53,12 +53,14 @@ class PipelineContext:
         self.input_hash = digest([self.bundle,self.request,self.model,self.as_of])
 
     def stage(self, name, inputs, operation, *, validate=None):
-        stamp = digest([inputs,self.code_hash,self.model,self.as_of])
+        stage_code_hash = stage_fingerprint(ROOT,name)
+        stamp = digest([inputs,stage_code_hash,self.model,self.as_of])
         started = time.monotonic()
         print(f"{name}: starting",flush=True)
         with task_context(name):
             value,ref,reused = self.store.cached(name,stamp,operation,validate=validate)
-        self.store.event("stage",name=name,reused=reused,seconds=round(time.monotonic()-started,3),output_ref=ref)
+        self.store.event("stage",name=name,reused=reused,seconds=round(time.monotonic()-started,3),
+                         stage_code_sha256=stage_code_hash,output_ref=ref)
         print(f"{name}: {'reused' if reused else 'saved'}",flush=True)
         return value,ref
 

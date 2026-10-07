@@ -156,6 +156,7 @@ class TRLPipelineTests(unittest.TestCase):
             self.assertEqual(parsed[-1].trl_assessments["SW-01"]["level"], 4)
 
     def test_reporting_code_change_preserves_valid_unchanged_worker_outputs(self):
+        from pipeline.artifacts import stage_fingerprint as actual_stage_fingerprint
         with tempfile.TemporaryDirectory(prefix="trl-components-") as directory, self.boundaries() as (mocks, parsed):
             output = Path(directory)
             self.run_cli(output)
@@ -163,9 +164,13 @@ class TRLPipelineTests(unittest.TestCase):
             for mock in mocks.values(): mock.reset_mock()
             # Simulate a changed reporting/Judge component, while the actual
             # role providers, prompts, input identity and locked dependencies stay.
-            with patch("pipeline.graph.fingerprint", return_value="changed-reporting-code"):
+            def changed_reporting(root, name):
+                return ("changed-reporting-code" if name.startswith(("report", "quality"))
+                        else actual_stage_fingerprint(root, name))
+            with patch("pipeline.graph.fingerprint", return_value="changed-reporting-code"), patch(
+                    "pipeline.graph.stage_fingerprint", side_effect=changed_reporting):
                 self.run_cli(output,resume=True)
-            for boundary in ("planner", "domain", "stakeholders", "market"):
+            for boundary in ("planner", "domain", "stakeholders", "market", "draft", "audit"):
                 self.assertEqual(mocks[boundary].call_count,0,boundary)
             self.assertEqual(json.loads((output / "state.result.json").read_text())["accepted_refs"],accepted)
             self.assertEqual(mocks["report"].call_count,1)
