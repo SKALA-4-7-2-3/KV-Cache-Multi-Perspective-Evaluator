@@ -133,11 +133,15 @@ def relevant_candidate(row, tech, level=0):
 
 
 def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True,
-               round_number=0, previous=None, existing_evidence=None, existing_claims=None, previous_progress=None):
+               round_number=0, previous=None, existing_evidence=None, existing_claims=None,
+               previous_progress=None, active_cells=None, feedback=None):
     if callable(getattr(analyst,'synthesize',None)) and callable(getattr(analyst,'review_synthesis',None)):
         from .adaptive import run_adaptive
         return run_adaptive(data,web,analyst,mode=mode,budget=budget,auto_repair=auto_repair,round_number=round_number,
-            previous=previous,existing_evidence=existing_evidence,existing_claims=existing_claims,previous_progress=previous_progress)
+            previous=previous,existing_evidence=existing_evidence,existing_claims=existing_claims,
+            previous_progress=previous_progress,active_cells=active_cells,feedback=feedback)
+    if active_cells:
+        raise ValueError("active_cells requires the adaptive market analyst interface")
     if round_number not in {0,1}:
         raise ValueError('round_number must be 0 or 1')
     budget = budget or Budget(data.limits)
@@ -333,7 +337,9 @@ def run_market(data, web, analyst, *, mode="live", budget=None, auto_repair=True
     graph.add_edge('finish',END)
     draft=previous_draft(previous,initial_pool,blank_draft())
     analysis,_=materialize(data,draft,initial_pool)
-    state=graph.compile().invoke(dict(data=data,round=round_number,research_level=progress.get('research_level',round_number),evidence=initial_evidence,sources={},analysis=analysis,
+    # This worker owns rich Pydantic evidence. The parent persists only the
+    # terminal JSON result; do not inherit its control-only checkpoint.
+    state=graph.compile(checkpointer=False).invoke(dict(data=data,round=round_number,research_level=progress.get('research_level',round_number),evidence=initial_evidence,sources={},analysis=analysis,
         errors=list(progress.get('errors',[])),history=[],queries=progress.get('queries',[]),fatal=False,claim_pool=initial_pool,candidate_pool={},claim_review_log={},
         reviews=progress.get('reviews',{}),extraction_errors=list(progress.get('extraction_errors',[])),composition_errors=list(progress.get('composition_errors',[])),
         repair_kind='',repairs=progress.get('repairs',{k:round_number==1 for k in ['collect','extract','compose']}),

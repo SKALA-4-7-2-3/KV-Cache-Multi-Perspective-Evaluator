@@ -64,7 +64,14 @@ class OpenAIAnalyst:
         self.output_checks = []
         self.debug = debug
         self.debug_analyses = []
-        self._llm = ChatOpenAI(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
+        kwargs=dict(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
+        try:
+            from pipeline import governance
+            if governance._ledger is not None:
+                kwargs['http_client']=governance.http_client(timeout=60)
+        except ImportError:
+            pass
+        self._llm = ChatOpenAI(**kwargs)
         self._composer = self._llm.with_structured_output(strict_schema(ReviewedDraftAnalysis), method="json_schema", strict=True, include_raw=True)
 
     def _invoke(self, stage, runnable, schema, prompt, payload):

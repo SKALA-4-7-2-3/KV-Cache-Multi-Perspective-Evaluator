@@ -109,7 +109,16 @@ class TavilyWeb:
         if not api_key:
             raise ProviderError("missing_tavily_key", fatal=True)
         self._key = api_key
-        self._client = client or httpx.Client(timeout=20, follow_redirects=False)
+        if client is not None:
+            self._client = client
+        else:
+            try:
+                from pipeline import governance
+                self._client = (governance.http_client(timeout=20, follow_redirects=False)
+                                if governance._ledger is not None
+                                else httpx.Client(timeout=20, follow_redirects=False))
+            except ImportError:
+                self._client = httpx.Client(timeout=20, follow_redirects=False)
         self._owns_client = client is None
 
     def close(self):
