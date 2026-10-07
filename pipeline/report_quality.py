@@ -254,8 +254,7 @@ def _atomize_schema(data: dict) -> dict:
         raise JudgeContractError("Strict atomization requires unique units and registered citation keys")
     blocks = {}
     for unit in units:
-        properties = {"report_quote": {"type": "string", "enum": [unit["text"]]},
-            "text": {"type": "string"},
+        properties = {"text": {"type": "string"},
             "kind": {"type": "string", "enum": ["author_report", "fact", "inference", "gap"]},
             "technology_ids": {"type": "array", "items": {"type": "string", "enum": ["SW-01", "HW-01"]}},
             "citation_keys": {"type": "array", "items": {"$ref": "#/$defs/citation_key"}},
@@ -309,7 +308,8 @@ def _provider_prompt(phase: str, data: dict) -> str:
     prompt = _judge_prompt(phase, _audit_payload(data) if phase == "audit" else data)
     if phase == "atomize":
         prompt += ("\nFor this strict atomize request, blocks must be an object keyed by EVERY supplied "
-                   "canonical line-unit ID. For each unit use its exact whole original line as report_quote. "
+                   "canonical line-unit ID. Do not return report_quote: the controller binds each claim "
+                   "to that unit's exact whole original line, including whitespace and line breaks. "
                    "Use SW-01/HW-01 technology IDs and registered citation keys from the schema. "
                    "Every key is required; the JSON schema defines the response structure.")
     elif phase == "audit":
@@ -356,10 +356,11 @@ def _provider(model: str, *, phase: str | None = None, data: dict | None = None)
             for unit in units:
                 row = rows[unit["block_id"]]
                 if (not isinstance(row, dict) or not isinstance(row.get("claims"), list)
-                        or any(not isinstance(claim, dict) or claim.get("report_quote") != unit["text"]
+                        or any(not isinstance(claim, dict) or "report_quote" in claim
                                for claim in row["claims"])):
                     raise JudgeContractError("Structured atomization changed its anchored original line")
-                normalized.append({**row, "block_id": unit["block_id"]})
+                normalized.append({**row, "block_id": unit["block_id"], "claims": [
+                    {**claim, "report_quote": unit["text"]} for claim in row["claims"]]})
             return {"blocks": normalized}
         if phase == "audit":
             try:

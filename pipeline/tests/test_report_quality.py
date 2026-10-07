@@ -418,7 +418,7 @@ class ReportQualityTests(unittest.TestCase):
             def create(self, **kwargs):
                 calls.append(kwargs)
                 answer = {"blocks": {unit["block_id"]: {"non_claim_reason": "", "claims": [{
-                    "report_quote": unit["text"], "text": "OFFLINE assertion", "kind": "fact",
+                    "text": "OFFLINE assertion", "kind": "fact",
                     "technology_ids": ["SW-01"], "citation_keys": ["SW01_RDKV"], "core": True}]}
                     for unit in units}}
                 return SimpleNamespace(status="completed", output_text=json.dumps(answer))
@@ -434,11 +434,13 @@ class ReportQualityTests(unittest.TestCase):
         for unit in units:
             claim = blocks["properties"][unit["block_id"]]["properties"]["claims"]["items"]
             properties = claim["properties"]
-            self.assertEqual(properties["report_quote"]["enum"], [unit["text"]])
+            self.assertNotIn("report_quote", properties)
             self.assertEqual(properties["technology_ids"]["items"]["enum"], ["SW-01", "HW-01"])
             self.assertEqual(properties["citation_keys"]["items"]["$ref"], "#/$defs/citation_key")
             self.assertEqual(set(schema["$defs"]["citation_key"]["enum"]), set(data["citation_numbers"].values()))
         self.assertEqual([row["block_id"] for row in answer["blocks"]], [unit["block_id"] for unit in units])
+        self.assertEqual([row["claims"][0]["report_quote"] for row in answer["blocks"]],
+                         [unit["text"] for unit in units])
 
     def test_incomplete_provider_response_never_reaches_atomization(self):
         from types import SimpleNamespace
