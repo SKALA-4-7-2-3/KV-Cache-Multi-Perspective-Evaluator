@@ -143,7 +143,7 @@ class ReportQualityTests(unittest.TestCase):
     def test_unverified_document_hash_is_not_accepted(self):
         evidence = canonical()
         evidence["documents"]["SW-01"]["sha256"] = "b" * 64
-        with patch("pipeline.tests.test_report_quality.canonical", return_value=evidence):
+        with patch(__name__ + ".canonical", return_value=evidence):
             result = self.evaluate()
         self.assertEqual(result["route"], "review_required")
 
@@ -226,7 +226,7 @@ class ReportQualityTests(unittest.TestCase):
         evidence["evidence"]["market-original"] = {"id": "market-original", "doc_id": "market-web",
             "technology_ids": ["SW-01"], "excerpt": original, "location": "Original web body",
             "provenance": {"source_hash": "b" * 64}}
-        with patch("pipeline.tests.test_report_quality.canonical", return_value=evidence):
+        with patch(__name__ + ".canonical", return_value=evidence):
             result = self.evaluate()
         self.assertEqual(result["route"], "passed")
         audits = [call for call in self.calls if call["phase"] == "audit"]
@@ -259,7 +259,7 @@ class ReportQualityTests(unittest.TestCase):
                     check["supporting_quotes"].append({"evidence_id": "HW-laboratory",
                         "quote": "The HW authors report simulation only."})
             return answer
-        with patch("pipeline.tests.test_report_quality.canonical", return_value=evidence):
+        with patch(__name__ + ".canonical", return_value=evidence):
             result = self.evaluate(responder)
         self.assertEqual(result["route"], "passed")
         self.assertEqual(len([call for call in self.calls if call["phase"] == "audit"]), 1)

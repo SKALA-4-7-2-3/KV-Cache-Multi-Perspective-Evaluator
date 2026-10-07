@@ -10,6 +10,30 @@ from .schema import Assessment, Config, Document, Evidence, Issue, Review, RoleR
 from .contract import is_missing
 
 
+class TRLGroundingError(ValueError):
+    """Fail closed while retaining only provider-safe response diagnostics."""
+
+    def __init__(self, message: str, *, diagnostic: dict | None = None):
+        super().__init__(message)
+        self.diagnostic = diagnostic or {}
+
+
+def _response_diagnostic(response) -> dict:
+    incomplete = getattr(response, "incomplete_details", None)
+    usage = getattr(response, "usage", None)
+    if hasattr(incomplete, "model_dump"):
+        incomplete = incomplete.model_dump()
+    if hasattr(usage, "model_dump"):
+        usage = usage.model_dump()
+    return {
+        "status": str(getattr(response, "status", "unknown")),
+        "incomplete_reason": incomplete.get("reason") if isinstance(incomplete, dict) else None,
+        "input_tokens": usage.get("input_tokens") if isinstance(usage, dict) else None,
+        "output_tokens": usage.get("output_tokens") if isinstance(usage, dict) else None,
+        "total_tokens": usage.get("total_tokens") if isinstance(usage, dict) else None,
+    }
+
+
 def trl_evidence_is_eligible(item, documents, tech, policy="paper_only") -> bool:
     """선정 논문 또는 동일 구현·버전 웹 근거만 허용한다. 수집기가 identity를 발급한다."""
     try:
@@ -54,13 +78,29 @@ def call_trl_grounding(payload, *, model):
         "간결한 한국어로 적는다. evidence_ids는 항목의 evidence 키만 사용하고 supported에는 "
         "실제 지지 근거 ID를 최소 하나 적는다. 새 출처·기술 등급·최종 숫자를 만들지 않는다."
     )
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        raise TRLGroundingError("TRL 의미 검사 입력이 올바르지 않습니다.")
+    if not items:
+        return {"checks": []}
+    batches = []
+    for technology_id in dict.fromkeys(item.get("technology_id") for item in items):
+        batch = [item for item in items if item.get("technology_id") == technology_id]
+        if not technology_id or not batch:
+            raise TRLGroundingError("TRL 의미 검사 입력의 기술 식별자가 올바르지 않습니다.")
+        batches.append(batch)
+    checks = []
     with OpenAI(timeout=120, max_retries=0) as client:
-        response = client.responses.parse(model=model, temperature=0, store=False, max_output_tokens=4500,
-                                          instructions=instructions, input=json.dumps(payload, ensure_ascii=False),
-                                          text_format=TRLSemanticAudit)
-    if response.status != "completed" or response.output_parsed is None:
-        raise ValueError("TRL 의미 검사 응답이 완성되지 않았습니다.")
-    return response.output_parsed.model_dump(mode="json")
+        for batch in batches:
+            response = client.responses.parse(model=model, temperature=0, store=False, max_output_tokens=8000,
+                instructions=instructions, input=json.dumps({"items": batch}, ensure_ascii=False),
+                text_format=TRLSemanticAudit)
+            if response.status != "completed" or response.output_parsed is None:
+                raise TRLGroundingError("TRL 의미 검사 응답이 완성되지 않았습니다.",
+                                        diagnostic=_response_diagnostic(response))
+            parsed = TRLSemanticAudit.model_validate(response.output_parsed).model_dump(mode="json")
+            checks.extend(parsed["checks"])
+    return {"checks": checks}
 
 
 def _unknown(criterion: str, reason: str) -> dict:
@@ -180,6 +220,7 @@ def review_node(state: dict, *, trl_auditor=None) -> dict:
 
     # 모델이 만든 단계 초안만 한 번에 의미 검사한다. 검사 결과를 입력에서 자체 발급하지 않는다.
     semantic_checks, semantic_error = {}, "not_run"
+    semantic_audit = {"status": "not_run", "item_count": 0}
     audit_items = []
     if not fatal:
         try:
@@ -204,6 +245,7 @@ def review_node(state: dict, *, trl_auditor=None) -> dict:
         except (ValidationError, AttributeError):
             pass  # 역할 입력 오류는 아래의 기존 검수 경로에서 기록한다.
     if audit_items and trl_auditor is not None:
+        semantic_audit = {"status": "running", "item_count": len(audit_items)}
         try:
             audit = TRLSemanticAudit.model_validate(trl_auditor({"items": audit_items}))
             expected = {item["item_id"]: set(item["evidence"]) for item in audit_items}
@@ -215,8 +257,14 @@ def review_node(state: dict, *, trl_auditor=None) -> dict:
                         or (check.verdict == "supported" and not check.evidence_ids)):
                     raise ValueError("TRL 의미 검사 인용 불일치")
             semantic_checks = {check.item_id: check for check in audit.checks}
-        except Exception:
+            semantic_audit = {"status": "completed", "item_count": len(audit_items)}
+        except Exception as exc:
             semantic_error = "failed"  # 외부 검사기의 오류 본문·키를 결과에 복사하지 않는다.
+            semantic_audit = {"status": "processing_failed", "item_count": len(audit_items),
+                              "error_type": type(exc).__name__}
+            if isinstance(exc, TRLGroundingError):
+                semantic_audit.update({key: value for key, value in exc.diagnostic.items()
+                                       if value is not None})
 
     def assess_trl(cell, tech):
         level, used, checks = None, set(), []
@@ -446,7 +494,8 @@ def review_node(state: dict, *, trl_auditor=None) -> dict:
     synthesis = Synthesis(
         comparison_matrix=[{"perspective": role, **normalized[role]} for role in ROLES],
         by_criterion=comparisons, view_differences=differences, metric_comparisons=metrics,
-        trl=trl_results, used_evidence_ids=sorted(used_ids), references=references,
+        trl=trl_results, trl_semantic_audit=semantic_audit,
+        used_evidence_ids=sorted(used_ids), references=references,
         summary=summaries,
         disclaimer=NOTICE + " 형식·인용 검사는 주장의 진실성을 보증하지 않으며 핵심 결론은 사람이 원문과 대조한다.",
         demo=(config.demo or (isinstance(raw_evidence, dict) and any(isinstance(e, dict) and e.get("synthetic") is True for e in raw_evidence.values()))

@@ -155,6 +155,21 @@ class TRLPipelineTests(unittest.TestCase):
             self.assertEqual(len(parsed), 2)
             self.assertEqual(parsed[-1].trl_assessments["SW-01"]["level"], 4)
 
+    def test_reporting_code_change_preserves_valid_unchanged_worker_outputs(self):
+        with tempfile.TemporaryDirectory(prefix="trl-components-") as directory, self.boundaries() as (mocks, parsed):
+            output = Path(directory)
+            self.run_cli(output)
+            accepted = json.loads((output / "state.result.json").read_text())["accepted_refs"]
+            for mock in mocks.values(): mock.reset_mock()
+            # Simulate a changed reporting/Judge component, while the actual
+            # role providers, prompts, input identity and locked dependencies stay.
+            with patch("pipeline.graph.fingerprint", return_value="changed-reporting-code"):
+                self.run_cli(output,resume=True)
+            for boundary in ("planner", "domain", "stakeholders", "market"):
+                self.assertEqual(mocks[boundary].call_count,0,boundary)
+            self.assertEqual(json.loads((output / "state.result.json").read_text())["accepted_refs"],accepted)
+            self.assertEqual(mocks["report"].call_count,1)
+
 
 if __name__ == "__main__":
     unittest.main()

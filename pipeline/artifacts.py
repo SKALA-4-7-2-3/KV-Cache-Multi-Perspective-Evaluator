@@ -19,6 +19,25 @@ def fingerprint(root):
     return digest({str(p.relative_to(root)): sha256(p.read_bytes()).hexdigest() for p in sorted(paths)})
 
 
+def role_fingerprints(root):
+    """Only result-producing worker sources invalidate an accepted role result.
+
+    Input identity and artifact hashes are checked separately. Report/Judge edits
+    cannot invalidate an unchanged successful research worker.
+    """
+    common = [root / p for p in ("pipeline/__init__.py", "pipeline/runtime.py",
+        "pipeline/worker_adapters.py", "pipeline/contracts.py", "pipeline/research_input.py",
+        "pipeline/inputs.py", "pipeline/governance.py", "pyproject.toml", "uv.lock")]
+    result = {}
+    for role in ("domain", "market", "stakeholders"):
+        directory = root / "agent" / ("stakeholder" if role == "stakeholders" else role)
+        paths = common + [p for p in directory.rglob("*") if p.is_file()
+            and p.suffix in {".py", ".md", ".json"} and not any(part in {
+                ".venv", "__pycache__", "output", "outputs", "tests", "examples"} for part in p.parts)]
+        result[role] = digest({str(p.relative_to(root)):sha256(p.read_bytes()).hexdigest() for p in sorted(paths)})
+    return result
+
+
 class ArtifactStore:
     def __init__(self, root):
         self.root = Path(root).resolve()

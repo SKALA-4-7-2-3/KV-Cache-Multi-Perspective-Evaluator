@@ -1,205 +1,159 @@
-# Subject
+# KV Cache Multi-Perspective Evaluator
 
-본 프로젝트는 KV cache 최적화 기술을 소프트웨어(SW)·하드웨어(HW) 진영에서 각각 선정하고, 시장·이해관계자·도메인 관점에서 비교 평가하는 **Multi-Agent 기반 Agentic RAG**를 개발하는 프로젝트입니다.
+논문 PDF와 사용자의 자연어 요청을 받아 KV cache 최적화 기술을 기술 성숙도(TRL)·시장·이해관계자·도메인 관점에서 평가하고 한국어 보고서 PDF를 작성합니다. 대상은 장문맥 문서 QA를 제공하는 데이터센터·클라우드 서빙 운영 조직입니다.
 
-논문 PDF와 사용자의 자연어 요청을 입력받아 기술 근거를 추출하고, 관점별 평가와 종합 검토를 거쳐 한국어 기술 평가 보고서 PDF를 생성합니다.
-
-## Overview
-
-- **Objective** : 각 기술을 복수 관점에서 평가하고, SW·HW 접근의 기대 효과·도입 부담·적용 조건을 비교
-- **Method** : 6개 에이전트로 역할을 분리한 Multi-Agent + Agentic RAG — 현재 통합 실행기는 관점별 에이전트를 순차 호출
-- **Tools** : 논문 PDF 분석, BGE-M3 기반 검색, Tavily 웹 검색·본문 수집, 구조화 출력 및 근거 검증, LaTeX·PDF 생성
-- **Target Domain** : 장문맥 문서 QA를 제공하는 데이터센터·클라우드 서빙
-- **Output** : 관점별 평가 JSON, 종합 Markdown, LaTeX 원본, 최종 보고서 PDF
+이 브랜치의 통합 실행기는 **LangGraph Orchestrator–Workers(OW)**입니다. 저장된 조사 결과 또는 새 RAG 결과를 확보한 뒤, 필요한 평가 셀을 계획하고 해당 범위의 worker를 실행합니다. 보고서 생성 뒤에는 별도의 **Hybrid Quality** 평가와 제한된 수정 루프를 거칩니다.
 
 ## Selected Technologies
 
-- **SW : RDKV** — KV cache의 제거(eviction)와 양자화(quantization)를 함께 고려하는 비트 할당 기반 압축 기술입니다. 메모리 사용량을 줄이는 소프트웨어 접근에서 품질·지연 시간·적용 조건의 관계를 평가하기 위해 선정했습니다.
-- **HW : Photonic-CXL** — 광 연결과 CXL 기반 공유 메모리 장치를 활용하는 KV cache 관리 기술입니다. 메모리 확장·공유 접근의 기대 효과와 하드웨어 도입·통합 부담을 평가하기 위해 선정했습니다.
+- **SW: RDKV** — 제거(eviction)와 양자화(quantization)를 함께 고려하는 비트 할당 기반 KV cache 압축 기술.
+- **HW: Photonic-CXL** — 광 연결과 CXL 기반 공유 메모리 장치를 활용하는 KV cache 관리 기술.
 
-두 기술은 같은 KV cache 문제에 서로 다른 방식으로 접근합니다. 논문별 실험 조건과 검증 수준을 함께 비교하며, Photonic-CXL의 서빙 성능 전망은 에뮬레이션·시뮬레이션 근거와 실제 장치 검증을 구분합니다. 입력 논문 정보는 [논문 안내](rag/papers/README.md)에서 확인할 수 있습니다.
+논문별 실험 조건·한계·검증 방식을 함께 기록합니다. 시뮬레이션·에뮬레이션 결과와 실제 장치·운용 검증을 구분하며, 특정 기술을 추천하거나 우열을 확정하는 보고서를 목표로 하지 않습니다. 입력 논문은 [논문 안내](rag/papers/README.md)를 참고하세요.
 
-## Features
+## Pattern and Architecture
 
-- **PDF 기반 정보 추출** : 논문의 기술 개요·적용 범위·한계·실험 조건을 추출하고, 페이지·문장·표·그림의 원문 근거와 연결
-- **Agentic RAG** : 논문 검색·분석·근거 감사를 수행하고, 분석 결과와 검색 기록을 후속 에이전트에 전달
-- **다중 관점 평가** : 시장성, 이해관계자의 이익·부담, 도메인 적합성을 같은 논문 근거와 사용자 요청에 따라 평가
-- **외부 자료 보강** : 시장·이해관계자 평가에서 웹 자료를 수집하고, 논문 자체의 결과와 시장·운영 배경 자료를 구분
-- **확증 편향 방지 전략** : 수집된 근거에서 유리한 결과와 반대 근거·한계·도입 부담을 함께 검토하고, 저자 주장·관찰 결과·분석자의 추론을 구분. 근거가 부족한 항목은 미확인으로 남기며, 종합 의견의 근거 연결과 의미를 별도로 검사
-- **TRL 팀 추정** : 기술 근거를 1~9단계에 대응한 초안을 만들고, Review의 의미 검증·연속 단계 계산 결과를 보고서 6.1 기술 성숙도에 근거 및 다음 검증 조건과 함께 출력
-- **보고서 생성** : 관점별 평가와 종합 의견을 한국어 보고서로 작성하고, 본문에서 사용한 출처를 참고문헌에 연결
-- **결과 추적·재개** : 단계별 입력·출력과 실행 상태를 저장하고, 중단된 실행을 재개하거나 특정 단계를 다시 실행
+```mermaid
+flowchart TD
+    RAG["RAG 결과 확보: saved / live"] --> Plan["Plan: 필요한 셀을 구조화 tasks로 저장"]
+    Plan --> Dispatch["Dispatch: 준비된 task마다 Send"]
+    Dispatch --> Worker["Scoped worker: domain / stakeholders / market"]
+    Worker --> Join["Terminal join: 결과 취합·단일 작성자 병합"]
+    Join --> TRL["TRL 초안"]
+    TRL --> Review["Review: 근거 검증·종합"]
+    Review --> Report["Report: LaTeX·PDF"]
+    Report --> Quality["Hybrid Quality: 형식·원문 대조·4축 평가"]
+    Quality --> Gate["Gate: 저장된 판정으로 분기"]
+    Gate -->|"passed"| Done["content_quality_pass"]
+    Gate -->|"report_repair"| Report
+    Gate -->|"upstream_replan"| Plan
+    Gate -->|"검토 필요 / 상한 도달"| Stop["명시적 종료"]
+    Join -->|"실패 범위 재계획"| Plan
+    Review -->|"근거 보완 요청"| Plan
+```
+
+### OW를 선택한 이유
+
+세 관점은 같은 논문 자료와 사용자 요청을 읽으며 각각 평가할 수 있습니다. 필요한 작업을 실행 전에 계획하고 결과를 취합하는 OW가 이 경계에 맞습니다. worker끼리 직접 대화하거나 서로의 전체 출력을 누적하지 않습니다.
+
+역할 이름은 catalog로 고정하지만 **실행할 task와 셀은 입력 상태·누락 범위·품질 피드백에 따라 결정**합니다. 이미 채택된 역할만 있으면 worker 없이 다음 단계로 진행하고, HW의 시장 `standardization` 한 셀에 대한 보완 요청은 그 범위의 task로 변환합니다. `Send` 수는 저장된 계획에서 계산합니다. 현재 worker는 다른 역할의 결과를 입력으로 소비하지 않으므로 planner의 역할 간 dependency 제안을 거부합니다. 매 단계 다음 에이전트를 고르는 Supervisor 패턴은 사용하지 않습니다.
+
+강의 「7. AI Agent 설계 및 구축」의 PDF 72·77쪽(OW), 123·132·133쪽(State·fan-out/join), 79·162·166·168쪽(평가 루프·Gate·종료 상한)을 구현 근거로 삼았습니다. 페이지 대응과 State의 일곱 설계 고려사항은 [오케스트레이션 상세](docs/orchestration.md)에 정리했습니다.
+
+## Roles and Modules
+
+기존 여섯 업무 역할을 재사용하고, 통합 제어·TRL 초안·Quality를 별도 모듈로 둡니다.
+
+| 업무 역할 | 구현 | 역할 |
+| --- | --- | --- |
+| 기술 조사 | `rag/` | 논문 분석·검색·원문 근거 확보 또는 저장 결과 제공 |
+| 도메인 평가 | `agent/domain/` | 지정된 기술·기준의 서빙 적합성 평가 |
+| 이해관계자 평가 | `agent/stakeholder/` | 지정된 기술의 운영 조직 이익·부담·도입 조건 평가 |
+| 시장 평가 | `agent/market/` | 지정된 기술·기준의 시장·제품·생태계 조사 |
+| 평가 종합 | `agent/review/` | 원문 연결·의미 검증·최종 팀 TRL 추정·조건부 종합 |
+| 보고서 생성 | `report/` | 종합 결과를 한국어 LaTeX·PDF로 작성 |
+
+| 통합 모듈 | 책임 |
+| --- | --- |
+| `pipeline/contracts.py`, `planner.py` | 작은 State 계약·catalog·구조화 작업 계획 |
+| `pipeline/graph.py`, `worker_adapters.py` | 동적 Send·scope 전달·terminal join·선택적 병합·품질 라우팅 |
+| `pipeline/artifacts.py`, `checkpoint.py` | SHA-256 참조·완료 캐시·SQLite 체크포인트 |
+| `pipeline/governance.py` | 후속 API 호출·토큰 예약·시간 제한·실패 사용량 기록 |
+| `pipeline/trl.py`, `review_bridge.py` | 기술별 TRL 초안·canonical 원문 연결·Review 전달 |
+| `pipeline/reporting.py`, `report_quality.py` | 보고서 생성·원문 기반 Hybrid Quality 평가 |
+
+## Quality and TRL
+
+**Generator와 Judge는 별도 호출·프롬프트를 사용합니다.** Report가 작성한 주장 목록을 평가의 정답으로 사용하지 않고, Quality Judge가 최종 PDF의 텍스트에서 주장과 인용을 추출해 canonical 원문과 대조합니다. 같은 `--model`을 사용하더라도 생성과 평가의 책임은 분리되어 있습니다. `--report-model`로 보고서 작성 모델을 따로 지정할 수 있습니다.
+
+Quality는 PDF의 모든 비어 있지 않은 줄을 처리하고, 각 주장의 실제 인용 문서 집합에 속한 원문을 통째로 함께 검사합니다. 복수 인용의 근거를 서로 다른 shard로 나누지 않습니다. 미인용 주장과 최종 rubric에는 전체 canonical 원문을 전달하며, 기본 원문 집합 한도는 JSON 기준 1,000,000자입니다. 연속 원문 인용·문서 hash·인용 ownership을 코드로 검사하고, 한도 초과나 검사 누락을 통과로 바꾸지 않습니다.
+
+보고서 작성 전 출처 독해는 원문 인용 계약이 어긋나면 최대 한 번 수정 요청합니다. 실패 candidate·raw response·오류를 보존하고, 재사용할 때 `source_id`, `title`, `url`, `citation_key`, `role`, `technology_ids`의 여섯 identity 필드와 인용문을 다시 검사합니다.
+
+Hybrid Quality는 형식·인용·TRL 보존·실제 PDF의 **전체 10쪽 이하** 조건을 코드로 검사하고, groundedness·중립성·편향 통제·네 관점의 포함을 Judge로 평가합니다. 채택 기준과 수정 대상은 [상세 품질 절](docs/orchestration.md#hybrid-quality)에 명시합니다. `SUMMARY`와 `REFERENCE`를 포함한 기존 보고서 구성을 유지합니다. `--stop-after report`는 Quality 이전 종료이므로 제출 품질을 확인한 상태가 아닙니다.
+
+**TRL은 공개 정보에 근거한 팀 추정이며 공식 TRL 인증이 아닙니다.** 모델은 1~9단계의 `met/not_met/unknown` 초안을 제안하고, Review가 원문·대상 기술·검증 방식·의미를 확인한 뒤 1단계부터 연속으로 충족한 최고 단계만 기록합니다. 근거가 부족하면 미확인을 유지합니다. 일반 CXL 제품이나 인접 기술의 상용화 실적을 선정 구현의 높은 TRL 근거로 대신 사용하지 않습니다.
 
 ## Tech Stack
 
-- **Framework** : LangGraph, LangChain, Pydantic — 에이전트 내부 흐름·구조화 출력·검증에 사용하며 전체 단계는 Python 통합 실행기로 연결
-- **LLM/Generator** : 통합 평가·종합·보고서 기본 모델 `gpt-4.1-mini`; 별도 RAG 실행 기본 모델 `gpt-5.6-terra`
-- **LLM/Judge** : 종합 의견 의미 검사 기본 모델 `gpt-4.1-mini`; RAG 근거 감사 기본 모델 `gpt-5.6-terra` — 생성과 검증에 별도 프롬프트 사용
-- **Retrieval** : Chroma 벡터 저장소 + Dense·Sparse 결합 검색 + ColBERT 재순위화·MMR / **Hit Rate@K, MRR : 측정 결과 미기록**
-- **Embedding** : 오픈소스 `BAAI/bge-m3` — 고정 revision의 로컬 모델 사용
-- **PDF Parsing** : PyMuPDF, pdfplumber
-- **Web Search** : Tavily
-- **Report** : Markdown → LaTeX → PDF, XeLaTeX 또는 Tectonic
-- **Runtime** : Python 3.12, uv — 통합 실행 환경과 RAG 실행 환경 분리
+- **Runtime**: Python 3.12, uv. 후속 통합 환경과 무거운 RAG 환경을 분리합니다.
+- **Orchestration**: LangGraph, LangChain, Pydantic, 로컬 SQLite 체크포인트.
+- **Generator/Judge**: 후속 기본 `gpt-4.1-mini`; RAG 모델은 별도 설정. 현재 값은 코드 기본값이며 평가 성적을 뜻하지 않습니다.
+- **Retrieval**: Chroma, Dense·Sparse 결합 검색, ColBERT 재순위화·MMR. **Hit Rate@K·MRR 측정 결과는 미기록**입니다.
+- **Open Embedding**: `BAAI/bge-m3`의 고정 revision을 로컬에서 사용합니다.
+- **Sources/Report**: Tavily, PDF 원문 분석, Markdown → LaTeX → PDF, XeLaTeX 또는 Tectonic.
 
-모델명은 코드의 기본 설정 기준입니다. 통합 실행 모델은 `--model`로 변경할 수 있으며, RAG 모델 설정은 `rag/`에서 별도로 관리합니다.
+## Quick Start
 
-## Agents
-
-전체 시스템은 **총 6개 에이전트**로 구성됩니다. RDKV와 Photonic-CXL을 장문맥 문서 QA를 제공하는 데이터센터·클라우드 서빙 관점에서 평가합니다.
-
-| 에이전트 | 역할 | RAG 및 자료 활용 | 주요 내용 |
-| --- | --- | --- | --- |
-| 기술 조사 에이전트 | 두 논문의 기술 분석·근거 추출 | PDF RAG | RDKV·Photonic-CXL 논문에서 기술 개요, 적용 범위, 실험 조건, 한계를 추출하고 원문 근거와 연결 |
-| 시장 평가 에이전트 | 시장성·도입 여건 평가 | 논문 분석 결과 + 웹 검색·본문 수집 | 관련 시장, 제품, 생태계 자료를 조사하여 두 기술의 도입 조건과 시장 관점의 기회·제약 평가 |
-| 이해관계자 평가 에이전트 | 운영 조직의 이익·부담 평가 | 논문 분석 결과 + 웹 검색·본문 수집 | 데이터센터·클라우드 서빙 운영 조직의 기대 이익, 도입·운영 부담, 수용 조건 평가 |
-| 도메인 평가 에이전트 | 장문맥 문서 QA 서빙 적합성 평가 | 기술 조사 RAG 결과 활용 | 메모리 용량, 품질, 지연 시간, 처리량, GPU 호환성 등 도메인 요구에 대한 적합성 평가 |
-| 평가 종합 에이전트 | 관점별 평가 비교·종합 | 관점별 평가 결과 + 수집 근거 | 세 관점의 일치·차이를 비교하고, 근거 기반 기술 성숙도(TRL) 추정, 조건부 종합 의견, 의미 검사 결과와 검토 사항 정리 |
-| 보고서 생성 에이전트 | 한국어 기술 평가 보고서 생성 | 종합 결과 + 출처 자료 | 기술 분석과 관점별 평가를 보고서로 연결하고, 본문 인용·참고문헌을 포함한 LaTeX 원본과 PDF 생성 |
-
-기술 조사 에이전트는 PDF에서 직접 근거를 검색하며, 도메인 에이전트는 전달받은 RAG 결과로 평가합니다. 시장·이해관계자 에이전트는 Tavily로 웹 자료를 보강합니다. 기본 실행에서는 기술 조사 에이전트의 저장된 결과를 재사용합니다.
-
-구현 위치는 기술 조사 에이전트가 `rag/`, 시장·이해관계자·도메인·평가 종합 에이전트가 `agent/`, 보고서 생성 에이전트가 `report/`입니다. 세부 구현은 [기술 조사 안내](rag/README.md), [평가·종합 에이전트 안내](agent/README.md), [보고서 생성 안내](report/README.md)를 참고하세요.
-
-## Architecture
-
-![KV cache 다중 관점 평가 아키텍처](docs/images/architecture.svg)
-
-전체 흐름은 **기술 조사 → 도메인 평가 → 이해관계자 평가 → 시장 평가 → 기술 TRL 초안 → 평가 종합 → 보고서 생성**입니다. 세 관점에는 같은 논문 자료와 사용자 요청을 각각 전달합니다. 기본 RAG 모드는 기술 조사 에이전트의 저장 결과 재사용(`saved`)이며, `--run-rag`를 지정하면 입력 PDF를 새로 분석한 뒤 후속 에이전트를 실행합니다.
-
-## Directory Structure
-
-```text
-.
-├── config/
-│   └── pipeline.json         # 논문 경로·사용자 요청·평가 맥락·RAG 모드
-├── pipeline/                 # 통합 실행기와 단계별 입력·출력 연결
-│   └── __main__.py           # python -m pipeline 실행 진입점
-├── rag/                      # Technical Research Agent와 별도 실행 환경
-│   ├── papers/               # 입력 논문 PDF
-│   ├── src/                  # PDF 분석·검색·근거 감사
-│   └── examples/results/     # 재사용 가능한 논문 분석 결과
-├── agent/                    # 에이전트 구현과 각 모듈의 프롬프트
-│   ├── domain/               # 도메인 적합성 평가
-│   ├── stakeholder/          # 이해관계자 평가
-│   ├── market/               # 시장성 평가
-│   └── review/               # 검증·종합
-├── report/                   # 보고서 작성·LaTeX·PDF 생성
-├── docs/                     # 상세 실행 안내와 아키텍처 이미지
-├── outputs/                  # 실행별 입력·평가 결과·최종 보고서
-├── .env.example              # API 키 설정 예시
-├── pyproject.toml            # Python 3.12 통합 환경 의존성
-└── README.md
-```
-
-## Usage
-
-아래 명령은 별도 표시가 없으면 **저장소 루트**에서 실행합니다. 기본 입력은 [config/pipeline.json](config/pipeline.json)이며, 논문 PDF와 자연어 요청을 명령행에서 바꿀 수 있습니다.
-
-### 1. 최초 환경 준비
-
-Python 3.12와 `uv`를 준비한 뒤, 통합 실행 환경과 RAG 실행 환경을 각각 설치합니다.
+아래 명령은 저장소 루트에서 실행합니다. 기본 [config/pipeline.json](config/pipeline.json)은 `saved` RAG 결과를 읽습니다.
 
 ```bash
-uv python install 3.12
 uv sync --frozen
-uv sync --frozen --project rag
-
-# 기존 .env가 있으면 그대로 유지합니다.
 if [ ! -f .env ]; then cp .env.example .env; fi
+
+uv run --frozen python -m pipeline \
+  --input config/pipeline.json \
+  --as-of 2026-10-07 \
+  --output outputs/my-ow-report
 ```
 
-루트 `.env`에 `OPENAI_API_KEY`, `TAVILY_API_KEY` 값을 설정합니다. [.env.example](.env.example)을 참고하세요. 기존 파일의 다른 설정은 유지합니다. 환경변수로도 제공할 수 있지만, 루트 `.env`에 같은 항목이 있으면 파일 값이 우선합니다.
+루트 `.env`에 `OPENAI_API_KEY`, `TAVILY_API_KEY`를 설정합니다. 기존 환경 파일의 다른 값은 유지하세요. `--env-file`을 지정하면 해당 파일을 우선 로드합니다. 최종 PDF에는 XeLaTeX와 `kotex` 또는 Tectonic, NanumMyeongjo Regular/Bold가 필요합니다. 컴파일러·글꼴 안내는 [보고서 안내](report/README.md), 새 RAG 실행의 별도 환경·모델·입력 PDF 준비는 [RAG 안내](rag/README.md)를 참고하세요.
 
-새 논문 분석에는 로컬 BGE-M3 모델이 필요합니다. **반드시 `rag/` 안에서** 내려받습니다. 기본 모델 경로가 현재 폴더 기준 `data/models`이므로, 통합 실행기가 사용하는 `rag/data/models`에 설치하기 위한 명령입니다.
-
-```bash
-(cd rag && uv run --frozen paper-review models pull bge-m3)
-```
-
-입력 PDF는 Git에 포함되지 않습니다. [논문 다운로드 안내](rag/papers/README.md)의 공식 원문에서 받아 다음 위치에 둡니다.
-
-- `rag/papers/2605.08317.pdf` — RDKV
-- `rag/papers/2607.27187.pdf` — Photonic-CXL
-
-최종 PDF 생성에는 **XeLaTeX와 `kotex`, 또는 Tectonic**, 그리고 **NanumMyeongjo Regular/Bold** 글꼴이 필요합니다. 글꼴은 [Google Fonts 배포본](https://github.com/google/fonts/tree/main/ofl/nanummyeongjo)을 사용할 수 있습니다. 컴파일러를 자동으로 찾지 못하면 루트 `.env`의 `XELATEX_BIN` 또는 `TECTONIC_BIN`에 실행 파일의 절대 경로를 지정합니다.
-
-### 2. PDF 2개와 자연어 요청으로 전체 실행
-
-다음 명령은 **RAG → Domain → Stakeholder → Market → TRL → Review → Report**를 실행하고 최종 보고서 PDF를 만듭니다. 실제 OpenAI·Tavily API 호출이 발생합니다. `--as-of`는 후속 평가의 조사 기준일이므로 원하는 날짜로 바꾸세요.
+저장 입력 변환만 확인하려면 다음 명령을 사용합니다. `--run-rag`를 함께 지정하지 않으면 이 경로는 외부 API를 호출하지 않습니다.
 
 ```bash
 uv run --frozen python -m pipeline \
-  --run-rag \
-  --pdf rag/papers/2605.08317.pdf \
-  --pdf rag/papers/2607.27187.pdf \
-  --instruction "장문맥 문서 QA를 제공하는 데이터센터, 클라우드 서빙입장에서 보고서를 작성하고자해." \
-  --model gpt-4.1-mini \
-  --as-of 2026-09-22 \
-  --output outputs/my-live-docqa
+  --output outputs/prepare-only --stop-after prepare
 ```
 
-`--run-rag`를 생략하면 설정 파일의 기본 `saved` 모드로 기존 논문 분석을 읽습니다. 위 명령은 종합 생성과 의미 검토까지 수행하도록 `--draft`를 사용하지 않습니다. RAG 내부에서는 조건이 일치하는 논문 분석·검색 캐시를 재사용할 수 있습니다.
+### 재개와 부분 재실행
 
-`--model`은 **후속 평가·종합·보고서 모델**을 선택합니다. RAG 생성·감사 모델은 별도 설정인 `PRA_OPENAI_MODEL`, `PRA_AUDIT_MODEL`을 사용하며 기본값은 모두 `gpt-5.6-terra`입니다. 변경하려면 루트 `.env`에 해당 항목을 지정합니다. RAG 세부 설정은 [rag/.env.example](rag/.env.example)을 참고하세요.
-
-### 3. 저장된 논문 분석을 재사용하거나 입력만 확인
-
-RAG 호출 시간과 비용을 줄이려면 같은 요청으로 생성된 최신 저장 예제를 지정할 수 있습니다. 아래 실행도 **후속 평가·웹 검색·종합·보고서 작성 API를 호출**합니다. 자연어 요청을 바꾸면 후속 평가에 적용되며, 저장된 논문 분석 자체를 재생성하지는 않습니다.
+기존 실행과 같은 입력·요청·평가 모델·조사 기준일·예산 옵션을 사용합니다. 아래 날짜는 예시 실행과 동일하게 유지합니다.
 
 ```bash
+# 중단 지점 재개 또는 완료 결과 재사용
 uv run --frozen python -m pipeline \
-  --research rag/examples/results/technical-long-context-qa-datacenter \
-  --instruction "장문맥 문서 QA를 제공하는 데이터센터, 클라우드 서빙입장에서 보고서를 작성하고자해." \
-  --output outputs/my-saved-docqa
+  --as-of 2026-10-07 --output outputs/my-ow-report --resume
+
+# 시장 역할만 다시 조사하고 후속 결과를 갱신
+uv run --frozen python -m pipeline \
+  --as-of 2026-10-07 --output outputs/my-ow-report --resume --rerun market
+
+# 역할 조사 결과를 보존하고 보고서·Quality 다시 실행
+uv run --frozen python -m pipeline \
+  --as-of 2026-10-07 --output outputs/my-ow-report --resume --rerun report
 ```
 
-**외부 API 호출 없이** 저장 결과가 후속 입력으로 변환되는지만 확인하려면 다음 명령을 사용합니다. 이 확인에는 RAG 환경·BGE-M3 모델·PDF 컴파일러가 필요하지 않습니다. `--run-rag`는 함께 지정하지 않습니다.
+셀 단위 재조사는 Review/Quality의 구조화 피드백으로 제어합니다. CLI `--rerun market`는 해당 역할 전체 범위를 선택합니다. 더 많은 명령과 재개 조건은 [실행·재개 상세](docs/orchestration.md#실행재개부분-재실행)를 참고하세요.
 
-```bash
-uv run --frozen python -m pipeline \
-  --research rag/examples/results/technical-long-context-qa-datacenter \
-  --instruction "장문맥 문서 QA를 제공하는 데이터센터, 클라우드 서빙입장에서 보고서를 작성하고자해." \
-  --output outputs/prepare-only \
-  --stop-after prepare
-```
+완료된 worker 결과의 역할 fingerprint에는 `pipeline/governance.py` 전체와 `pyproject.toml`, `uv.lock`이 포함됩니다. 보고서 생성·Quality 코드만 바뀌고 입력과 저장 artifact hash가 그대로이면 완료된 역할 결과를 재사용합니다.
 
-### 4. 결과 확인과 중단된 실행 재개
+### 예산 적용 범위
 
-완료된 실행의 `--output` 폴더에서 다음 파일을 확인합니다. 출력을 지정하지 않으면 `outputs/integration/<실행 시각>/`에 저장됩니다.
+`--max-model-calls`, `--max-search-calls`, `--max-extract-calls`, `--max-fetch-calls`, `--max-tokens`, `--max-seconds`는 **saved/live RAG 결과를 확보한 이후의 후속 API**에 적용됩니다. **live RAG subprocess의 호출·토큰·시간은 포함하지 않습니다.** RAG의 설정과 한도는 별도로 관리합니다. 재개 시 이미 사용했거나 확인되지 않은 토큰과 호출 수를 초기화하지 않습니다.
 
-| 파일 | 내용 |
+저장된 한도를 늘려 재개하려면 `--resume --extend-budget`과 함께 모든 한도 옵션을 기존 값 이상으로 지정합니다. 한 항목이라도 기존 값보다 낮으면 재개를 거부합니다. 변경 전후 한도와 당시 사용량은 `usage.json`의 `budget_extensions`에 남습니다.
+
+통합 CLI의 `--max-judge-calls` 기본값은 **Quality 평가 시도마다 64회**이며, 독립 `evaluate_report` 함수의 기본값은 36회입니다. 이 한도는 전체 모델 예산에 추가되는 호출권이 아닙니다. Judge 호출도 후속 공통 `--max-model-calls` 한도(기본 60회)에 포함되므로 공통 예산이 먼저 소진될 수 있습니다.
+
+## Outputs and Verification Status
+
+| 경로 (`--output` 기준) | 내용 |
 | --- | --- |
-| `report.pdf` | 최종 보고서 PDF |
-| `report.tex`, `report.input.md` | 보고서 원본과 입력 |
-| `review.output.md` | 종합 의견과 검토 사항 |
-| `domain.output.json`, `stakeholders.output.json`, `market.output.json`, `trl.output.json`, `review.output.json` | 단계별 분석 결과. TRL 초안은 `trl.output.json`, 최종 팀 추정은 `review.output.json`의 `synthesis.trl` |
-| `run.json` | 단계별 실행 상태·모델·조사 기준일 |
-| `research.bundle.json`, `research.context_manifest.json` | 전체 논문 분석과 후속 입력에 포함한 근거 기록 |
-| `rag/pipeline-*/cli.stdout.json`, `rag/pipeline-*/cli.stderr.log` | 새 RAG 실행의 출력·오류 로그 |
-| `rag/pipeline-*/technical/` | 새 RAG의 논문별 분석·감사·실패 기록 |
+| `run.json`, `state.result.json` | 실행 identity·종료 상태·State 참조 |
+| `plans/plan-N.json`, `tasks/`, `events.jsonl` | 계획·worker terminal outcome·scope·실패·join·재사용 기록 |
+| `checkpoint.sqlite`, `cache/`, `artifacts/`, `accepted/` | 체크포인트·완료 캐시·해시 참조·채택된 역할 결과 |
+| `research.bundle.json`, `research.context_manifest.json` | 원본 조사 결과·후속 입력의 원문 연결 기록 |
+| `domain.output.json`, `stakeholders.output.json`, `market.output.json` | 채택된 관점 결과 |
+| `trl.output.json`, `review.input.json`, `review.output.json`, `review.output.md` | TRL 초안·검증 입력·최종 팀 추정·종합 |
+| `reports/revision-N/{report.tex, report.pdf, report.result.json}` | 각 보고서 revision의 원본·PDF·생성 기록 |
+| `report.output.json`, `quality.json`, `quality/attempt-N/` | 현재 보고서 경로·최종 Quality 결과·Judge 기록 |
+| `usage.json` | 후속 API 시도·실제/미확인/예약 토큰·예산 종료 이유 |
+| `rag/<run_id>-rag/` | live RAG subprocess의 출력·오류·조사 결과 |
 
-RAG 근거 검증은 기본적으로 최대 2회 자동 보완 후에도 통과하지 못하면 `failed_quality`로 종료하고 후속 에이전트 실행을 중단합니다. 이 경우 `rag/pipeline-*/technical/failure.json`과 오류 로그를 확인합니다.
+현재 문서는 구현된 계약과 실행 방법을 설명합니다. **이번 OW 구현의 실제 보고서·Quality 성적과 LangSmith 동적 trace는 아직 검증 완료로 기록하지 않았습니다.** LangSmith 연동 코드는 유지하며, 키 미설정으로 실제 trace와 제출 PNG는 미검증입니다. 오프라인 경계 테스트는 실제 원문 평가·유료 API 실행·PDF 시각 검사를 대신하지 않습니다.
 
-**출력 폴더 바로 아래에 `run.json`이 있는 경우**, 기존 실행과 같은 PDF·요청·RAG 모드·모델·조사 기준일에 `--resume`을 붙여 재개합니다. 아래는 2번 명령의 재개 예제입니다. 성공한 RAG와 후속 단계 결과를 조건에 맞게 재사용합니다.
-
-```bash
-uv run --frozen python -m pipeline \
-  --run-rag \
-  --pdf rag/papers/2605.08317.pdf \
-  --pdf rag/papers/2607.27187.pdf \
-  --instruction "장문맥 문서 QA를 제공하는 데이터센터, 클라우드 서빙입장에서 보고서를 작성하고자해." \
-  --model gpt-4.1-mini \
-  --as-of 2026-09-22 \
-  --output outputs/my-live-docqa \
-  --resume
-```
-
-RAG 실패 등으로 **출력 폴더 바로 아래의 `run.json`이 아직 없으면**, 새 `--output` 폴더로 전체 명령을 다시 실행합니다. 이때도 RAG 내부의 유효한 캐시는 재사용할 수 있습니다. 입력·모델을 바꿀 때도 새 출력 폴더를 사용합니다. 이미 사용한 출력 경로로 새 실행을 시작하면 충돌하므로, 위 예제를 반복할 때는 출력 경로를 바꾸거나 재개 조건을 맞춥니다.
-
-기본 보고서는 근거와 검토 사항을 포함한 분석 초안이며, 자동 검토 미통과 항목은 검토 사항으로 남습니다.
-
-RAG 환경 준비는 [RAG 안내](rag/README.md), 단계별 실행·재개 옵션은 [파이프라인 안내](docs/pipeline.md)를 참고하세요.
+LangSmith 실증·보고서 제출 점검과 테스트 실행 방법은 [검증 안내](docs/orchestration.md#관측성과-검증-범위)에 정리했습니다.
 
 ## Contributors
 

@@ -43,6 +43,7 @@ class PipelineContext:
     quality: object = None
     max_replans: int = 2
     max_quality_attempts: int = 3
+    max_judge_calls: int = 64
     report_model: str | None = None
 
     def __post_init__(self):
@@ -292,7 +293,8 @@ def build_graph(context, checkpointer=None):
         result,ref = ctx.stage(f"quality-{attempt}",[state["report_ref"],state["review_ref"],state["review_input_ref"]],
             lambda:(ctx.quality or evaluate_report)(tex_path=report_result["tex_path"],pdf_path=report_result["pdf_path"],
                 review_input=rev_input,report_markdown=review_result["report_input_md"],model=ctx.model,
-                output_dir=ctx.output_dir/"quality"/f"attempt-{attempt}",attempt=attempt))
+                output_dir=ctx.output_dir/"quality"/f"attempt-{attempt}",attempt=attempt,
+                max_judge_calls=ctx.max_judge_calls))
         ctx.store.put("quality.json",result)
         route = result["route"]
         phase,reason = "review_required",result.get("failure_type") or "quality_not_passed"

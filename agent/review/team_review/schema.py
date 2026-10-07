@@ -199,6 +199,7 @@ class Synthesis(StrictModel):
     view_differences: list[dict[str, Any]]
     metric_comparisons: list[dict[str, Any]]
     trl: dict[str, Any]
+    trl_semantic_audit: dict[str, Any] = Field(default_factory=dict)
     used_evidence_ids: list[str]
     references: list[dict[str, Any]]
     summary: list[str]

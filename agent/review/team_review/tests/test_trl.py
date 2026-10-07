@@ -152,6 +152,8 @@ class SelectedImplementationTRLTests(unittest.TestCase):
             raise RuntimeError("private failure")
         output = review_agent_node(state, fake_generator, fake_auditor, trl_auditor=broken)
         self.assertEqual(output["review"]["next"], "repair")
+        self.assertEqual(output["synthesis"]["trl_semantic_audit"], {
+            "status": "processing_failed", "item_count": 1, "error_type": "RuntimeError"})
         pending = output["synthesis"]["trl"]["SW-01"]["next_unconfirmed"]
         self.assertEqual(pending["semantic_validation_status"], "failed")
         self.assertEqual(pending["status"], "unknown")
@@ -226,11 +228,71 @@ class TRLHandoffTests(unittest.TestCase):
         with patch("openai.OpenAI") as client:
             client.return_value.__enter__.return_value.responses.parse.return_value = response
             self.assertEqual(call_trl_grounding({"items": []}, model="test-model"), {"checks": []})
-            args = client.return_value.__enter__.return_value.responses.parse.call_args.kwargs
-            self.assertIn("최종 TRL 숫자를 계산하지 않는다", args["instructions"])
-            self.assertEqual(json.loads(args["input"]), {"items": []})
-            self.assertFalse(args["store"])
-            self.assertEqual(client.call_args.kwargs["max_retries"], 0)
+            self.assertFalse(client.called)
+
+    def test_production_semantic_checker_batches_by_technology_with_bounded_output(self):
+        from team_review.review import call_trl_grounding
+        calls = []
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def parse(self, **kwargs):
+                calls.append(kwargs)
+                supplied = json.loads(kwargs["input"])["items"]
+                checks = [{"item_id": item["item_id"], "verdict": "uncertain",
+                           "reason": "test audit", "evidence_ids": []} for item in supplied]
+                return SimpleNamespace(status="completed", output_parsed={"checks": checks})
+        items = [{"item_id": f"{tech}/trl/{level}", "technology_id": tech}
+                 for tech in ("SW-01", "HW-01") for level in range(1, 10)]
+        with patch("pipeline.governance.openai_client", return_value=Client()):
+            result = call_trl_grounding({"items": items}, model="test-model")
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(all(len(json.loads(call["input"])["items"]) == 9 for call in calls))
+        self.assertTrue(all(call["max_output_tokens"] == 8000 for call in calls))
+        self.assertEqual({check["item_id"] for check in result["checks"]},
+                         {item["item_id"] for item in items})
+
+    def test_production_semantic_checker_incomplete_response_fails_closed_with_safe_diagnostic(self):
+        from team_review.review import TRLGroundingError, call_trl_grounding
+        class Details:
+            def model_dump(self): return {"reason": "max_output_tokens"}
+        class Usage:
+            def model_dump(self): return {"input_tokens": 100, "output_tokens": 8000,
+                                           "total_tokens": 8100, "private": "do not copy"}
+        response = SimpleNamespace(status="incomplete", output_parsed=None,
+                                   incomplete_details=Details(), usage=Usage())
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def parse(self, **kwargs): return response
+        client = Client()
+        with patch("pipeline.governance.openai_client", return_value=client):
+            with self.assertRaises(TRLGroundingError) as caught:
+                call_trl_grounding({"items": [{"item_id": "SW-01/trl/1",
+                                                "technology_id": "SW-01"}]}, model="test-model")
+        self.assertEqual(caught.exception.diagnostic, {"status": "incomplete",
+            "incomplete_reason": "max_output_tokens", "input_tokens": 100,
+            "output_tokens": 8000, "total_tokens": 8100})
+        self.assertNotIn("private", json.dumps(caught.exception.diagnostic))
+
+    def test_incomplete_grounding_diagnostic_is_preserved_without_response_content(self):
+        from team_review.review import TRLGroundingError
+        state = make_input()
+        state["assessments"]["technical"]["results"]["SW-01"]["trl_checks"][1]["generation_method"] = "model"
+        def incomplete(_):
+            raise TRLGroundingError("private provider message", diagnostic={
+                "status": "incomplete", "incomplete_reason": "max_output_tokens",
+                "input_tokens": 100, "output_tokens": 8000, "total_tokens": 8100})
+        output = review_node(state, trl_auditor=incomplete)
+        self.assertEqual(output["synthesis"]["trl_semantic_audit"], {
+            "status": "incomplete", "item_count": 1, "error_type": "TRLGroundingError",
+            "incomplete_reason": "max_output_tokens", "input_tokens": 100,
+            "output_tokens": 8000, "total_tokens": 8100})
+        self.assertNotIn("private provider message", json.dumps(output, ensure_ascii=False))
 
     def test_reviewer_marks_derived_trl_as_inference(self):
         state = make_input()

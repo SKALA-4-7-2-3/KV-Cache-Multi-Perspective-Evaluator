@@ -56,6 +56,21 @@ class GovernanceTests(unittest.TestCase):
             self.assertEqual(saved["used_tokens"], 42)
             self.assertTrue(all(call["reserved_tokens"] >= 16384 for call in saved["calls"].values()))
 
+    def test_explicit_budget_extension_preserves_attempts_and_unconfirmed_usage(self):
+        from pipeline.governance import BudgetLedger
+        with tempfile.TemporaryDirectory() as d:
+            ledger = BudgetLedger(Path(d),limits={"tokens":100,"llm":2})
+            call = ledger.reserve("llm",70,task_id="one")
+            ledger.finish(call,tokens=None,error="timeout")
+            with self.assertRaises(ValueError):
+                BudgetLedger(Path(d),limits={"tokens":200,"llm":2})
+            raised = BudgetLedger(Path(d),limits={"tokens":200,"llm":2},allow_budget_increase=True)
+            self.assertEqual(raised.snapshot()["unconfirmed_tokens"],70)
+            self.assertEqual(raised.snapshot()["counts"]["llm"],1)
+            self.assertEqual(raised.snapshot()["budget_extensions"][0]["before"]["tokens"],100)
+            with self.assertRaises(ValueError):
+                BudgetLedger(Path(d),limits={"tokens":150,"llm":2},allow_budget_increase=True)
+
 
 if __name__ == "__main__":
     unittest.main()

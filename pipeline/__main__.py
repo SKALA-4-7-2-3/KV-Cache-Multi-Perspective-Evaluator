@@ -34,11 +34,13 @@ def main():
     parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
     parser.add_argument("--as-of", default=datetime.now().date().isoformat())
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--extend-budget", action="store_true", help="With --resume, explicitly raise saved limits without resetting usage")
     parser.add_argument("--draft", action="store_true", help="Render actual eight-cell results as an explicitly unreviewed draft")
     parser.add_argument("--rerun", nargs="*", default=[], choices=["domain", "stakeholders", "market", "trl", "review", "report", "quality"],
                         help="With --resume, rerun selected stages while keeping other successful results")
     parser.add_argument("--stop-after", choices=["prepare", "domain", "stakeholders", "market", "trl", "review", "report", "quality"], default="quality")
     parser.add_argument("--report-model", help="Report writing model; defaults to --model")
+    parser.add_argument("--max-judge-calls", type=int, default=64, help="Quality HTTP call ceiling per attempt, within the global model limit")
     parser.add_argument("--max-tokens", type=int, default=500_000, help="Post-RAG actual+unconfirmed+reserved token ceiling")
     parser.add_argument("--max-model-calls", type=int, default=60, help="Post-RAG model HTTP attempt limit")
     parser.add_argument("--max-search-calls", type=int, default=24, help="Post-RAG web search HTTP attempt limit")
@@ -46,6 +48,8 @@ def main():
     parser.add_argument("--max-fetch-calls", type=int, default=48, help="Post-RAG other HTTP attempt limit")
     parser.add_argument("--max-seconds", type=int, default=1800, help="Post-RAG elapsed-time admission and HTTP timeout limit")
     args = parser.parse_args()
+    if args.extend_budget and not args.resume:
+        parser.error("--extend-budget requires --resume")
     from dotenv import load_dotenv
     load_dotenv(args.env_file, override=True)
     load_dotenv(ROOT / ".env", override=False)
@@ -120,10 +124,10 @@ def main():
     from .checkpoint import SQLiteCheckpoint
     ledger = BudgetLedger(output, limits={"tokens":args.max_tokens,"llm":args.max_model_calls,
         "search":args.max_search_calls,"extract":args.max_extract_calls,"fetch":args.max_fetch_calls,
-        "seconds":args.max_seconds})
+        "seconds":args.max_seconds},allow_budget_increase=args.extend_budget)
     configure(ledger)
     context = PipelineContext(output,bundle,request,manifest["run_id"],args.as_of,args.model,
-        draft=args.draft,stop_after=args.stop_after,report_model=args.report_model)
+        draft=args.draft,stop_after=args.stop_after,report_model=args.report_model,max_judge_calls=args.max_judge_calls)
     report_settings = {"model":args.report_model or args.model,"draft":args.draft}
     old_settings = manifest.get("report_settings",report_settings)
     if old_settings["model"] != report_settings["model"]: args.rerun.append("report")
@@ -142,11 +146,16 @@ def main():
             "evaluation_run_id":manifest["run_id"],"input_sha256":identity,"code_sha256":context.code_hash}}
     snapshot = graph.get_state(configuration)
     old_code = manifest.get("orchestration_code_sha256")
+    from .artifacts import role_fingerprints
+    role_hashes = role_fingerprints(ROOT)
+    old_role_hashes = manifest.get("role_code_sha256",{})
     manifest["orchestration_code_sha256"] = context.code_hash
+    manifest["role_code_sha256"] = role_hashes
     manifest["engine"] = "orchestrator-workers"
     manifest["status"] = "running"
     manifest["budget_limits"] = ledger.limits
     manifest["budget_scope"] = "Downstream API calls after saved/live RAG loading; live RAG subprocess excluded"
+    manifest["quality_call_limit_per_attempt"] = args.max_judge_calls
     save(manifest_path,manifest)
     if previous and args.resume and snapshot.values and old_code == context.code_hash and not args.rerun:
         if snapshot.next:
@@ -168,7 +177,8 @@ def main():
             else:
                 invocation = "complete"
     else:
-        prior_refs = snapshot.values.get("accepted_refs",{}) if snapshot.values and old_code == context.code_hash else {}
+        prior_refs = {role:ref for role,ref in snapshot.values.get("accepted_refs",{}).items()
+            if old_code == context.code_hash or old_role_hashes.get(role) == role_hashes.get(role)}
         from .contracts import CATALOG, all_cells
         selected = [r for r in args.rerun if r in CATALOG]
         pending = all_cells(selected) if selected else None

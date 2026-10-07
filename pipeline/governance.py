@@ -28,7 +28,7 @@ class BudgetExceeded(RuntimeError):
 
 
 class BudgetLedger:
-    def __init__(self, output_dir: Path, *, limits=None):
+    def __init__(self, output_dir: Path, *, limits=None, allow_budget_increase=False):
         self.path = Path(output_dir) / "usage.json"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = RLock()
@@ -41,7 +41,15 @@ class BudgetLedger:
             "used_tokens": 0, "unconfirmed_tokens": 0, "elapsed_seconds": 0,
             "calls": {}, "termination_reason": None})
         if self.data["limits"] != self.limits:
-            raise ValueError("Resume budget differs from the saved run")
+            before = self.data["limits"]
+            if not allow_budget_increase or any(self.limits[k] < before[k] for k in before):
+                raise ValueError("Resume budget differs; explicit extension can only increase saved limits")
+            self.data.setdefault("budget_extensions", []).append({
+                "before":before,"after":self.limits,"at":datetime.now(timezone.utc).isoformat(),
+                "used_tokens":self.data["used_tokens"],"unconfirmed_tokens":self.data["unconfirmed_tokens"],
+                "counts":dict(self.data["counts"]),"elapsed_seconds":self.data["elapsed_seconds"]})
+            self.data["limits"] = self.limits
+            self.data["termination_reason"] = None
         self.prior_seconds = self.data["elapsed_seconds"]
         # A process interrupted after reserving may already have sent its request.
         for call in self.data["calls"].values():

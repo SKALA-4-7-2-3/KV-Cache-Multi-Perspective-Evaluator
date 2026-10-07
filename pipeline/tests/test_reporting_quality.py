@@ -1,12 +1,14 @@
 """Source and TRL preservation at the report revision boundary."""
 from pathlib import Path
 import json
+import re
 from types import SimpleNamespace
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from pipeline.reporting import build_quality_revision_prompt, source_analysis, validate_source_reading
+from pipeline.reporting import (build_quality_revision_prompt, source_analysis,
+                                validate_source_reading, source_quote_spans, resolve_source_reading_ids)
 from report_agent.parser import parse_report_input
 
 FIXTURES = Path(__file__).resolve().parents[2] / "report/tests/fixtures"
@@ -66,7 +68,7 @@ class ReportingQualityTests(unittest.TestCase):
             {"use_in_report": True, "observations": [{"source_report": "저자 보고",
                 "supporting_quote": "Invented source quote."}]},
             {"use_in_report": True, "observations": [{"source_report": "저자 보고",
-                "supporting_quote": "Exact original result."}]},
+                "supporting_quote_id": "q00001"}]},
         ]
         class Client:
             def __enter__(self): return self
@@ -92,6 +94,15 @@ class ReportingQualityTests(unittest.TestCase):
             self.assertIn("Invented source quote.", calls[1]["input"])
             self.assertIn("Exact original result.", calls[1]["input"])
             self.assertIn("---SOURCE_READING_REPAIR_", calls[1]["input"])
+            self.assertEqual(calls[0]["text_format"].__name__, "SourceReading")
+            self.assertEqual(calls[1]["text_format"].__name__, "SourceReadingById")
+            match = re.search(r"---SOURCE_READING_REPAIR_[0-9a-f]{16}---\n([\s\S]*?)\n---END_", calls[1]["input"])
+            repair_data = json.loads(match.group(1))
+            self.assertNotIn("excerpt", repair_data["source"])
+            self.assertEqual("".join(span["text"] for span in repair_data["excerpt_spans"]), "Exact original result.")
+            success = json.loads(next((output / "source-readings").glob("*.attempt-2.json")).read_text())
+            self.assertEqual(success["candidate"]["observations"][0]["supporting_quote_id"], "q00001")
+            self.assertEqual(success["resolved_reading"]["observations"][0]["supporting_quote"], "Exact original result.")
             self.assertIn("Exact original result.", result)
             source_analysis(markdown, output, "offline-model")
         self.assertEqual(len(calls), 2)
@@ -106,7 +117,8 @@ class ReportingQualityTests(unittest.TestCase):
             def parse(self, **kwargs):
                 calls.append(kwargs)
                 value = {"use_in_report": True, "observations": [{"source_report": "저자 보고",
-                    "supporting_quote": "Altered original result."}]}
+                    **({"supporting_quote": "Altered original result."} if len(calls) == 1
+                       else {"supporting_quote_id": "q_not_registered"})}]}
                 return SimpleNamespace(output_text=json.dumps(value),
                     output_parsed=SimpleNamespace(model_dump=lambda: value))
         markdown = "<!-- USABLE_SOURCE_REPORTS_JSON\n" + json.dumps([
@@ -120,6 +132,59 @@ class ReportingQualityTests(unittest.TestCase):
             self.assertTrue(all(json.loads(path.read_text())["validation_error"] for path in attempts))
             self.assertFalse((Path(directory) / "report.source-analysis.json").exists())
         self.assertEqual(len(calls), 2)
+
+    def test_numbered_source_spans_cover_every_original_character_and_bind_exact_quotes(self):
+        excerpt = "첫 줄\n" + "x" * 1599 + "\n마지막 조건: 시뮬레이션 ... 원문 자체의 생략 표시."
+        source = {"excerpt": excerpt}
+        spans = source_quote_spans(source)
+        self.assertEqual("".join(span["text"] for span in spans), excerpt)
+        self.assertEqual(spans[0]["start"], 0)
+        self.assertEqual(spans[-1]["end"], len(excerpt))
+        self.assertTrue(all(0 < len(span["text"]) <= 800 for span in spans))
+        self.assertTrue(all(left["end"] == right["start"] for left, right in zip(spans, spans[1:])))
+        selected = spans[-1]
+        reading = {"use_in_report": True, "observations": [{"source_report": "출처 보고",
+                   "supporting_quote_id": selected["id"]}]}
+        resolved = resolve_source_reading_ids(source, reading, spans)
+        self.assertEqual(resolved["observations"][0]["supporting_quote"], excerpt[selected["start"]:selected["end"]])
+        self.assertEqual(validate_source_reading(source, resolved), resolved)
+        for invalid in (None, "q_unknown", "q00001 ... q00003"):
+            broken = {**reading, "observations": [{"source_report": "출처 보고", "supporting_quote_id": invalid}]}
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                resolve_source_reading_ids(source, broken, spans)
+
+    def test_repaired_source_uses_code_owned_identity_and_old_success_key_without_calls(self):
+        calls = []
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def parse(self, **kwargs):
+                calls.append(kwargs)
+                value = {"use_in_report": True, "observations": [{"source_report": "출처 보고",
+                         **({"supporting_quote": "stitch ... stitch"} if len(calls) == 1
+                            else {"supporting_quote_id": "q00001"})}],
+                         "source_id": "model-injected-source", "technology_ids": ["HW-01"]}
+                return SimpleNamespace(output_text=json.dumps(value),
+                    output_parsed=SimpleNamespace(model_dump=lambda: value))
+        source = {"source_id": "source-owner", "title": "Title", "url": "https://example.test/owner",
+                  "citation_key": "WEB_owner", "role": "market", "technology_ids": ["SW-01"],
+                  "excerpt": "Exact original result."}
+        markdown = "<!-- USABLE_SOURCE_REPORTS_JSON\n" + json.dumps([source]) + "\nEND_USABLE_SOURCE_REPORTS_JSON -->"
+        with tempfile.TemporaryDirectory() as directory, patch("pipeline.governance.openai_client", return_value=Client()):
+            output = Path(directory)
+            source_analysis(markdown, output, "offline-model")
+            cached = next(path for path in (output / "source-readings").glob("*.json") if ".attempt-" not in path.name)
+            from hashlib import sha256
+            expected_key = sha256(json.dumps([source, "offline-model", calls[0]["instructions"]], ensure_ascii=False).encode()).hexdigest()
+            self.assertEqual(cached.stem, expected_key)
+            saved = json.loads(cached.read_text())
+            for field in ("source_id", "title", "url", "citation_key", "role", "technology_ids"):
+                self.assertEqual(saved[field], source[field])
+            (output / "report.source-analysis.json").unlink()
+            source_analysis(markdown, output, "offline-model")
+            self.assertEqual(len(calls), 2)
 
     def test_unparsed_source_response_is_saved_before_one_repair(self):
         calls = []
