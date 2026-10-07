@@ -65,7 +65,8 @@ def pending(data, analysis):
 
 
 def run_adaptive(data, web, analyst, *, mode='live', budget=None, auto_repair=True,
-                 round_number=0, previous=None, existing_evidence=None, existing_claims=None, previous_progress=None):
+                 round_number=0, previous=None, existing_evidence=None, existing_claims=None,
+                 previous_progress=None, active_cells=None, feedback=None):
     if round_number not in {0,1}:raise ValueError('round_number must be 0 or 1')
     budget=budget or Budget(data.limits);budget.constrain(data.limits)
     progress=previous_progress if previous_progress is not None else budget.progress
@@ -81,15 +82,31 @@ def run_adaptive(data, web, analyst, *, mode='live', budget=None, auto_repair=Tr
     if previous is None and progress.get('verified_rows'):
         previous=Analysis.model_validate({'assessments':progress['verified_rows'],'followup_questions':[]})
     analysis=merge_verified(data,analysis,previous,evidence)
+    all_cells={(t,c) for t in data.technologies for c in CRITERIA}
+    active=set(tuple(cell) for cell in active_cells) if active_cells else set(all_cells)
+    if not active or not active <= all_cells:
+        raise ValueError('active_cells must contain known technology/criterion pairs')
+    previous_rows={(r.tech_id,r.criterion_id):r.model_copy(deep=True)
+                   for r in (previous.assessments if previous else [])}
+    feedback=list(feedback or [])
+
+    def scoped_pending(current):
+        return [cell for cell in pending(data,current) if cell in active]
 
     def collect(state):
         from .node import relevant_candidate
-        targets=pending(data,state['analysis'])
+        targets=scoped_pending(state['analysis'])
         rows=[unknown(t,c,'보완 대상') for t,c in targets]
         questions=initial_questions(data) if state['research_level']==0 else progressive_questions(data,rows,state['queries'],state['research_level'])
+        scoped_questions=[]
+        for q in questions:
+            criteria=[criterion for criterion in q.criteria if (q.tech_id,criterion) in active]
+            if criteria:
+                scoped_questions.append(q.model_copy(update={"criterion_id": criteria[0], "criteria": criteria}))
+        questions=scoped_questions
         seen={q['query'] for q in state['queries']}
         questions=[q for q in questions if q.query not in seen] if targets else []
-        collected=collect_sources(state,data,web,budget,questions,lambda r,t:relevant_candidate(r,t,state['research_level']))
+        collected=collect_sources(state,data,web,budget,questions,lambda r,t:relevant_candidate(r,t,state['research_level']), active_cells=active)
         collected['targets']=targets
         collected['packet']=build_packet(data,collected['evidence'],state['research_level'],targets,collected['sources'])
         return collected
@@ -101,8 +118,10 @@ def run_adaptive(data, web, analyst, *, mode='live', budget=None, auto_repair=Tr
             update['errors']=state['errors']+[dict(stage='llm_synthesize',code='budget_exhausted:llm',scope='global')]
             return update
         try:
+            issues=[*state['errors'], *({'stage':'parent_feedback','code':'scoped_feedback','message':item,
+                                         'scope':'task'} for item in feedback)]
             draft=budget.call('llm',lambda:Synthesis.model_validate(analyst.synthesize(data,state['packet'],state['research_level'],
-                state['targets'],previous=state['analysis'],issues=state['errors'])),max_attempts=min(2,budget.remaining('llm')-1))
+                state['targets'],previous=state['analysis'],issues=issues)),max_attempts=min(2,budget.remaining('llm')-1))
             update.update(draft=draft,model_successes=state['model_successes']+1)
         except ProviderError as exc:
             update.update(errors=state['errors']+[dict(stage='llm_synthesize',code=exc.code,scope='global')],fatal=exc.fatal)
@@ -138,7 +157,7 @@ def run_adaptive(data, web, analyst, *, mode='live', budget=None, auto_repair=Tr
                 history=state['history']+['review_synthesis_failed'])
 
     def route(state):
-        if auto_repair and not state['fatal'] and state['research_level']<2 and pending(data,state['analysis']) and budget.remaining('llm')>=2:
+        if auto_repair and not state['fatal'] and state['research_level']<2 and scoped_pending(state['analysis']) and budget.remaining('llm')>=2:
             return 'broaden'
         if auto_repair and not state['fatal'] and state['research_level']==2 and state['packet'] and failed_targets(state) and state['repair_attempts']<2 and budget.remaining('llm')>=2:
             return 'repair'
@@ -147,7 +166,7 @@ def run_adaptive(data, web, analyst, *, mode='live', budget=None, auto_repair=Tr
     def failed_targets(state):
         valid={(r.tech_id,r.criterion_id) for r in state['analysis'].assessments
             if r.basis!='unknown' and r.generation_method in {'model_synthesis','verified_claim'}}
-        return [(t,c) for t in data.technologies for c in CRITERIA if (t,c) not in valid]
+        return [(t,c) for t,c in active if (t,c) not in valid]
 
     def repair(state):
         targets=failed_targets(state)
@@ -160,11 +179,25 @@ def run_adaptive(data, web, analyst, *, mode='live', budget=None, auto_repair=Tr
     def finish(state):
         # 미완료 행은 실제 조사 상태를 붙인 뒤에만 비상 출력으로 완성한다.
         by_key={(r.tech_id,r.criterion_id):r for r in state['analysis'].assessments}
-        raw=Analysis(assessments=[by_key.get((t,c),unknown(t,c,'자료 종합 평가를 완료하지 못함'))
-            for t in data.technologies for c in CRITERIA],followup_questions=[])
+        rows=[]
+        for t in data.technologies:
+            for c in CRITERIA:
+                key=(t,c)
+                if key not in active and key in previous_rows:
+                    rows.append(previous_rows[key])
+                else:
+                    rows.append(by_key.get(key,unknown(t,c,'자료 종합 평가를 완료하지 못함')))
+        raw=Analysis(assessments=rows,followup_questions=[])
         reviewed={(r.tech_id,r.criterion_id):r.reviewed_evidence_ids for r in raw.assessments}
         raw=annotate(raw,data,state['evidence'],state['queries'],state['errors'],budget,state['model_successes']>0,reviewed=reviewed)
         result_analysis=complete_delivery(data,raw,state['evidence'],state['errors'])
+        if active != all_cells and previous_rows:
+            delivered={(row.tech_id,row.criterion_id):row for row in result_analysis.assessments}
+            for key,row in previous_rows.items():
+                if key not in active:
+                    delivered[key]=row.model_copy(deep=True)
+            result_analysis=result_analysis.model_copy(update={'assessments': [
+                delivered[(t,c)] for t in data.technologies for c in CRITERIA]})
         fallback=any(r.generation_method=='deterministic_fallback' for r in result_analysis.assessments)
         execution='failed' if state['fatal'] else ('partial' if state['errors'] or fallback else 'completed')
         statuses=technology_status(data,result_analysis)
@@ -184,7 +217,8 @@ def run_adaptive(data, web, analyst, *, mode='live', budget=None, auto_repair=Tr
     graph.add_conditional_edges('review',route,{'broaden':'broaden','repair':'repair','finish':'finish'})
     graph.add_edge('broaden','collect');graph.add_edge('finish',END)
     graph.add_edge('repair','synthesize')
-    state=graph.compile().invoke(dict(evidence=evidence,sources={},analysis=analysis,errors=list(progress.get('errors',[]))+restore_errors,
+    # The parent checkpoints control references, not this worker's rich models.
+    state=graph.compile(checkpointer=False).invoke(dict(evidence=evidence,sources={},analysis=analysis,errors=list(progress.get('errors',[]))+restore_errors,
         history=[],queries=list(progress.get('queries',[])),fatal=False,research_level=progress.get('research_level',round_number),round=round_number,
         records=records,stage_history=list(progress.get('stage_history',[])),model_successes=progress.get('model_successes',0),
         retained_draft_findings=list(progress.get('retained_draft_findings',[])),

@@ -3,6 +3,7 @@
 import json
 from copy import deepcopy
 from datetime import date
+from functools import partial
 
 from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
@@ -55,16 +56,25 @@ def synthesis_schema(packet, level, targets):
 
 class OpenAIAnalyst:
     def __init__(self, api_key: str, model="gpt-4.1-mini", *, debug=False):
-        if not api_key:
-            raise ProviderError("missing_openai_key", fatal=True)
         from langchain_openai import ChatOpenAI
+
+        factory, uses_api_key = ChatOpenAI, True
+        try:
+            from pipeline import governance
+            factory = partial(governance.chat_model, api_factory=ChatOpenAI)
+            uses_api_key = governance.model_provider() == 'openai_api'
+        except ImportError:
+            pass
+        if not api_key and uses_api_key:
+            raise ProviderError("missing_openai_key", fatal=True)
 
         self.model = model
         self.usage = []
         self.output_checks = []
         self.debug = debug
         self.debug_analyses = []
-        self._llm = ChatOpenAI(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
+        kwargs=dict(api_key=api_key, model=model, temperature=0, max_retries=0, timeout=60)
+        self._llm = factory(**kwargs)
         self._composer = self._llm.with_structured_output(strict_schema(ReviewedDraftAnalysis), method="json_schema", strict=True, include_raw=True)
 
     def _invoke(self, stage, runnable, schema, prompt, payload):

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from market_agent.node import run_market, parent_update
 from market_agent.parser import read_input
-from market_agent.providers import FixtureAnalyst, FixtureWeb
+from market_agent.providers import FixtureAnalyst, FixtureWeb, AdaptiveFixtureAnalyst
 from market_agent.schemas import Limits
 from market_agent.tools import Budget, ProviderError
 
@@ -12,6 +12,33 @@ INPUT = Path(__file__).parents[1] / "fixtures/input.md"
 
 
 class GraphTests(unittest.TestCase):
+    def test_active_cells_scope_questions_models_and_preserves_full_delivery(self):
+        class RecordingAnalyst(AdaptiveFixtureAnalyst):
+            def __init__(self):
+                self.targets = []
+            def synthesize(self, data, packet, level, targets, previous=None, issues=None):
+                self.targets.extend(targets)
+                return super().synthesize(data, packet, level, targets, previous, issues)
+        data = read_input(INPUT)
+        first = run_market(data, FixtureWeb(), AdaptiveFixtureAnalyst(), mode='fixture')
+        from market_agent.schemas import Analysis
+        prior = Analysis(assessments=first['result'].assessments, followup_questions=[])
+        before = {(row.tech_id,row.criterion_id):row.model_dump(mode='json') for row in prior.assessments}
+        analyst = RecordingAnalyst()
+        progress={**first['result'].progress, 'queries': []}
+        scoped = run_market(data, FixtureWeb(), analyst, mode='fixture', previous=prior,
+            existing_evidence=first['evidence'], previous_progress=progress,
+            round_number=1, active_cells=[('HW-01','standardization')],
+            feedback=['표준 연결 범위를 다시 확인'])
+        self.assertTrue(all(target == ('HW-01','standardization') for target in analyst.targets))
+        self.assertTrue(all(query['tech_id']=='HW-01' and query['criteria']==['standardization']
+                            for query in scoped['queries']))
+        rows={(row.tech_id,row.criterion_id):row.model_dump(mode='json') for row in scoped['result'].assessments}
+        self.assertEqual(len(rows),12)
+        for key,value in before.items():
+            if key != ('HW-01','standardization'):
+                self.assertEqual(rows[key],value)
+
     def test_execution_status_is_separate_from_provisional_delivery(self):
         result=run_market(read_input(INPUT),FixtureWeb(),FixtureAnalyst(),mode='fixture')['result']
         self.assertEqual(result.status,'provisional')

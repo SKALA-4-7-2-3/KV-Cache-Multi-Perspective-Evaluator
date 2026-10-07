@@ -9,7 +9,7 @@ from .sources import rank_candidates, select_segments, content_fallback, content
 from .tools import ProviderError, canonical_url, public_url
 
 
-def collect_sources(state, data, web, budget, questions, relevant_candidate):
+def collect_sources(state, data, web, budget, questions, relevant_candidate, *, active_cells=None):
     errors, evidence = list(state['errors']), dict(state['evidence'])
     sources, queries, groups = dict(state['sources']), list(state['queries']), []
     fatal = state['fatal']
@@ -38,12 +38,21 @@ def collect_sources(state, data, web, budget, questions, relevant_candidate):
             fatal |= exc.fatal
     candidates = [item for group in zip_longest(*groups) for item in group if item]
     if not fatal:
-        papers = [(t.id, 'commercialization', ['commercialization', 'ecosystem_support', 'business_value'],
-            dict(url=t.url, title=t.paper, content='', published_at=None)) for t in data.technologies.values() if public_url(t.url)]
+        active=set(active_cells or ())
+        papers = []
+        for t in data.technologies.values():
+            criteria=['commercialization', 'ecosystem_support', 'business_value']
+            if active:
+                criteria=[criterion for criterion in criteria if (t.id,criterion) in active]
+            if criteria and public_url(t.url):
+                papers.append((t.id, criteria[0], criteria,
+                    dict(url=t.url, title=t.paper, content='', published_at=None)))
         # 원문이 남은 기존 후보도 보완 회차에서 회수한다.
-        pending = [(t, 'commercialization', ['commercialization', 'ecosystem_support'],
+        pending = [(t, next((c for c in ['commercialization','ecosystem_support'] if not active or (t,c) in active), 'commercialization'),
+            [c for c in ['commercialization', 'ecosystem_support'] if not active or (t,c) in active],
             dict(url=e.url, title=e.title, content=e.excerpt, published_at=e.published_at))
-            for e in evidence.values() if e.access_status == 'snippet' for t in e.tech_ids if t in data.technologies]
+            for e in evidence.values() if e.access_status == 'snippet' for t in e.tech_ids if t in data.technologies
+            and any(not active or (t,c) in active for c in ['commercialization','ecosystem_support'])]
         candidates = (papers + candidates) if round_number == 0 else (candidates + pending + papers)
     by_url = {canonical_url(e.url): e.id for e in evidence.values() if public_url(e.url)}
     by_url.update({canonical_url(e.requested_url): e.id for e in evidence.values() if public_url(e.requested_url)})
