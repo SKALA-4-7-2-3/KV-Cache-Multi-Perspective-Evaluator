@@ -54,6 +54,8 @@ class Config(BaseModel):
     rubric_version: Text = "kv-cache-rubric-v1"
     # 예: {"quality": "정확도 감소 1%p 이하"}. 숫자의 타당성 자체는 사람이 검수한다.
     requirements: dict[str, Text] = Field(default_factory=dict)
+    # 기존 입력은 선정 논문만 사용한다. 구현·버전 결합 웹 근거는 명시적으로 허용한다.
+    trl_evidence_policy: Literal["paper_only", "selected_implementation"] = "paper_only"
 
 
 class Document(StrictModel):
@@ -141,6 +143,18 @@ class TRLCheck(StrictModel):
     status: Literal["met", "not_met", "unknown"]
     reason: Text
     evidence_ids: list[Text] = Field(default_factory=list)
+    generation_method: Literal["provided", "model"] = "provided"
+
+
+class TRLSemanticCheck(StrictModel):
+    item_id: Text
+    verdict: Literal["supported", "unsupported", "uncertain"]
+    reason: Text
+    evidence_ids: list[Text] = Field(default_factory=list)
+
+
+class TRLSemanticAudit(StrictModel):
+    checks: list[TRLSemanticCheck]
 
 
 class TechnologyAssessment(StrictModel):

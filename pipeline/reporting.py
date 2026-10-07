@@ -260,6 +260,9 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
                     )
         if source_coverage is not None:
             record_source_coverage(candidate, generated.parsed_input)
+        final_validation = validate_latex(candidate, generated.parsed_input)
+        if not final_validation.valid:
+            raise GenerationError("최종 보고서 검증 오류:\n" + "\n".join(final_validation.issues))
     except Exception as exc:
         (output_dir / "report.error.json").write_text(
             json.dumps(
@@ -285,6 +288,8 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
         "reference_count": len(re.findall(r"\\bibitem(?:\[[^\]]*\])?\{([^{}]+)\}", candidate)),
         "revision_feedback_count": len(revision_feedback or []),
         "revised_existing_report": revision_candidate is not None,
+        **({"trl": {tech: record["level"] for tech, record in generated.parsed_input.trl_assessments.items()},
+            "trl_validation": "passed"} if generated.parsed_input.trl_assessments else {}),
         **({"source_coverage": source_coverage} if source_coverage is not None else {}),
     }
     (output_dir / "report.result.json").write_text(

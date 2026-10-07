@@ -83,7 +83,33 @@ uv run --frozen python -m pipeline --run-rag \
 1. `pipeline/research_input.py`: 원본 실행·논문 dossier·비교·근거 파일을 읽고 역할별 입력으로 변환합니다.
 2. `pipeline/runtime.py`: Domain → Stakeholder → Market을 실제 호출합니다.
 3. `pipeline/review_bridge.py`: 결과와 근거를 Review 입력으로 연결하고 종합을 실행합니다.
-4. `pipeline/reporting.py`: 실제 종합 결과로 기존 ReportAgent를 호출해 LaTeX와 PDF를 생성합니다.
+4. `pipeline/trl.py`: 연결된 원문 근거로 기술별 TRL 1~9 단계 초안을 생성합니다. 기술 조사 역할의 후처리이며 최종 숫자를 발급하지 않습니다.
+5. `pipeline/reporting.py`: 실제 종합 결과로 기존 ReportAgent를 호출해 LaTeX와 PDF를 생성합니다.
+
+### 기술 성숙도(TRL) 출력
+
+기본 실행에도 TRL 초안 단계를 포함합니다. 논문에 공식 TRL 숫자가 없어도 제공된 원문을 팀 기준에 대응하여 `met/not_met/unknown`과 근거 ID·이유를 작성합니다. 기술별 초안 생성 2회와 Review의 별도 의미 검사 1회가 추가되며, `--draft`도 TRL 의미 검사는 수행합니다.
+
+Review는 실제 인용문이 단계 조건을 지원하는지 검사하고 **1단계부터 연속으로 충족한 최고 단계**만 `synthesis.trl`에 기록합니다. 시뮬레이션을 실제 운용으로 승격하지 않으며 7·9단계는 operational, 8단계는 qualification 또는 operational 근거가 필요합니다. 1단계도 확인되지 않으면 `level: null`을 유지합니다.
+
+선정 논문의 근거와, 동일 구현·버전에 직접 연결된 웹 근거를 사용할 수 있습니다. 웹 근거는 수집기가 제공한 `provenance.target_technology_id`, `target_version`, `target_identity_verified=true` 및 원문 연결이 모두 필요합니다. 태그가 없는 일반 CXL 제품이나 인접 알고리즘의 상용화 실적을 대신 사용하지 않습니다. 통합 코드는 이 태그나 검증 방식을 자동 발급하지 않습니다.
+
+- `trl.output.json`: 모델 단계 초안. 최종 TRL이 아닙니다.
+- `review.output.json` → `synthesis.trl`: 기술별 최종 팀 추정, 9단계 검토 결과, 근거, 다음 미확인 조건.
+- `report.pdf` → 6.1 기술 성숙도: 추정 단계, 근거 인용, 다음 검증 조건, 공개 정보 기반 팀 추정 표시.
+- `report.result.json` → `trl`, `trl_validation`: 출력에 보존된 단계와 검증 결과.
+
+보고서 모델이 단계·근거·다음 조건을 누락하거나 바꾸면 수정 피드백을 전달합니다. 수정 후에도 계약을 만족하지 않으면 성공한 보고서로 저장하지 않습니다. 코드가 TRL 본문을 덧붙이지 않습니다.
+
+```bash
+# 세 관점 이후 TRL 초안까지만 실행
+uv run --frozen python -m pipeline --output outputs/trl-check --stop-after trl
+
+# 같은 입력의 성공한 관점 결과는 재사용하고 TRL부터 다시 계산
+uv run --frozen python -m pipeline --output outputs/my-report --resume --rerun trl review report
+```
+
+이 값은 **공개 정보 기반 팀 추정이며 공식 인증이 아닙니다**. 근거가 불충분한 단계는 다음 검증 조건으로 보존합니다. 의미 검사 API의 실패·미실행은 정상 평가로 승격하지 않습니다.
 
 원본 자료는 `research.bundle.json`, 모델에 전달한 파생 입력은 `papers.compat.json`,
 전달한 문맥과 원본 연결 기록은 `research.context_manifest.json`에 저장합니다.
@@ -140,7 +166,7 @@ PDF 생성은 전체 평가 정확도나 제출 품질 검증의 완료를 의�
 
 수집 한도는 성공한 고유 출처 수를 보장하지 않습니다. 확보된 자료가 8개라면 8개 전체를,
 그보다 많거나 적으면 실제 확보한 자료 전체를 전달하며 개수를 맞추기 위해 자료를 만들지 않습니다.
-논문 분석 입력과 참고문헌 형식은 기존 방식을 유지합니다. 근거 조각 191개를 추가로 모두 투입하지 않습니다.
+세 관점의 논문 분석 입력과 참고문헌 형식은 기존 방식을 유지합니다. TRL 후처리에서는 단계 판단에 필요한 근거를 놓치지 않도록 해당 기술의 원문 연결 근거 전체를 별도로 검토합니다.
 Research 결과의 authors가 비어 있으면 공식 arXiv에서 확인한 `pipeline/paper_authors.json`을 사용해
 참고문헌의 저자만 보완합니다. Research 원본은 수정하거나 재실행하지 않습니다.
 각 에이전트가 원래 사용하던 웹 페이지당 수집 길이와 내부 정책은 그대로 사용합니다.

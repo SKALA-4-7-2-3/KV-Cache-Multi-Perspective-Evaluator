@@ -23,6 +23,89 @@ DANGEROUS_COMMAND = re.compile(
 KOTEX_PACKAGE = re.compile(r"\\usepackage(?:\[[^\]]*])?\{kotex}")
 
 
+def _visible_text(latex: str) -> str:
+    """Read visible contract fields, excluding comments and citation commands."""
+    value = re.sub(r"(?<!\\)%[^\n]*", "", latex)
+    value = CITE.sub("", value)
+    value = re.sub(r"\\([%&_#$])", r"\1", value)
+    value = re.sub(r"\\[A-Za-z@]+\*?(?:\[[^\]]*\])?", "", value)
+    return re.sub(r"[{}~]", " ", value)
+
+
+def _compact(text: str) -> str:
+    return re.sub(r"\s+", "", text)
+
+
+def _reason_preserved(expected: str, plain: str) -> bool:
+    """Permit one added standalone '명확히'; retain every source word."""
+    compact_expected = _compact(expected)
+    if compact_expected in _compact(plain):
+        return True
+    for modifier in re.finditer(r"(?<!\S)명확히(?=\s)", plain):
+        without_modifier = plain[:modifier.start()] + plain[modifier.end():]
+        if compact_expected in _compact(without_modifier):
+            return True
+    return False
+
+
+def _trl_issues(latex: str, parsed: ParsedReportInput) -> list[str]:
+    if not parsed.trl_assessments:
+        return []
+    heading = re.search(r"\\subsection\{기술 성숙도\}", latex)
+    if not heading:
+        return ["TRL: 기술 성숙도 subsection에 최종 Review 판정을 작성해야 합니다."]
+    following = latex[heading.end():]
+    end = re.search(r"\\(?:subsection|section)\{", following)
+    maturity = following[:end.start()] if end else following
+    visible_maturity = _visible_text(maturity)
+    issues = []
+    if not (re.search(r"공개\s*정보", visible_maturity)
+            and re.search(r"팀\s*추정", visible_maturity)
+            and re.search(r"공식\s*인증.{0,12}(?:아니|아님)", visible_maturity)):
+        issues.append("TRL: 기술 성숙도 본문에 공개 정보 기반 팀 추정이며 공식 인증이 아님을 명시해야 합니다.")
+    names = {parsed.metadata["sw_technology_id"]: "RDKV",
+             parsed.metadata["hw_technology_id"]: "Photonic-CXL"}
+    for tech, record in parsed.trl_assessments.items():
+        expression = (r"(?m)^% BEGIN_TRL_ASSESSMENT " + re.escape(tech)
+                      + r"\s*\n([\s\S]*?)^% END_TRL_ASSESSMENT " + re.escape(tech) + r"\s*$")
+        blocks = re.findall(expression, maturity)
+        if len(blocks) != 1:
+            issues.append(f"TRL {tech}: 기술 성숙도 안에 BEGIN_TRL_ASSESSMENT/END_TRL_ASSESSMENT 경계와 본문을 정확히 한 번 작성해야 합니다.")
+            continue
+        block = blocks[0]
+        plain = _visible_text(block)
+        expected = "미확인" if record["level"] is None else str(record["level"])
+        levels = re.findall(
+            r"추정\s*TRL\s*[:：]\s*(미확인|[1-9])"
+            r"(?!\d|\s*[-–—～]?\s*\d|\.\d|\s*(?:에서|부터)\s*[1-9])"
+            r"(?=$|[\s.,;:()。])",
+            plain,
+        )
+        if names[tech] not in plain or levels != [expected]:
+            issues.append(f"TRL {tech}: {names[tech]}의 추정 TRL: {expected}를 보이는 본문에 유지해야 합니다. Review level={record['level']}이며 임의 숫자 변경은 허용하지 않습니다.")
+        other_grades = re.findall(
+            r"(?:실제|최종|확정|현재|공식|인증된|달성한)\s*TRL\s*[:：]?\s*([1-9])(?!\d)"
+            r"|TRL\s*[:：]?\s*([1-9])(?!\d)\s*(?:단계)?\s*(?:수준|이다|임|에\s*해당|로\s*평가|를\s*달성)",
+            plain,
+        )
+        if any((left or right) != expected for left, right in other_grades):
+            issues.append(f"TRL {tech}: Review 추정 TRL: {expected}와 다른 실제·최종 단계 단정이 있습니다.")
+        block_citations = {key.strip() for group in CITE.findall(re.sub(r"(?<!\\)%[^\n]*", "", block))
+                           for key in group.split(",")}
+        missing = set(record["citation_keys"]) - block_citations
+        if missing:
+            issues.append(f"TRL {tech}: 단계 근거 인용을 해당 TRL 본문에 넣어야 합니다: " + ", ".join(sorted(missing)))
+        if "다음미확인조건:" not in _compact(plain).replace("：", ":"):
+            issues.append(f"TRL {tech}: 다음 미확인 조건: 표시가 필요합니다.")
+        for field in ("next_condition", "next_reason"):
+            expected_text = record[field]
+            preserved = (_reason_preserved(expected_text, plain) if field == "next_reason"
+                         else _compact(expected_text) in _compact(plain))
+            if expected_text and not preserved:
+                issues.append(f"TRL {tech}: 다음 미확인 조건/이유를 보존해야 합니다: {expected_text}")
+    return issues
+
+
 def _balanced_braces(text: str) -> bool:
     depth = 0
     index = 0
@@ -49,6 +132,7 @@ def _balanced_braces(text: str) -> bool:
 
 def validate_latex(latex: str, parsed: ParsedReportInput) -> ValidationResult:
     issues: list[str] = []
+    issues.extend(_trl_issues(latex, parsed))
 
     if "```" in latex:
         issues.append("코드 펜스가 남아 있습니다.")

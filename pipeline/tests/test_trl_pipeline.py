@@ -1,0 +1,117 @@
+"""Offline CLI contract tests, not real perspective research or paper TRL estimates.
+
+The checked-in saved RAG bundle and bridge/Review/report parser run unchanged.
+Only provider boundaries are faked. Empty perspective outputs deliberately stay
+unknown, and the supported TRL decisions below are synthetic test decisions.
+"""
+
+from contextlib import ExitStack, contextmanager, redirect_stdout
+from io import StringIO
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from pipeline import ROOT
+from pipeline.__main__ import main
+from report_agent.parser import parse_report_input
+
+
+class TRLPipelineTests(unittest.TestCase):
+    @contextmanager
+    def boundaries(self):
+        parsed_reports = []
+
+        def draft(model, instructions, prompt):
+            payload = json.loads(prompt)
+            if payload["technology_id"] == "HW-01":
+                return {"checks": []}
+            self.assertTrue(payload["evidence"])
+            source = payload["evidence"][0]
+            self.assertEqual(source["doc_id"], "SW-01")
+            return {"checks": [
+                {"level": level, "status": "met", "evidence_ids": [source["id"]],
+                 "reason": "OFFLINE TEST ONLY: synthetic stage proposal for contract testing."}
+                for level in range(1, 5)]}
+
+        def audit(payload, *, model):
+            return {"checks": [
+                {"item_id": item["item_id"], "verdict": "supported",
+                 "reason": "OFFLINE TEST ONLY: synthetic semantic approval, not source evaluation.",
+                 "evidence_ids": list(item["evidence"])}
+                for item in payload["items"]]}
+
+        def report(markdown, output_dir, *, model, draft, attribution_first):
+            self.assertTrue(draft)
+            self.assertTrue(attribution_first)
+            parsed_reports.append(parse_report_input(
+                markdown, allow_unreviewed=draft, allow_attributed_draft=attribution_first))
+            # No model generation or PDF compilation occurs at this boundary.
+            return {"pdf_path": str(output_dir / "OFFLINE-TEST-PLACEHOLDER.pdf")}
+
+        with ExitStack() as stack:
+            stack.enter_context(patch("dotenv.load_dotenv", return_value=False))
+            stack.enter_context(patch.dict(os.environ, {
+                "OPENAI_API_KEY": "offline-test-placeholder", "TAVILY_API_KEY": "offline-test-placeholder"}))
+            mocks = {
+                "domain": stack.enter_context(patch("pipeline.runtime.run_domain", return_value={
+                    "status": "unknown", "offline_test_only": True})),
+                "stakeholders": stack.enter_context(patch("pipeline.runtime.run_stakeholders", return_value={
+                    "execution_status": "unknown", "result": {"by_technology": {}},
+                    "evidence": {}, "offline_test_only": True})),
+                "market": stack.enter_context(patch("pipeline.runtime.run_market", return_value={
+                    "result": {"status": "unknown", "execution_status": "unknown", "assessments": []},
+                    "evidence": {}, "sources": {}, "offline_test_only": True})),
+                "draft": stack.enter_context(patch("pipeline.trl._respond", side_effect=draft)),
+                "audit": stack.enter_context(patch("team_review.review.call_trl_grounding", side_effect=audit)),
+                "report": stack.enter_context(patch("pipeline.reporting.generate_report", side_effect=report)),
+            }
+            yield mocks, parsed_reports
+
+    def run_cli(self, output, *, resume=False):
+        argv = ["pipeline", "--input", str(ROOT / "config/pipeline.json"),
+                "--output", str(output), "--model", "offline-test", "--as-of", "2026-10-07",
+                "--draft", "--stop-after", "report"]
+        if resume:
+            argv.append("--resume")
+        with patch.object(sys, "argv", argv), redirect_stdout(StringIO()):
+            self.assertEqual(main(), 0)
+
+    def test_cli_draft_delivers_final_trl_to_real_report_parser(self):
+        with tempfile.TemporaryDirectory(prefix="trl-pipeline-") as directory, self.boundaries() as (mocks, parsed):
+            output = Path(directory)
+            self.run_cli(output)
+            manifest = json.loads((output / "run.json").read_text())
+            self.assertEqual(set(manifest["stages"]), {"domain", "stakeholders", "market", "trl", "review", "report"})
+            self.assertTrue(all(stage["status"] == "finished" for stage in manifest["stages"].values()))
+            self.assertEqual(mocks["draft"].call_count, 2)
+            self.assertEqual(mocks["audit"].call_count, 1)
+            self.assertEqual(len(parsed), 1)
+            self.assertEqual(parsed[0].trl_assessments["SW-01"]["level"], 4)
+            self.assertIsNone(parsed[0].trl_assessments["HW-01"]["level"])
+            self.assertEqual(parsed[0].trl_assessments["SW-01"]["citation_keys"], ["SW01_RDKV"])
+            review_input = json.loads((output / "review.input.json").read_text())
+            for role in ("domain", "market", "stakeholders"):
+                self.assertEqual(review_input["assessments"][role]["status"], "unknown")
+
+    def test_resume_reuses_all_outputs_without_provider_calls(self):
+        with tempfile.TemporaryDirectory(prefix="trl-pipeline-resume-") as directory, self.boundaries() as (mocks, parsed):
+            output = Path(directory)
+            self.run_cli(output)
+            first_markdown = (output / "review.output.md").read_text()
+            for mock in mocks.values():
+                mock.reset_mock()
+            self.run_cli(output, resume=True)
+            for boundary, mock in mocks.items():
+                self.assertEqual(mock.call_count, 0, boundary)
+            self.assertEqual(len(parsed), 1)
+            self.assertEqual((output / "review.output.md").read_text(), first_markdown)
+            reparsed = parse_report_input(first_markdown, allow_unreviewed=True, allow_attributed_draft=True)
+            self.assertEqual(reparsed.trl_assessments["SW-01"]["level"], 4)
+
+
+if __name__ == "__main__":
+    unittest.main()

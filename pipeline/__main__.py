@@ -37,9 +37,9 @@ def main():
     parser.add_argument("--as-of", default=datetime.now().date().isoformat())
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--draft", action="store_true", help="Render actual eight-cell results as an explicitly unreviewed draft")
-    parser.add_argument("--rerun", nargs="*", default=[], choices=["domain", "stakeholders", "market", "review", "report"],
+    parser.add_argument("--rerun", nargs="*", default=[], choices=["domain", "stakeholders", "market", "trl", "review", "report"],
                         help="With --resume, rerun selected stages while keeping other successful results")
-    parser.add_argument("--stop-after", choices=["prepare", "domain", "stakeholders", "market", "review", "report"], default="report")
+    parser.add_argument("--stop-after", choices=["prepare", "domain", "stakeholders", "market", "trl", "review", "report"], default="report")
     args = parser.parse_args()
     from dotenv import load_dotenv
     load_dotenv(args.env_file, override=True)
@@ -103,7 +103,7 @@ def main():
         target = output / f"{name}.output.json"
         code = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                 for folder in code_paths for p in sorted(folder.rglob("*.py")) if ".venv" not in p.parts}
-        wrapper = ROOT / "pipeline" / ({"review": "review_bridge.py", "report": "reporting.py"}.get(name, "runtime.py"))
+        wrapper = ROOT / "pipeline" / ({"review": "review_bridge.py", "report": "reporting.py", "trl": "trl.py"}.get(name, "runtime.py"))
         code[str(wrapper.relative_to(ROOT))] = hashlib.sha256(wrapper.read_bytes()).hexdigest()
         stamp = digest({"input": stage_input, "code": code})
         entry = manifest["stages"].get(name, {})
@@ -144,7 +144,12 @@ def main():
     if args.stop_after == "market": return 0
     from .review_bridge import build_review_state, run_review
     review_input = build_review_state(bundle, request, results, run_id=manifest["run_id"], as_of=args.as_of)
+    from .trl import generate_trl_assessment
+    review_input["assessments"]["technical"] = stage("trl",
+        lambda: generate_trl_assessment(review_input, model=args.model),
+        stage_input=review_input, code_paths=[ROOT / "agent/review/team_review"])
     save(output / "review.input.json", review_input)
+    if args.stop_after == "trl": return 0
     review = stage("review", lambda: run_review(review_input, model=args.model, draft=args.draft),
         stage_input={"state": review_input, "draft": args.draft}, code_paths=[ROOT / "agent/review/team_review"])
     markdown = review["report_input_md"]

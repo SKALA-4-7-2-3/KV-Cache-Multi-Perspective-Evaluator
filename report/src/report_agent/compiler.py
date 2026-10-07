@@ -14,11 +14,15 @@ class LatexCompileError(RuntimeError):
 def find_latex_compiler(name: str) -> str | None:
     """Find a compiler in PATH, a configured location, or common local installs."""
 
-    configured = os.environ.get(f"{name.upper()}_BIN")
+    configuration_key = f"{name.upper()}_BIN"
+    configured = os.environ.get(configuration_key)
+    if not configured and name == "tectonic":
+        configuration_key = "CODEX_TECTONIC_PATH"
+        configured = os.environ.get(configuration_key)
     if configured:
         candidate = Path(configured).expanduser()
         if not candidate.is_file() or not os.access(candidate, os.X_OK):
-            raise LatexCompileError(f"{name.upper()}_BIN 실행 파일을 찾을 수 없습니다: {candidate}")
+            raise LatexCompileError(f"{configuration_key} 실행 파일을 찾을 수 없습니다: {candidate}")
         return str(candidate.resolve())
     found = shutil.which(name)
     if found:

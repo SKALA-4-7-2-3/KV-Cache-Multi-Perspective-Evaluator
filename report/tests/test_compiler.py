@@ -1,18 +1,35 @@
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from report_agent.compiler import LatexCompileError, compile_latex
+from report_agent.compiler import LatexCompileError, compile_latex, find_latex_compiler
 
 
 class CompilerTests(unittest.TestCase):
+    def test_app_bundled_tectonic_path_is_discovered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "app-tectonic"
+            binary.write_text("#!/bin/sh\n", encoding="utf-8")
+            binary.chmod(0o755)
+            with patch.dict("os.environ", {"TECTONIC_BIN": "", "CODEX_TECTONIC_PATH": str(binary)}), \
+                    patch("report_agent.compiler.shutil.which", return_value=None):
+                self.assertEqual(find_latex_compiler("tectonic"), str(binary.resolve()))
+
+    def test_explicit_tectonic_binary_keeps_priority_over_app_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "explicit-tectonic"
+            binary.write_text("#!/bin/sh\n", encoding="utf-8")
+            binary.chmod(0o755)
+            with patch.dict("os.environ", {"TECTONIC_BIN": str(binary), "CODEX_TECTONIC_PATH": "/missing/app-tectonic"}):
+                self.assertEqual(find_latex_compiler("tectonic"), str(binary.resolve()))
+
     def test_missing_source_fails_before_compiler_lookup(self) -> None:
         with self.assertRaises(LatexCompileError):
             compile_latex(Path("missing-report.tex"))
 
     @unittest.skipUnless(
-        shutil.which("xelatex") or shutil.which("tectonic"),
+        find_latex_compiler("xelatex") or find_latex_compiler("tectonic"),
         "XeLaTeX 또는 Tectonic이 설치된 환경에서만 PDF 통합 테스트를 실행합니다.",
     )
     def test_overleaf_source_compiles_to_requested_pdf_path(self) -> None:

@@ -26,6 +26,7 @@
 - **다중 관점 평가** : 시장성, 이해관계자의 이익·부담, 도메인 적합성을 같은 논문 근거와 사용자 요청에 따라 평가
 - **외부 자료 보강** : 시장·이해관계자 평가에서 웹 자료를 수집하고, 논문 자체의 결과와 시장·운영 배경 자료를 구분
 - **확증 편향 방지 전략** : 수집된 근거에서 유리한 결과와 반대 근거·한계·도입 부담을 함께 검토하고, 저자 주장·관찰 결과·분석자의 추론을 구분. 근거가 부족한 항목은 미확인으로 남기며, 종합 의견의 근거 연결과 의미를 별도로 검사
+- **TRL 팀 추정** : 기술 근거를 1~9단계에 대응한 초안을 만들고, Review의 의미 검증·연속 단계 계산 결과를 보고서 6.1 기술 성숙도에 근거 및 다음 검증 조건과 함께 출력
 - **보고서 생성** : 관점별 평가와 종합 의견을 한국어 보고서로 작성하고, 본문에서 사용한 출처를 참고문헌에 연결
 - **결과 추적·재개** : 단계별 입력·출력과 실행 상태를 저장하고, 중단된 실행을 재개하거나 특정 단계를 다시 실행
 
@@ -64,7 +65,7 @@
 
 ![KV cache 다중 관점 평가 아키텍처](docs/images/architecture.svg)
 
-전체 흐름은 **기술 조사 → 도메인 평가 → 이해관계자 평가 → 시장 평가 → 평가 종합 → 보고서 생성**입니다. 세 관점에는 같은 논문 자료와 사용자 요청을 각각 전달합니다. 기본 RAG 모드는 기술 조사 에이전트의 저장 결과 재사용(`saved`)이며, `--run-rag`를 지정하면 입력 PDF를 새로 분석한 뒤 후속 에이전트를 실행합니다.
+전체 흐름은 **기술 조사 → 도메인 평가 → 이해관계자 평가 → 시장 평가 → 기술 TRL 초안 → 평가 종합 → 보고서 생성**입니다. 세 관점에는 같은 논문 자료와 사용자 요청을 각각 전달합니다. 기본 RAG 모드는 기술 조사 에이전트의 저장 결과 재사용(`saved`)이며, `--run-rag`를 지정하면 입력 PDF를 새로 분석한 뒤 후속 에이전트를 실행합니다.
 
 ## Directory Structure
 
@@ -125,7 +126,7 @@ if [ ! -f .env ]; then cp .env.example .env; fi
 
 ### 2. PDF 2개와 자연어 요청으로 전체 실행
 
-다음 명령은 **RAG → Domain → Stakeholder → Market → Review → Report**를 실행하고 최종 보고서 PDF를 만듭니다. 실제 OpenAI·Tavily API 호출이 발생합니다. `--as-of`는 후속 평가의 조사 기준일이므로 원하는 날짜로 바꾸세요.
+다음 명령은 **RAG → Domain → Stakeholder → Market → TRL → Review → Report**를 실행하고 최종 보고서 PDF를 만듭니다. 실제 OpenAI·Tavily API 호출이 발생합니다. `--as-of`는 후속 평가의 조사 기준일이므로 원하는 날짜로 바꾸세요.
 
 ```bash
 uv run --frozen python -m pipeline \
@@ -172,7 +173,7 @@ uv run --frozen python -m pipeline \
 | `report.pdf` | 최종 보고서 PDF |
 | `report.tex`, `report.input.md` | 보고서 원본과 입력 |
 | `review.output.md` | 종합 의견과 검토 사항 |
-| `domain.output.json`, `stakeholders.output.json`, `market.output.json`, `review.output.json` | 단계별 분석 결과 |
+| `domain.output.json`, `stakeholders.output.json`, `market.output.json`, `trl.output.json`, `review.output.json` | 단계별 분석 결과. TRL 초안은 `trl.output.json`, 최종 팀 추정은 `review.output.json`의 `synthesis.trl` |
 | `run.json` | 단계별 실행 상태·모델·조사 기준일 |
 | `research.bundle.json`, `research.context_manifest.json` | 전체 논문 분석과 후속 입력에 포함한 근거 기록 |
 | `rag/pipeline-*/cli.stdout.json`, `rag/pipeline-*/cli.stderr.log` | 새 RAG 실행의 출력·오류 로그 |
