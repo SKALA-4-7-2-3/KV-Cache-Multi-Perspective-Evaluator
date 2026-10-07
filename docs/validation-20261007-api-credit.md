@@ -31,13 +31,20 @@
 
 로컬 회귀는 **371 passed / 10.39초**, Pydantic deprecation 경고 2개다. 묶음 전송 형식까지 포함하며 이후 Quality 상한 CLI 옵션의 0값 거부와 실제 manifest 적용은 별도로 확인했다. 전송 형식의 482개 주장·원문 window·사유 보존과 전체 연결·중복/누락 검사는 로컬에서 확인했지만 **실제 원문 대조의 timeout은 지속됐다**. 성능 문제가 해결됐거나 corpus 감사가 완료됐다고 표시하지 않는다.
 
-**content_approved=false**는 확정했다. 자료 패키징 상태 **pack_ready_materials**와 내용 승인은 별도 필드다. 개별 필수 자료 3종과 총 7개 파일의 실제 hash·비밀 제외를 확인했다. 자료 준비 상태는 `submission.json`, ZIP SHA·크기·게시와 파일 실측값은 외부 **`submission.receipt.json`**으로 확인한다. 자료 패키지에는 실제 PDF·마지막 Quality trace·미검증 범위를 포함하며 품질 승인과 구별한다.
+**content_approved=false**는 확정했다. 자료 패키징 상태 **pack_ready_materials**와 내용 승인은 별도 필드다. 개별 필수 자료 3종은 README·보고서·LangSmith 증빙이며 최종 구성은 8개 파일이다. 각 파일 hash·비밀 제외·캡처 trace 출처를 manifest와 receipt로 연결한다. 자료 준비 상태는 `submission.json`, ZIP SHA·크기·게시와 파일 실측값은 외부 **`submission.receipt.json`**으로 확인한다. 자료 패키지에는 실제 PDF·마지막 Quality trace·미검증 범위를 포함하며 품질 승인과 구별한다.
 
-### 마지막 실제 LangSmith 캡처
+### LangSmith 동적 실행 증빙과 별도 Quality 보충
 
-`tracing-1.png`와 `tracing-2.png`는 위의 같은 종료 trace `4f8ab728-7e86-4ff8-bf52-64a893c4f93c`에서 직접 캡처했다. 각각 **1512×748 px**, 크기는 **206,671 bytes / 211,969 bytes**다. 첫 캡처는 종료한 5개 노드 전체, 둘째는 같은 Quality 노드의 Attributes·integration run 태그·노드 시간 **300.71초**를 보여준다. 두 PNG와 브라우저의 동일 trace URL을 시각 확인했다. 노드 시간과 원문 대조 호출 timeout 300.665초는 서로 다른 측정이다.
+[노션 증빙 항목](https://actually-war-1ea.notion.site/Multi-Agent-Orchestration-3d57f4c866938020a992fcc97e942ee6#3d57f4c86693805aae74d10087fee47d)에서 두 장은 긴 trace를 1/2로 나누는 예시다. 고정 필수 장수 대신 **동적 Orchestrator fan-out의 실행 근거**를 제공한다. 기존 Quality-only 2장의 범위로는 Planner·Workers 실행을 보여주지 못하므로 제출 증빙을 다음과 같이 구분한다.
 
-privacy 정책으로 원문·State·모델 입력/출력은 비웠다. 이 trace는 실제 Quality-only 실행과 기존 Report/PDF lineage를 연결하며 새 Writer·Workers 실행이나 전체 pipeline fresh 검증을 주장하지 않는다. 기존 관점·Report·동적 분기 trace는 과거 검증 범위로 보존한다. 캡처 시각은 **23:31 KST**다. ZIP 구성은 **`README.md`, `report.pdf`, `tracing-1.png`, `tracing-2.png`, `quality.json`, `trace.receipt.json`, `submission.json`**의 7개 파일이며 패키징 실측값은 외부 `submission.receipt.json`으로 연결한다.
+| 캡처 | 실제 trace와 범위 |
+| --- | --- |
+| `tracing-1.png`, `tracing-2.png` | [이전 실제 역할 실행](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/e6346f48-e8c0-4aaa-9dd6-3b572f9d7eed?poll=true), trace ID **e6346f48-e8c0-4aaa-9dd6-3b572f9d7eed**, remote_verified **40/40**. 같은 trace의 **Planner → 3 Workers → aggregate**를 분할하여 동적 실행을 보여준다. Domain **1회**·Market **6회**·Stakeholders **3회** 실제 모델 호출이 성공했고 후속 **Review·SourceReader에서 실패**했다. 이 trace의 종단 보고서·Quality 성공을 주장하지 않는다. |
+| `tracing-quality.png` | [마지막 Quality-only 실행](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/4f8ab728-7e86-4ff8-bf52-64a893c4f93c?poll=true), trace ID **4f8ab728-7e86-4ff8-bf52-64a893c4f93c**, remote_verified **5/5**. 실제 원문 대조 timeout과 기존 Report/PDF lineage를 보여주는 보충 overview다. 새 Writer·Workers 호출은 없다. |
+
+두 trace는 evaluation run **integration-a6c1fd70f71744e4**의 재개 이력에 속하지만 **trace ID가 다른 실행**이다. 하나의 fresh full-pipeline 성공 trace처럼 이어 붙이지 않는다. 원문·State·모델 입력/출력은 privacy 정책으로 비운다. 분할 캡처 1/2는 동일한 이전 역할 trace에서만 구성하고 Quality overview는 다른 이름으로 분리한다. HW 표준화 1셀 선택 재조사의 offline 제어 trace는 별도 학습 기록이며 모델·Report·Quality 경계의 합성 판정을 실제 내용 점수로 적용하지 않는다.
+
+최종 ZIP 구성은 **`README.md`, `report.pdf`, `tracing-1.png`, `tracing-2.png`, `tracing-quality.png`, `quality.json`, `trace.receipt.json`, `submission.json`**의 8개 파일이다. 각 PNG의 trace ID와 역할 실행/Quality 실행 범위, 파일 hash와 크기는 manifest·외부 `submission.receipt.json` 실측으로 연결한다. **content_approved=false·score null**은 유지한다.
 
 ## 직전 실제 Report·Quality 이력
 

@@ -8,7 +8,7 @@
 - 기준 main 커밋: `a633cc1`. 기존 RAG·관점 에이전트·Review·보고서 생성기를 재사용하고, 이번 과제에서는 **동적 계획·선택적 재조사·State/재개·TRL 전달·보고서 이후 품질 루프**를 추가·보완했다.
 - 기존 기능의 상세 설명은 [main README](https://github.com/SKALA-4-7-2-3/KV-Cache-Multi-Perspective-Evaluator/blob/main/README.md)를 참고한다. 이 문서는 수업 과제에서 추가·보완한 설계와 제출 증빙을 정리한다.
 
-사용자의 Codex 계정 크레딧으로 실제 관점 평가·TRL·보고서 작성을 실행했다. 마지막 검증은 기존 실제 **8쪽 PDF**를 재사용한 Quality 실행이며 **300.665초 `judge_timeout`으로 종료**했다. **품질 점수 없음·H1–H7 미검증·`content_approved=false`**다. 추가 모델 호출은 하지 않고 실제 README·PDF·LangSmith 캡처 2개와 미검증 한계를 제출 자료로 남긴다. 실행 범위와 상태는 [실행 검증 기록](https://github.com/SKALA-4-7-2-3/KV-Cache-Multi-Perspective-Evaluator/blob/feat/skala-final-submission/docs/validation-20261007-api-credit.md)에서 구분한다.
+사용자의 Codex 계정 크레딧으로 실제 관점 평가·TRL·보고서 작성을 실행했다. 마지막 검증은 기존 실제 **8쪽 PDF**를 재사용한 Quality 실행이며 **300.665초 `judge_timeout`으로 종료**했다. **품질 점수 없음·H1–H7 미검증·`content_approved=false`**다. 추가 모델 호출은 하지 않고 실제 README·PDF·동적 Orchestrator 캡처와 별도 Quality 보충·미검증 한계를 제출 자료로 남긴다. 실행 범위와 상태는 [실행 검증 기록](https://github.com/SKALA-4-7-2-3/KV-Cache-Multi-Perspective-Evaluator/blob/feat/skala-final-submission/docs/validation-20261007-api-credit.md)에서 구분한다.
 
 ## 1. SW·HW 선정 이유
 
@@ -34,7 +34,9 @@ Quality 결과: 통과 / 보고서 수정 / 지정 항목 재조사 / 검토 필
 - 모든 예정 task가 성공 또는 실패 상태에 도달한 뒤 aggregator 한 곳에서 병합한다. 실패·retry·재개는 기록하고 무제한 반복하지 않는다.
 - 기본 재계획 상한은 2회, 완료된 내용 품질 평가 상한은 3회다. Judge가 판단하고 코드 Gate가 저장된 결과로 분기한다.
 
-동적 분기는 [기존 offline 제어 trace](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/47df0864-e944-4660-834c-d64a9c8f6392?poll=true)에서 최초 Worker 3개 → 보고서 수정 → HW 표준화 1셀 재조사를 확인했다. 모델·보고서·Quality 경계가 합성 fixture인 제어 검사이며, 이 판정을 실제 PDF의 품질 점수로 사용하지 않는다. 최신 실제 모델 실행과 원격 trace의 범위는 6절에 기록한다.
+[수업의 LangSmith 증빙 기준](https://actually-war-1ea.notion.site/Multi-Agent-Orchestration-3d57f4c866938020a992fcc97e942ee6#3d57f4c86693805aae74d10087fee47d)의 목적은 동적 Orchestrator 실행을 확인하는 것이다. 두 장은 긴 trace를 1/2로 나누는 예시이며 고정 필수 장수가 아니다. **Planner → 3 Workers → aggregate**는 [이전 실제 관점 실행 trace](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/e6346f48-e8c0-4aaa-9dd6-3b572f9d7eed?poll=true)의 **40/40개 노드**에서 확인했다. Domain 1회·Market 6회·Stakeholders 3회 모델 호출이 성공했고 이후 Review·SourceReader 단계에서 실패했다. `tracing-1.png`, `tracing-2.png`는 이 동일한 trace를 분할한 동적 실행 증빙이다.
+
+최신 Quality-only trace는 별도 `tracing-quality.png`로 보충한다. 같은 evaluation run의 재개 이력이지만 **두 trace ID가 다른 실행**이므로 한 종단 성공 실행처럼 묶지 않는다. HW 표준화 1셀 선택 재조사의 [기존 offline 제어 trace](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/47df0864-e944-4660-834c-d64a9c8f6392?poll=true)는 별도 학습 기록으로 보존하며 합성 fixture 판정을 실제 PDF 점수로 사용하지 않는다.
 
 ## 3. State의 일곱 설계 항목
 
@@ -185,7 +187,8 @@ uv run --frozen python -m pipeline \
 | Quality 수행 범위 | 텍스트 단위 **345/345**의 주장 추출 완료(검증된 19개 응답 재사용). 추출 주장 **482개 중 원문 감사 0개**, PDF block **8개 중 최종 평가 0개**. 인용 없는 사실 후보 10개는 아직 판정하지 않았다. 시장 12셀의 독립 Quality도 수행하지 못했다. |
 | Quality 결과 | 원문 대조 1회가 **300.665초 timeout·exit 2·`judge_timeout`** 종료. **4축 점수 없음·총점 null·H1–H7 unverified**. 컴파일·쪽수·구조/인용/TRL 형식 pass는 내용 승인이 아니다. |
 | 마지막 실제 trace | [Quality timeout trace](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/4f8ab728-7e86-4ff8-bf52-64a893c4f93c?poll=true)의 정제 노드 **5/5** 원격 확인. 기존 Report/PDF를 연결한 Quality 실행이며 새 Writer 호출은 없다. |
-| 실제 LangSmith 캡처 | `tracing-1.png`·`tracing-2.png`, 각각 **1512×748**, **206,671 / 211,969 bytes**. 같은 종료 trace의 5개 노드 전체와 Quality Attributes의 run 태그·300.71초를 나눠 캡처하고 시각 확인했다. 원문·State·입출력은 개인정보 보호 정책에 따라 비운다. |
+| Orchestrator 증빙 | [이전 실제 역할 trace](https://smith.langchain.com/o/397dd1be-f323-4595-ad35-ee5553ee4bc9/projects/p/726df414-374f-4eac-87ee-7e2915d3126c/r/e6346f48-e8c0-4aaa-9dd6-3b572f9d7eed?poll=true) **40/40**의 Planner → 3 Workers → aggregate를 `tracing-1.png`·`tracing-2.png`로 분할한다. 이후 Review·SourceReader 실패를 함께 명시한다. |
+| Quality 보충 증빙 | `tracing-quality.png`는 위의 별도 최신 Quality-only trace **5/5**와 timeout을 보여준다. 이 trace에는 새 Report·Workers 실행이 없고 원문·State·입출력은 개인정보 보호 정책에 따라 비운다. |
 
 현재 output은 `outputs/codex-submission-20261007`, run ID는 `integration-a6c1fd70f71744e4`다. 마지막 실행은 **`review_required`·`content_approved=false`**로 종료했다. 원문·482개 주장·사유를 유지하는 전송 형식은 로컬 계약 검사를 통과했지만 **실제 원문 대조 timeout은 해소하지 못했다**. 과거 실행·사용량·해시와 제한은 [실행 검증 기록](https://github.com/SKALA-4-7-2-3/KV-Cache-Multi-Perspective-Evaluator/blob/feat/skala-final-submission/docs/validation-20261007-api-credit.md)에 보존한다. 구조는 [모델 설명](https://github.com/SKALA-4-7-2-3/KV-Cache-Multi-Perspective-Evaluator/blob/feat/skala-final-submission/docs/model-architecture.md)을 참고한다.
 
@@ -210,8 +213,8 @@ Git 브랜치는 상단 링크로 전달하고, 다음 세 자료를 하나의 Z
 | --- | --- |
 | README | 수업 필수 설계·재현 명령·팀 역할과 실제 검증 범위 정리 |
 | 보고서 PDF | SUMMARY·REFERENCE 포함 **8쪽**, 전체 페이지 시각 확인·hash 연결. 독립 Quality 미완료와 `content_approved=false`를 함께 명시 |
-| LangSmith 캡처 | 종료한 실제 **Quality-only trace**의 `tracing-1.png`, `tracing-2.png` 확인 완료. 같은 trace를 분할 캡처했으며 새 Report·Worker 실행을 주장하지 않는다. |
+| LangSmith 증빙 | `tracing-1.png`·`tracing-2.png`: 이전 실제 Orchestrator/3 Workers/aggregate trace의 분할 증빙. `tracing-quality.png`: 별도 최신 Quality-only timeout trace 보충. 두 실행을 구분한다. |
 
-제출 자료 3종은 README·실제 8쪽 PDF·같은 종료 trace의 LangSmith 캡처 2개다. ZIP 구성은 **`README.md`, `report.pdf`, `tracing-1.png`, `tracing-2.png`, `quality.json`, `trace.receipt.json`, `submission.json`**의 7개 파일이다. manifest·평가 결과·trace receipt로 구현 commit·실행 ID·파일 hash·`content_approved=false`·미검증 한계를 연결한다. 실제 자료 7개의 hash와 비밀 제외 검사를 확인했으며 `.env`·키·가상환경·cache·`.git`·중간 결과는 포함하지 않는다. 패키징 상태는 `submission.json`, ZIP SHA·크기·게시 확인은 외부 **`submission.receipt.json`**의 실측값으로 확인한다.
+제출 자료 3종은 README·실제 8쪽 PDF·LangSmith 증빙이다. 동적 Orchestrator 증빙 2장과 별도 Quality 보충 1장의 실행 출처를 구분한다. ZIP 구성은 **`README.md`, `report.pdf`, `tracing-1.png`, `tracing-2.png`, `tracing-quality.png`, `quality.json`, `trace.receipt.json`, `submission.json`**의 8개 파일이다. manifest·평가 결과·trace receipt로 구현 commit·실행 ID·파일 hash·`content_approved=false`·미검증 한계를 연결한다. 자료의 hash·비밀 제외·각 캡처의 trace 출처를 manifest와 receipt로 연결하며 `.env`·키·가상환경·cache·`.git`·중간 결과는 포함하지 않는다. 패키징 상태는 `submission.json`, ZIP SHA·크기·게시 확인은 외부 **`submission.receipt.json`**의 실측값으로 확인한다.
 
 기준 자료: [Multi-Agent Orchestration 가이드](https://actually-war-1ea.notion.site/Multi-Agent-Orchestration-3d57f4c866938020a992fcc97e942ee6), [KV-cache 기본 가이드](https://actually-war-1ea.notion.site/KV-cache-3ba7f4c866938099b7a8fdaa1831c07e), 배기주 「7. AI Agent 설계 및 구축」. Multi-Agent 가이드는 Safari에서 본문 전체를 확인했고 KV-cache 제출·분량 기준은 기존 전수 검토 기록과 대조했다.
