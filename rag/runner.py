@@ -20,6 +20,7 @@ def resolve_research(
     output_dir: Path,
     saved_path: Path,
     run_rag: bool = False,
+    job_id: str | None = None,
 ) -> Path:
     """Return a directory containing run.json for the existing downstream loader."""
     if not run_rag:
@@ -44,7 +45,10 @@ def resolve_research(
 
     rag_dir = Path(__file__).resolve().parent
     destination = Path(output_dir).expanduser().resolve()
-    job_id = "pipeline-" + uuid4().hex[:16]
+    job_id = job_id or "pipeline-" + uuid4().hex[:16]
+    import re
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}",job_id):
+        raise ValueError("Invalid RAG job ID")
     job_dir = destination / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     command = [uv, "run", "--frozen", "--project", str(rag_dir), "paper-review", "research",
