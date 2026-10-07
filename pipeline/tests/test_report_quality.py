@@ -1,12 +1,15 @@
 """Offline quality contracts; model and PDF extraction boundaries are controlled."""
 import json
+from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path
 import re
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from pipeline.report_quality import evaluate_report
+from pipeline.report_quality import (evaluate_report, canonical_evidence, _audit, JudgeContractError,
+                                     _judge_prompt, _provider, JUDGE_INSTRUCTIONS)
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "report/tests/fixtures"
@@ -305,6 +308,101 @@ class ReportQualityTests(unittest.TestCase):
         self.assertEqual(plan["calls"][0]["input_utf8_bytes"], len(calls[0][1].encode()))
         self.assertGreater(plan["planned_input_utf8_bytes"], plan["calls"][0]["input_utf8_bytes"])
         self.assertEqual(len(calls), 1)
+
+    def bridge_web_fixture(self, *, image=False):
+        """Real bridge and saved papers; web text/assertions are explicit offline fixtures."""
+        from pipeline.research_input import load_saved_research
+        from pipeline.review_bridge import build_review_state
+        from pipeline.tests.test_orchestration import portable_role
+        bundle = load_saved_research(ROOT / "rag/examples/results/technical-bge-e2e-two-papers")
+        request = json.loads((ROOT / "config/pipeline.json").read_text())["request"]
+        body = ("OFFLINE fixture: the source reports memory pooling. "
+                "Contrary original condition: deployment requires fabric validation. "
+                "The source does not verify actual adoption.")
+        if image:
+            body += " ![offline image](data:image/png;base64,AAABBB)"
+        market = portable_role("market")
+        market["evidence"] = {"web-offline-original": {"id": "web-offline-original",
+            "doc_id": "collected-web", "url": "https://example.test/offline-web",
+            "title": "OFFLINE web source contract fixture", "technology_ids": ["SW-01"],
+            "excerpt": body, "access_status": "full_text", "method": "statement",
+            "source_type": "official_product", "collected_content_sha256": sha256(body.encode()).hexdigest()}}
+        if not image:
+            market["retained_draft_findings"] = [{"supports": [
+                {"evidence_id": "web-offline-original", "quote": "the source reports memory pooling."},
+                {"evidence_id": "web-offline-original", "quote": "The source does not verify actual adoption."}]}]
+        state = build_review_state(bundle, request, {"market": market,
+            "domain": portable_role("domain"), "stakeholders": portable_role("stakeholders")},
+            run_id="offline-web-quality", as_of="2026-10-07")
+        return state, body
+
+    def test_real_bridge_web_projection_preserves_full_counterevidence_and_collected_hash(self):
+        state, body = self.bridge_web_fixture()
+        source = next(row for row in canonical_evidence(state) if row["evidence_id"] == "web-offline-original")
+        registered = state["documents"][source["doc_id"]]
+        self.assertIsNone(state["evidence"][source["evidence_id"]]["provenance"].get("source_hash"))
+        self.assertNotIn("Contrary original condition:", state["evidence"][source["evidence_id"]]["excerpt"])
+        self.assertEqual(source["source_hash"], registered["sha256"])
+        self.assertEqual(source["excerpt"], body)
+        self.assertEqual(source["method"], state["evidence"][source["evidence_id"]]["method"])
+        claim = {"claim_id": "offline-web-claim", "technology_ids": ["SW-01"],
+                 "citation_keys": [registered["citation_key"]]}
+        quote = "Contrary original condition: deployment requires fabric validation."
+        answer = {"checks": [{"claim_id": claim["claim_id"], "verdict": "supported",
+            "reason": "OFFLINE contract: exact original condition", "evidence_ids": [source["evidence_id"]],
+            "supporting_quotes": [{"evidence_id": source["evidence_id"], "quote": quote}],
+            "target": "report", "role": None, "criterion_ids": []}]}
+        self.assertEqual(_audit(answer, [claim], [source], state["documents"])[0]["verdict"], "supported")
+        broken = deepcopy(state)
+        broken["documents"][source["doc_id"]]["sha256"] = "f" * 64
+        with self.assertRaises(JudgeContractError):
+            canonical_evidence(broken)
+
+    def test_web_original_hash_mismatch_is_rejected_and_sanitized_view_does_not_replace_raw(self):
+        state, body = self.bridge_web_fixture()
+        state["config"]["usable_source_reports"][0]["excerpt"] += " ALTERED"
+        with self.assertRaises(JudgeContractError):
+            canonical_evidence(state)
+        state, body = self.bridge_web_fixture(image=True)
+        report = state["config"]["usable_source_reports"][0]
+        self.assertNotEqual(report["excerpt"], body)
+        source = next(row for row in canonical_evidence(state) if row["evidence_id"] == "web-offline-original")
+        self.assertEqual(source["excerpt"], body)
+        self.assertEqual(sha256(source["excerpt"].encode()).hexdigest(), source["source_hash"])
+
+    def test_each_provider_request_input_explicitly_requests_json(self):
+        from types import SimpleNamespace
+        calls = []
+        class Client:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            @property
+            def responses(self): return self
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                return SimpleNamespace(output_text='{"offline": true}')
+        with patch("pipeline.governance.openai_client", return_value=Client()):
+            for phase in ("atomize", "audit", "rubric"):
+                prompt = _judge_prompt(phase, {"text": "plain fixture"})
+                self.assertIn("Return a JSON object", prompt)
+                self.assertGreater(prompt.index("Return a JSON object"), prompt.index("---END_QUALITY_DATA_"))
+                _provider("offline-model")(JUDGE_INSTRUCTIONS, prompt)
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(all("JSON" in call["input"] for call in calls))
+
+    def test_full_source_reports_change_invalidates_checked_canonical_input_hash(self):
+        evidence = canonical()
+        evidence["config"] = {"usable_source_reports": [{"evidence_id": "offline-unused",
+            "reference_id": "offline-doc", "excerpt": "OFFLINE original source input"}]}
+        def responder(instructions, prompt):
+            answer = self.responder(instructions, prompt)
+            if payload(prompt)["phase"] == "rubric":
+                evidence["config"]["usable_source_reports"][0]["excerpt"] += " changed after audit"
+            return answer
+        with patch(__name__ + ".canonical", return_value=evidence):
+            result = self.evaluate(responder)
+        self.assertEqual(result["route"], "review_required")
+        self.assertEqual(result["gates"]["H6"]["status"], "fail")
 
 
 if __name__ == "__main__":
