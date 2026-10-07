@@ -176,9 +176,13 @@ LangSmith 실증·보고서 제출 점검과 테스트 실행 방법은 [검증 
 
 ## Contributors
 
-- 김광현 (P210): 이해관계자 평가 에이전트 개발
-- 박정빈 (P218): 도메인 평가 에이전트 개발
-- 백순철 (P221): 평가 종합 에이전트 개발
-- 이지석 (P228): 기술 조사 에이전트 개발
-- 이현정 (P230): 보고서 생성 에이전트 개발
-- 정회륜 (P237): 시장 평가 에이전트 개발
+| 이름 | GitHub | 담당 역할 |
+| --- | --- | --- |
+| 정회륜 (P237) | [superjoung](https://github.com/superjoung) | 시장 평가, 후속 TRL·오케스트레이션·품질 검증 |
+| 김광현 (P210) | [kimgwang-hyeon](https://github.com/kimgwang-hyeon) | 이해관계자 평가, 전체 에이전트 통합 |
+| 박정빈 (P218) | [jjjjjeong-bin](https://github.com/jjjjjeong-bin) | 도메인 평가, 프로젝트 구조·아키텍처 문서 |
+| 백순철 (P221) | [soonchul0408-spec](https://github.com/soonchul0408-spec) | 평가 종합·Review |
+| 이현정 (P230) | [dlkara](https://github.com/dlkara) | 보고서 생성·PDF 검증 |
+| 이지석 (P228) | [stellacustodis](https://github.com/stellacustodis) | 기술 조사·RAG |
+
+기존 작성자를 유지한 역할별 대표 커밋과 실명 표시 방법은 [팀 기여 기록](docs/team-contributions.md)에 정리했습니다.
