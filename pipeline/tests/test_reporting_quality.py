@@ -8,13 +8,88 @@ import unittest
 from unittest.mock import patch
 
 from pipeline.reporting import (build_quality_revision_prompt, source_analysis,
-                                validate_source_reading, source_quote_spans, resolve_source_reading_ids)
+                                validate_source_reading, source_quote_spans, resolve_source_reading_ids, generate_report)
 from report_agent.parser import parse_report_input
+from report_agent.generator import GenerationError
 
 FIXTURES = Path(__file__).resolve().parents[2] / "report/tests/fixtures"
 
 
 class ReportingQualityTests(unittest.TestCase):
+    def run_revision(self, responses, *, expect_error=False):
+        """Offline model/compiler boundaries with real parsing, preparation and format validation."""
+        source = {"source_id": "offline-original", "excerpt": "UNIQUE ORIGINAL\n" + "Exact source condition. " * 100,
+                  "technology_ids": ["SW-01"], "url": "https://example.test/original"}
+        markdown = (FIXTURES / "trl-runtime.input.md").read_text() + (
+            "\n<!-- USABLE_SOURCE_REPORTS_JSON\n" + json.dumps([source]) + "\nEND_USABLE_SOURCE_REPORTS_JSON -->\n")
+        feedback = ["OFFLINE Quality feedback: preserve attribution and the actual source year."]
+        calls, compiled = [], []
+        def respond(instructions, prompt):
+            calls.append({"instructions": instructions, "prompt": prompt})
+            return responses[len(calls) - 1]
+        def compile_fake(tex, pdf):
+            compiled.append(tex.read_text())
+            pdf.write_bytes(b"%PDF-1.7\nOFFLINE compiler boundary, not a real compilation")
+        with tempfile.TemporaryDirectory() as directory, patch("report_agent.generator.ReportAgent._openai_response", side_effect=respond), \
+                patch("report_agent.compiler.find_latex_compiler", return_value="offline-compiler"), \
+                patch("report_agent.compiler.compile_latex", side_effect=compile_fake):
+            output = Path(directory)
+            arguments = dict(model="offline-model", revision_candidate="UNIQUE_OLD_REPORT", revision_feedback=feedback,
+                             source_coverage_repair=False)
+            if expect_error:
+                with self.assertRaises(GenerationError):
+                    generate_report(markdown, output, **arguments)
+                result = None
+            else:
+                result = generate_report(markdown, output, **arguments)
+            records = {path.name: path.read_text() for path in output.glob("*") if path.is_file() and path.suffix != ".pdf"}
+        return result, calls, compiled, records, source, feedback
+
+    def test_revision_format_is_repaired_once_with_original_sources_trl_and_quality_feedback(self):
+        valid = (FIXTURES / "trl-runtime.tex").read_text()
+        broken = "```latex\n" + valid.replace(r"\subsection{도메인 적용성}", r"\subsection{잘못된 제목}").replace("추정 TRL: 4", "추정 TRL: 8") + "\n```"
+        result, calls, compiled, records, source, feedback = self.run_revision([broken, valid])
+        self.assertEqual(result["attempts"], 2)
+        self.assertEqual(result["trl"], {"SW-01": 4, "HW-01": None})
+        self.assertEqual(len(compiled), 1)
+        for call in calls:
+            self.assertIn(records["report.input.md"], call["prompt"])
+            self.assertIn(json.dumps([source]), call["prompt"])
+            self.assertIn(feedback[0], call["prompt"])
+            self.assertEqual(call["prompt"].count("[Review 최종 TRL 보존 계약]"), 1)
+            self.assertIn("BEGIN_TRL_ASSESSMENT SW-01", call["prompt"])
+        failed = json.loads(records["report.revision-validation-1.json"])
+        self.assertEqual(failed["raw_response"], broken)
+        self.assertIn("잘못된 제목", failed["candidate"])
+        self.assertFalse(failed["format_valid"])
+        self.assertTrue(failed["validation_issues"])
+        self.assertTrue(any("TRL" in issue for issue in failed["validation_issues"]))
+        self.assertTrue(json.loads(records["report.revision-validation-2.json"])["format_valid"])
+        self.assertNotIn("report.error.json", records)
+
+    def test_second_revision_format_failure_stops_without_compiling_or_success_result(self):
+        valid = (FIXTURES / "trl-runtime.tex").read_text()
+        broken = valid.replace(r"\subsection{도메인 적용성}", r"\subsection{잘못된 제목}")
+        _, calls, compiled, records, _, _ = self.run_revision([broken, broken], expect_error=True)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(compiled, [])
+        self.assertNotIn("report.result.json", records)
+        self.assertNotIn("report.tex", records)
+        self.assertEqual(json.loads(records["report.error.json"])["attempts"], 2)
+        for attempt in (1, 2):
+            recorded = json.loads(records[f"report.revision-validation-{attempt}.json"])
+            self.assertEqual(recorded["raw_response"], broken)
+            self.assertFalse(recorded["format_valid"])
+            self.assertTrue(recorded["validation_issues"])
+
+    def test_valid_revision_uses_one_response_and_does_not_request_format_repair(self):
+        valid = (FIXTURES / "trl-runtime.tex").read_text()
+        result, calls, compiled, records, _, _ = self.run_revision([valid])
+        self.assertEqual(result["attempts"], 1)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(compiled), 1)
+        self.assertNotIn("report.revision-validation-2.json", records)
+
     def test_revision_receives_original_sources_and_final_trl_contract(self):
         parsed = parse_report_input((FIXTURES / "trl-runtime.input.md").read_text())
         prompt = build_quality_revision_prompt(parsed, "UNIQUE_OLD_REPORT", ["Do not invent adoption."])

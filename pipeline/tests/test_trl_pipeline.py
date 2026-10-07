@@ -224,6 +224,52 @@ class TRLPipelineTests(unittest.TestCase):
             self.assertEqual(mocks["market"].call_count, 1)
             self.assertGreaterEqual(mocks["planner"].call_count, 1)
 
+    def test_report_code_fix_resumes_pending_repair_with_feedback_and_assessment_count(self):
+        from pipeline.artifacts import stage_fingerprint as actual_stage_fingerprint
+        with tempfile.TemporaryDirectory(prefix="trl-pending-repair-") as directory, self.boundaries() as (mocks, parsed):
+            output = Path(directory)
+            self.run_cli(output)
+            original_report = mocks["report"].side_effect
+
+            def fail_repair(*args, **kwargs):
+                if kwargs.get("revision_feedback"):
+                    raise RuntimeError("OFFLINE TEST ONLY: invalid revised report format")
+                return original_report(*args, **kwargs)
+
+            mocks["report"].side_effect = fail_repair
+            mocks["quality"].side_effect = [
+                {"route": "report_repair", "failure_type": None,
+                 "gates": {"all_checks_completed": {"status": "pass"}},
+                 "repair_requests": [{"target": "report", "role": None,
+                     "technology_ids": [], "criterion_ids": [],
+                     "instructions": "OFFLINE TEST ONLY: preserve this repair feedback"}]},
+                {"route": "passed", "failure_type": None, "repair_requests": [],
+                 "gates": {"all_checks_completed": {"status": "pass"}}}]
+            with self.assertRaisesRegex(RuntimeError, "invalid revised report"):
+                self.run_cli(output, resume=True, stop_after="quality")
+            for mock in mocks.values(): mock.reset_mock()
+            mocks["report"].side_effect = original_report
+
+            def changed_reporting(root, name):
+                return ("fixed-reporting-code" if name.startswith("report")
+                        else actual_stage_fingerprint(root, name))
+
+            with patch("pipeline.graph.fingerprint", return_value="fixed-reporting-code"), patch(
+                    "pipeline.graph.stage_fingerprint", side_effect=changed_reporting), patch(
+                    "pipeline.artifacts.stage_fingerprint", side_effect=changed_reporting):
+                self.run_cli(output, resume=True, stop_after="quality")
+
+            state = json.loads((output / "state.result.json").read_text())
+            self.assertEqual(state["quality_attempt"], 2)
+            controller = json.loads((output / state["quality_ref"]["relative_path"]).read_text())["controller"]
+            self.assertEqual(controller["completed_content_assessments"], 2)
+            self.assertEqual(mocks["report"].call_count, 1)
+            self.assertEqual(mocks["report"].call_args.kwargs["revision_feedback"],
+                             ["OFFLINE TEST ONLY: preserve this repair feedback"])
+            self.assertTrue(mocks["report"].call_args.kwargs["revision_candidate"])
+            for boundary in ("planner", "domain", "stakeholders", "market", "draft", "audit"):
+                self.assertEqual(mocks[boundary].call_count, 0, boundary)
+
 
 if __name__ == "__main__":
     unittest.main()

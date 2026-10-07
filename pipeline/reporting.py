@@ -326,10 +326,22 @@ def generate_report(markdown: str, output_dir: Path, *, model: str, draft: bool 
             parsed = parse_report_input(markdown, allow_unreviewed=draft,
                                         allow_attributed_draft=attribution_first)
             prompt = build_quality_revision_prompt(parsed, revision_candidate, revision_feedback)
-            revised = prepare_candidate(recorded_response(SYSTEM_INSTRUCTIONS, prompt), parsed) + "\n"
-            validation = validate_latex(revised, parsed)
-            if not validation.valid:
-                raise GenerationError("보고서 재작성 형식 오류:\n" + "\n".join(validation.issues))
+            for format_attempt in range(2):
+                raw = recorded_response(SYSTEM_INSTRUCTIONS, prompt)
+                revised = prepare_candidate(raw, parsed) + "\n"
+                validation = validate_latex(revised, parsed)
+                (output_dir / f"report.revision-validation-{format_attempt + 1}.json").write_text(
+                    json.dumps({"format_attempt": format_attempt + 1, "response_count": response_count,
+                        "raw_response": raw, "candidate": revised, "format_valid": validation.valid,
+                        "validation_issues": list(validation.issues)}, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
+                if validation.valid:
+                    break
+                if format_attempt == 1:
+                    raise GenerationError("보고서 재작성 형식 오류(최대 한 번 보정 후):\n" + "\n".join(validation.issues))
+                prompt = _quality_feedback(build_repair_prompt(parsed,
+                    _prompt_data("REPORT_REVISION", {"existing_report": revised}), list(validation.issues)),
+                    revision_feedback)
             generated = GenerationResult(revised, parsed, validation, response_count)
         else:
             generated = agent.generate(markdown, repair_attempts=2, allow_unreviewed=draft,

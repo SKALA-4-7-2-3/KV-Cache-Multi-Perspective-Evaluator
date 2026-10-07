@@ -81,14 +81,15 @@ uv run --frozen python -m pipeline --run-rag \
 | 보고서 생성 | `report/` | 보고서 작성·LaTeX·PDF 생성 |
 
 1. `pipeline/research_input.py`: 원본 실행·논문 dossier·비교·근거 파일을 읽고 역할별 입력으로 변환합니다.
-2. `pipeline/runtime.py`: Domain → Stakeholder → Market을 실제 호출합니다.
-3. `pipeline/review_bridge.py`: 결과와 근거를 Review 입력으로 연결하고 종합을 실행합니다.
-4. `pipeline/trl.py`: 연결된 원문 근거로 기술별 TRL 1~9 단계 초안을 생성합니다. 기술 조사 역할의 후처리이며 최종 숫자를 발급하지 않습니다.
+2. `pipeline/planner.py`와 `pipeline/graph.py`: 누락 셀·저장 결과·피드백으로 task를 계획하고, 해당 범위의 Domain/Stakeholders/Market worker를 `Send`로 실행합니다. 고정 순서로 역할을 호출하지 않으며 terminal join에서 완료·실패 결과를 취합합니다.
+3. `pipeline/trl.py`: 취합한 원문 근거로 기술별 TRL 1~9 단계 초안을 생성합니다. 기술 조사 역할의 후처리이며 최종 숫자를 발급하지 않습니다.
+4. `pipeline/review_bridge.py`: 결과와 근거를 Review 입력으로 연결하고 최종 팀 TRL 추정과 종합을 실행합니다.
 5. `pipeline/reporting.py`: 실제 종합 결과로 기존 ReportAgent를 호출해 LaTeX와 PDF를 생성합니다.
+6. `pipeline/report_quality.py`: 실제 PDF 전체와 원문을 별도로 평가합니다. 그래프는 Quality 결과에 따라 보고서 수정·범위 재조사 또는 종료를 선택합니다. 기본 종료 단계는 `quality`입니다. [OW 실행 계약](orchestration.md)을 참고하세요.
 
 ### 기술 성숙도(TRL) 출력
 
-기본 실행에도 TRL 초안 단계를 포함합니다. 논문에 공식 TRL 숫자가 없어도 제공된 원문을 팀 기준에 대응하여 `met/not_met/unknown`과 근거 ID·이유를 작성합니다. 기술별 초안 생성 2회와 Review의 별도 의미 검사 1회가 추가되며, `--draft`도 TRL 의미 검사는 수행합니다.
+기본 실행에도 TRL 초안 단계를 포함합니다. 논문에 공식 TRL 숫자가 없어도 제공된 원문을 팀 기준에 대응하여 `met/not_met/unknown`과 근거 ID·이유를 작성합니다. 새 초안은 기술별 한 번 생성하고 성공 초안을 캐시하며, 연결·시간 초과 계열 오류만 최대 한 번 재시도하므로 실제 호출 수는 입력·재사용·실패에 따라 달라집니다. Review의 별도 의미 검사와 `--draft`의 TRL 의미 검사도 유지합니다.
 
 Review는 실제 인용문이 단계 조건을 지원하는지 검사하고 **1단계부터 연속으로 충족한 최고 단계**만 `synthesis.trl`에 기록합니다. 시뮬레이션을 실제 운용으로 승격하지 않으며 7·9단계는 operational, 8단계는 qualification 또는 operational 근거가 필요합니다. 1단계도 확인되지 않으면 `level: null`을 유지합니다.
 
@@ -96,8 +97,8 @@ Review는 실제 인용문이 단계 조건을 지원하는지 검사하고 **1�
 
 - `trl.output.json`: 모델 단계 초안. 최종 TRL이 아닙니다.
 - `review.output.json` → `synthesis.trl`: 기술별 최종 팀 추정, 9단계 검토 결과, 근거, 다음 미확인 조건.
-- `report.pdf` → 6.1 기술 성숙도: 추정 단계, 근거 인용, 다음 검증 조건, 공개 정보 기반 팀 추정 표시.
-- `report.result.json` → `trl`, `trl_validation`: 출력에 보존된 단계와 검증 결과.
+- `reports/revision-N/report.pdf` → 6.1 기술 성숙도: 추정 단계, 근거 인용, 다음 검증 조건, 공개 정보 기반 팀 추정 표시.
+- `reports/revision-N/report.result.json` → `trl`, `trl_validation`: 출력에 보존된 단계와 검증 결과.
 
 보고서 모델이 단계·근거·다음 조건을 누락하거나 바꾸면 수정 피드백을 전달합니다. 수정 후에도 계약을 만족하지 않으면 성공한 보고서로 저장하지 않습니다. 코드가 TRL 본문을 덧붙이지 않습니다.
 
@@ -120,7 +121,7 @@ uv run --frozen python -m pipeline --output outputs/my-report --resume --rerun t
 각 주장은 참조하는 근거 발췌 전체와 함께 포함하며, 한도 때문에 제외한 내용은 문맥 기록에 남깁니다.
 전체 원본 분석과 근거는 `research.bundle.json`에 보존합니다.
 
-최종 산출물은 `review.output.md`, `report.input.md`, `report.tex`, `report.pdf`입니다.
+종합은 루트의 `review.output.md`에, 보고서 입력·TeX·PDF·생성 기록은 `reports/revision-N/`에 저장합니다. 현재 보고서 경로는 `report.output.json` 또는 `run.json.artifacts`를 확인하며 루트의 단일 PDF 경로를 가정하지 않습니다. Quality 결과와 Judge 기록은 `quality.json`, `quality/attempt-N/`에 남습니다.
 기본 실행은 출처를 명시하는 분석 초안(`annotated_draft`)입니다. 앞 단계에서 인용되지 않은
 웹 출처도 제목·URL·발행 주체·날짜·활용 상태와 함께 종합 입력으로 전달합니다.
 웹 본문은 상위 에이전트 결과 파일에 보존합니다. 종합에는 세 에이전트의 분석과 함께
@@ -131,27 +132,25 @@ uv run --frozen python -m pipeline --output outputs/my-report --resume --rerun t
 PDF의 단일 `REFERENCE`에 논문과 웹 자료의 제목·URL·저자/기관을 함께 넣습니다.
 동일 URL은 중복 제거하고, 실제 본문에서 활용하여 인용한 자료만 참고문헌에 넣습니다.
 수집 목록 전체를 참고문헌으로 출력하거나 목표 개수를 맞추기 위한 인용을 만들지 않습니다.
-검토에서 보류된 시장·이해관계자 분석은 `retained_draft_findings`로 보존해 종합에 전달하고,
-종합 의견과 검토 사항을 함께 보고서에 포함합니다.
+검토에서 보류된 시장·이해관계자 분석은 `retained_draft_findings`로 보존해 종합에 전달합니다.
+보고서 본문은 출처에 근거한 불확실성·실무 영향·다음 확인 조건을 설명하며 내부 검사 상태나 반복 진단 부록을 자동으로 붙이지 않습니다.
 수집된 본문은 `stakeholders.output.json`, `market.output.json`에서 확인할 수 있습니다.
 보고서 작성 전 수집 본문을 출처별로 읽어 구체적 관찰·인용 구절·운영/시장 해석을
-`report.source-analysis.json`에 저장합니다. 앞 단계에서 미채택된 유용한 웹 내용도
+`reports/revision-N/report.source-analysis.json`에 저장합니다. 앞 단계에서 미채택된 유용한 웹 내용도
 본문에 반영하고, 메뉴만 수집된 자료 등은 생략 사유를 남깁니다. 같은 입력으로 재개하면 이 분석도 재사용합니다.
 최종 본문은 보고서 에이전트가 평가 주제별 줄글로 작성하고, 근거를 사용한 문장에 인용을 붙입니다.
 코드는 출처별 설명 문단이나 본문 인용을 추가하지 않습니다. 활용 가능한 웹 자료가 미인용이면
 기존 초안과 누락 자료를 에이전트에 전달해 최대 한 번 보완하며, 남은 누락과 처리 결과는
-`report.source-coverage.json`에 기록합니다. 보완 실패 시 기존 유효 초안을 보존합니다.
+`reports/revision-N/report.source-coverage.json`에 기록합니다. 보완 실패 시 기존 유효 초안을 보존합니다.
 
 `--draft`는 추가 종합 생성·의미 검토 호출을 생략하고 관점별 결과와 수집 자료로 초안을 만듭니다.
-세 관점 정보를 연결한 새 종합 의견이 필요하면 이 옵션을 생략합니다.
+세 관점 정보를 연결한 새 종합 의견이 필요하면 이 옵션을 생략합니다. 이 옵션은 TRL 의미 검사나 최종 Quality를 면제하지 않습니다. `--stop-after report`로 종료하면 Quality 이전 후보 보고서이며 제출 품질을 확인한 상태가 아닙니다.
 보고서에는 근거 부족, 판단 보류, 일부 역할 실패가 남을 수 있습니다.
 PDF 생성은 전체 평가 정확도나 제출 품질 검증의 완료를 의미하지 않습니다.
 
-## 원래 한도와 자료 보존
+## 역할 내부 한도·후속 공통 예산과 자료 보존
 
-통합에서 줄였던 호출 한도를 제거하고 각 에이전트의 기본값을 사용합니다.
-시장은 `feat/market-agent`의 `93281d1`을 통합했으며, 세 단계의 조사·종합을 위한
-새 기본 한도를 `pipeline/runtime.py`에 명시했습니다.
+각 역할의 내부 한도와 후속 공통 ledger 한도가 함께 적용됩니다. 아래 표는 역할 내부 한도입니다. 공통 기본 한도는 모델 160회·검색 24회·extract/fetch 각 48회·토큰 5,000,000·시간 1,800초이며 planner·worker·TRL·Review·Report·Judge의 실제 후속 API 시도를 포함합니다. 이 ledger는 saved/live RAG 결과 확보 후 생성되므로 live RAG subprocess는 포함하지 않습니다. 재개 시 사용량·미확인 예약을 유지하며, 증액 절차는 [예산 계약](orchestration.md#예산사용량-적용-범위)을 참고하세요.
 
 | 에이전트 | 검색 | 본문 수집 | 모델 호출 |
 | --- | ---: | ---: | ---: |
@@ -183,10 +182,8 @@ XeLaTeX 또는 Tectonic을 사용합니다. PATH, 일반 설치 경로, Codex에
 본문은 출처마다 문단을 나누지 않고 같은 평가 주제의 관찰·해석·조건을 연결합니다.
 참고문헌은 자료 유형에 맞는 저자·날짜·전체 제목·발행처·식별자 형식으로 출력하고 열람일과 유형명은 표시하지 않습니다.
 발행일을 확인할 수 없으면 시카고의 날짜 미상 표기인 `n.d.`를 사용합니다. 날짜 없는 웹 자료에 열람일을 병기하는 공식 시카고 규칙과 달리, 이 보고서는 사용자의 열람일 제외 요청을 유지합니다.
-최종 문서 상단의 초안·자동 검사 상태 안내문은 출력하지 않고, 검토 절 제목은 **종합 검토 사항**으로 표시합니다.
-종합 검토 사항의 문서·근거 ID는 식별되는 참고문헌의 인용 번호로 표시합니다. 이는 검사 기록에 등장한 **검토 대상 자료**의 연결이며, 미확인된 검토 의견을 검증 통과로 바꾸지는 않습니다. 원본 ID와 검토 상태는 입력 자료에 보존합니다.
+최종 문서에는 초안·자동 검사 상태 안내문이나 반복 내부 진단 부록을 출력하지 않습니다. 실제 근거의 한계와 미확인은 본문의 분석에 보존하고, 원본 ID·검토 의견·검사 상태는 입력 및 실행 기록에서 확인합니다. 미확인 의견을 검증 통과로 바꾸지 않습니다.
 확인한 전체 서지 정보는 `pipeline/reference_metadata.json`에 URL별로 보존합니다.
 본문 내용과 문단 재구성은 보고서 에이전트가 수행하며, 코드 후처리는 글꼴·들여쓰기·서지 형식에 한정합니다.
 
-이번 통합의 우선 목표는 실제 저장 결과로 보고서를 생성하는 것입니다.
-전체 테스트, 원본 논문 재검증, 상세 품질 평가는 별도로 수행합니다.
+기본 통합 실행은 실제 보고서 생성 후 Hybrid Quality까지 진행합니다. Quality 결과, PDF 시각 확인, LangSmith 동적 trace와 제출 준비 여부는 각각 구분해 기록합니다. 실행·검증 범위는 [검증 안내](orchestration.md#관측성과-검증-범위)를 참고하세요.

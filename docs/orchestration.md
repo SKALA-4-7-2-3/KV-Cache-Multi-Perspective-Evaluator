@@ -1,6 +1,6 @@
 # Orchestrator–Workers 구현과 실행 계약
 
-이 문서는 현재 브랜치의 `pipeline/` 구현을 설명합니다. 공통 설치는 [README](../README.md), RAG 환경은 [RAG 안내](../rag/README.md), PDF 컴파일 환경은 [보고서 안내](../report/README.md)를 참고하세요. 기존 `docs/pipeline.md`의 순차 연결 설명·루트 보고서 경로 대신, OW 실행과 출력 경로는 이 문서를 기준으로 합니다.
+이 문서는 현재 브랜치의 `pipeline/` 구현을 설명합니다. 공통 설치는 [README](../README.md), RAG 환경은 [RAG 안내](../rag/README.md), PDF 컴파일 환경은 [보고서 안내](../report/README.md)를 참고하세요. OW 실행·재개·출력 계약은 이 문서를 기준으로 하며, 입력 변환과 보고서 세부 안내는 [pipeline 안내](pipeline.md)를 참고하세요.
 
 ## 강의 근거와 선택 이유
 
@@ -127,11 +127,11 @@ H1은 원문과 모순되는 `contradicted` 판정이나 중대 사실 오류를
 
 통합 실행은 `quality/quality-responses/`를 공유 캐시로 사용하고, 기존 `quality/attempt-N/quality-responses/`도 현재 검사로 다시 검증합니다. 이전 alias는 원래 경로·실제 prompt hash의 provenance를 기록하며 새 응답으로 승격하지 않습니다.
 
-실제 provider의 주장 추출(`atomize`)·원문 감사(`audit`)에서 **현재 normalizer와 validator를 모두 통과한 raw 응답**만 Quality 출력 경로 아래 `quality-responses/`에 원자적으로 저장합니다. 요청의 단계·모델·instructions·실제 prompt·strict schema·버전을 정렬한 JSON의 SHA-256이 키입니다. 로드할 때 envelope의 키·버전·raw 형식·SHA-256을 확인하고, 현재 normalizer와 validator를 다시 실행합니다. 요청·모델·스키마 변경, 손상 또는 현재 계약 위반은 재사용하지 않습니다.
+실제 provider의 주장 추출(`atomize`)·원문 감사(`audit`)·최종 평가(`rubric`)에서 **현재 normalizer와 validator를 모두 통과한 raw 응답**만 Quality 출력 경로 아래 `quality-responses/`에 원자적으로 저장합니다. Rubric은 분리된 snapshot에서 전체 완료 계약을 검사해 실패 응답의 점수·gate가 실제 결과에 남지 않게 합니다. 형식 계약이 유효한 낮은 점수·수정 요청도 판정을 바꾸지 않고 저장할 수 있습니다. 요청의 단계·모델·instructions·실제 prompt·strict schema·버전을 정렬한 JSON의 SHA-256이 키입니다. 로드할 때 envelope의 키·버전·raw 형식·SHA-256을 확인하고, 현재 normalizer와 validator를 다시 실행합니다. 요청·모델·스키마 변경, 손상 또는 현재 계약 위반은 재사용하지 않습니다.
 
 계약 오류에는 **최대 한 번의 수정 호출**을 허용합니다. 원래 원문·PDF 줄·주장 목록은 유지하고 오류와 직전 미신뢰 응답만 추가합니다. 수정 요청의 원인이 된 응답과 오류는 `quality.invalid-*.json`에 남깁니다. 미완료 응답은 상태·사유·입출력 토큰 및 부분 출력을 `quality.incomplete-*.json`에 미승인으로 기록하며 캐시하지 않습니다. 수정 응답도 같은 현재 검사를 통과해야 하며, 임계값을 낮추거나 미검사 주장을 통과로 바꾸지 않습니다.
 
-수정 프롬프트로 검증된 raw 응답은 실제 요청 키에 저장하고, 원래 요청 키에서 이를 가리키는 alias를 발급합니다. alias의 원래 키·대상 키 형식·실제 프롬프트 hash와 대상 envelope의 `verified_base_key`·raw hash·버전을 함께 확인해 보정 provenance를 보존합니다. 기존 원래 요청 캐시 키는 유지하며 손상된 alias는 cache miss입니다. 캐시 재사용도 현재 원문·주장 계약을 통과해야 하고, 최종 rubric과 전체 gate를 다시 평가합니다. 캐시 파일 자체는 보고서의 Quality 승인 기록이 아닙니다.
+수정 프롬프트로 검증된 raw 응답은 실제 요청 키에 저장하고, 원래 요청 키에서 이를 가리키는 alias를 발급합니다. alias의 원래 키·대상 키 형식·실제 프롬프트 hash와 대상 envelope의 `verified_base_key`·raw hash·버전을 함께 확인해 보정 provenance를 보존합니다. 기존 원래 요청 캐시 키는 유지하며 손상된 alias는 cache miss입니다. Rubric 캐시도 현재 normalizer·분리된 snapshot 계약을 통과해야 하며 최종 revision의 전체 gate와 hash를 다시 확인합니다. 동일한 유효 요청의 raw 재사용은 새 API 호출을 요구하지 않습니다. 캐시 파일 자체는 보고서의 Quality 승인 기록이 아닙니다.
 
 ### 보고서 출처 독해 계약
 
@@ -200,6 +200,7 @@ uv run --frozen python -m pipeline --run-rag \
 - API를 이미 보냈으나 응답·완료 기록 전에 중단된 경우 완전한 exactly-once 호출을 보장하지 않습니다. ledger는 해당 예약을 미확인 사용량으로 남기고, 완료가 기록된 artifact를 기준으로 재사용합니다.
 - SQLite saver는 단일 로컬 실행 프로세스용입니다. 같은 출력 경로에서 여러 프로세스를 동시에 실행하지 않습니다.
 - Quality만 재개할 때 최신 Report revision과 Review 참조·파일 hash 및 성공 단계 fingerprint를 확인합니다. 관련 worker와 TRL·Review·Report 코드가 그대로인 경우만 직접 Quality에 진입하며, 기존 평가 시도 수·재계획 수·예산 사용량을 유지합니다. 과거 manifest 또는 선행 코드 변경은 기존 재구축 경로를 따릅니다.
+- Report 재작성의 형식 실패 후 Report 구현을 보정해 재개할 때는, 단일 pending Report·변경된 Report fingerprint·불변인 worker 및 TRL/Review fingerprint·유효한 이전 Report/Quality 참조를 모두 확인해 기존 피드백과 평가 횟수를 보존합니다. 명시적 재실행, 선행 코드 변경, provenance 누락은 이 경로를 사용하지 않습니다. Report 재작성은 형식 보정 최대 한 번을 허용하고 raw 응답·candidate·검증 오류를 기록하며, 의미 평가는 이후 Quality가 수행합니다.
 
 TRL·Review·Report·Quality의 완료 캐시는 전체 저장소 hash 대신 **단계별 source fingerprint**와 실제 입력·모델·기준일로 stamp를 계산합니다. 관련 없는 단계 수정으로 완료 API 호출이 반복되는 것을 줄입니다. 단계의 source hash는 `events.jsonl`의 `stage_code_sha256`에 기록합니다.
 

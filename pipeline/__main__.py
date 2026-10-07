@@ -196,9 +196,22 @@ def main():
             and set(args.rerun) == {"quality"}
             and prior_refs == snapshot.values.get("accepted_refs",{})
             and all(old_stage_hashes.get(name) == stage_hashes[name] for name in ("trl","review","report")))
-        invocation = (quality_resume_state(context,snapshot.values) if quality_only else
-            initial_state(context,accepted_refs=prior_refs,pending_cells=pending,
-                          revision=snapshot.values.get("plan_revision",0)))
+        pending_report_repair = (previous and args.resume and not args.rerun
+            and snapshot.next == ("report",) and snapshot.values.get("phase") == "report_repair"
+            and prior_refs == snapshot.values.get("accepted_refs",{})
+            and all(old_stage_hashes.get(name) == stage_hashes[name] for name in ("trl","review"))
+            and old_stage_hashes.get("report") is not None
+            and old_stage_hashes["report"] != stage_hashes["report"])
+        if pending_report_repair:
+            # Verify the prior files using the same contract, but keep the
+            # checkpoint's repair feedback and counters instead of rejudging.
+            quality_resume_state(context,snapshot.values)
+            context.store.get(snapshot.values["quality_ref"])
+            invocation = None
+        else:
+            invocation = (quality_resume_state(context,snapshot.values) if quality_only else
+                initial_state(context,accepted_refs=prior_refs,pending_cells=pending,
+                              revision=snapshot.values.get("plan_revision",0)))
     try:
         result = snapshot.values if invocation == "complete" else graph.invoke(invocation,configuration)
         context.store.put("state.final.json",result)
