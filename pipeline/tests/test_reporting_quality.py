@@ -8,7 +8,8 @@ import unittest
 from unittest.mock import patch
 
 from pipeline.reporting import (build_quality_revision_prompt, source_analysis,
-                                validate_source_reading, source_quote_spans, resolve_source_reading_ids, generate_report)
+                                validate_source_reading, source_quote_spans, resolve_source_reading_ids, generate_report,
+                                report_blocks, select_report_blocks, apply_report_patches)
 from report_agent.parser import parse_report_input
 from report_agent.generator import GenerationError
 
@@ -16,7 +17,7 @@ FIXTURES = Path(__file__).resolve().parents[2] / "report/tests/fixtures"
 
 
 class ReportingQualityTests(unittest.TestCase):
-    def run_revision(self, responses, *, expect_error=False, feedback=None):
+    def run_revision(self, responses, *, expect_error=False, feedback=None, candidate="UNIQUE_OLD_REPORT"):
         """Offline model/compiler boundaries with real parsing, preparation and format validation."""
         source = {"source_id": "offline-original", "excerpt": "UNIQUE ORIGINAL\n" + "Exact source condition. " * 100,
                   "technology_ids": ["SW-01"], "url": "https://example.test/original"}
@@ -35,7 +36,7 @@ class ReportingQualityTests(unittest.TestCase):
                 patch("report_agent.compiler.find_latex_compiler", return_value="offline-compiler"), \
                 patch("report_agent.compiler.compile_latex", side_effect=compile_fake):
             output = Path(directory)
-            arguments = dict(model="offline-model", revision_candidate="UNIQUE_OLD_REPORT", revision_feedback=feedback,
+            arguments = dict(model="offline-model", revision_candidate=candidate, revision_feedback=feedback,
                              source_coverage_repair=False)
             if expect_error:
                 with self.assertRaises(GenerationError):
@@ -45,6 +46,88 @@ class ReportingQualityTests(unittest.TestCase):
                 result = generate_report(markdown, output, **arguments)
             records = {path.name: path.read_text() for path in output.glob("*") if path.is_file() and path.suffix != ".pdf"}
         return result, calls, compiled, records, source, feedback
+
+    def test_scoped_revision_changes_only_selected_body_and_keeps_original_sources(self):
+        candidate = (FIXTURES / "trl-runtime.tex").read_text().replace(
+            "\\subsection{시장성}\n미확인 사항을 보존한다.",
+            "\\subsection{시장성}\n관련 시장의 전망 기간은 2025--2034년이다.\\cite{SW01_RDKV}")
+        feedback = [{"target": "report", "instructions": "원문 전망 기간을 보존하라.",
+            "claim_contexts": [{"claim": {"report_quote": "관련 시장의 전망 기간은 2025–2034년이다.[1]"}}]}]
+        selected = select_report_blocks(candidate, feedback)
+        self.assertEqual(len(selected), 1)
+        replacement = selected[0]["text"].replace("2025--2034", "2026--2034")
+        response = json.dumps({"patches": [{"block_id": selected[0]["block_id"],
+                                           "replacement": replacement}]}, ensure_ascii=False)
+        result, calls, compiled, records, source, _ = self.run_revision(
+            [response], feedback=feedback, candidate=candidate)
+        self.assertEqual(result["revision_mode"], "scoped_blocks")
+        self.assertEqual(result["revision_block_ids"], [selected[0]["block_id"]])
+        self.assertIn("2026--2034", compiled[0])
+        for block in report_blocks(candidate):
+            if block["block_id"] != selected[0]["block_id"]:
+                self.assertIn(block["text"], compiled[0])
+        source_match = re.search(r"---REPORT_SOURCE_[0-9a-f]{16}---\n([\s\S]*?)\n---END_", calls[0]["prompt"])
+        self.assertEqual(json.loads(source_match.group(1)), records["report.input.md"])
+        self.assertIn(json.dumps([source]), json.loads(source_match.group(1)))
+        self.assertIn("REPORT_PATCH_BLOCKS", calls[0]["prompt"])
+        self.assertEqual(json.loads(records["report.revision-scope.json"])["mode"], "scoped_blocks")
+
+    def test_scoped_patch_cannot_change_headings_boundaries_or_add_executable_input(self):
+        candidate = (FIXTURES / "trl-runtime.tex").read_text()
+        selected = [next(block for block in report_blocks(candidate) if "추정 TRL: 4" in block["text"])]
+        for addition in ("\\section{SUMMARY}", "\\section*{SUMMARY}", "\\section {SUMMARY}",
+                         "\\subsection*{EXTRA}", "\\begin {document}",
+                         "% END_TRL_ASSESSMENT SW-01", "\\input{secret}"):
+            raw = json.dumps({"patches": [{"block_id": selected[0]["block_id"],
+                "replacement": selected[0]["text"] + addition}]})
+            with self.subTest(addition=addition), self.assertRaises(ValueError):
+                apply_report_patches(candidate, selected, raw)
+        patched = apply_report_patches(candidate, selected, json.dumps({"patches": [{
+            "block_id": selected[0]["block_id"], "replacement": selected[0]["text"]}]}))
+        self.assertEqual(patched, candidate)
+
+    def test_scoped_patch_requires_every_selected_id_once_and_no_extra_fields(self):
+        candidate = (FIXTURES / "trl-runtime.tex").read_text()
+        selected = report_blocks(candidate)[:1]
+        correct = {"block_id": selected[0]["block_id"], "replacement": selected[0]["text"]}
+        for value in ({"patches": []}, {"patches": [correct, correct]},
+                      {"patches": [{**correct, "block_id": "not-selected"}]},
+                      {"patches": [{**correct, "reason": "extra"}]},
+                      {"patches": [correct], "whole_report": candidate}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                apply_report_patches(candidate, selected, json.dumps(value))
+
+    def test_scope_does_not_silently_drop_unmatched_feedback_or_patch_references(self):
+        candidate = (FIXTURES / "trl-runtime.tex").read_text()
+        selected = report_blocks(candidate)
+        self.assertTrue(selected)
+        self.assertFalse(any("bibitem" in block["text"] for block in selected))
+        self.assertEqual(select_report_blocks(candidate, ["unanchored legacy feedback"]), [])
+        for malformed in ({"claim_contexts": [{"claim": None}]}, {"report_block_ids": [[]]}):
+            with self.subTest(malformed=malformed):
+                self.assertEqual(select_report_blocks(candidate, [malformed]), [])
+        self.assertEqual(select_report_blocks(candidate, [{"claim_contexts": [{"claim": {
+            "report_quote": "This long assertion is absent from this actual report."}}]}]), [])
+        feedback = [{"report_block_ids": [selected[0]["block_id"]]}, {"claim_contexts": [{"claim": {
+            "report_quote": "This long assertion is absent from this actual report."}}]}]
+        self.assertEqual(select_report_blocks(candidate, feedback), [])
+
+    def test_scoped_format_repair_uses_original_candidate_and_same_ids(self):
+        candidate = (FIXTURES / "trl-runtime.tex").read_text()
+        selected = next(block for block in report_blocks(candidate) if "추정 TRL: 4" in block["text"])
+        feedback = [{"report_block_ids": [selected["block_id"]], "instructions": "표현만 검토하라."}]
+        responses = [json.dumps({"patches": [{"block_id": selected["block_id"],
+            "replacement": selected["text"].replace("추정 TRL: 4", "추정 TRL: 8")}]}),
+            json.dumps({"patches": [{"block_id": selected["block_id"], "replacement": selected["text"]}]})]
+        result, calls, _, records, _, _ = self.run_revision(responses, feedback=feedback, candidate=candidate)
+        self.assertEqual(result["attempts"], 2)
+        self.assertEqual(result["trl"], {"SW-01": 4, "HW-01": None})
+        self.assertTrue(json.loads(records["report.revision-validation-1.json"])["validation_issues"])
+        for call in calls:
+            match = re.search(r"---REPORT_PATCH_BLOCKS_[0-9a-f]{16}---\n([\s\S]*?)\n---END_", call["prompt"])
+            blocks = json.loads(match.group(1))
+            self.assertEqual(blocks[0]["text"], selected["text"])
+            self.assertEqual(blocks[0]["block_id"], selected["block_id"])
 
     def test_revision_format_is_repaired_once_with_original_sources_trl_and_quality_feedback(self):
         valid = (FIXTURES / "trl-runtime.tex").read_text()

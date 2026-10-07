@@ -1,5 +1,6 @@
 import json
 import re
+from copy import deepcopy
 import tempfile
 import unittest
 from pathlib import Path
@@ -152,6 +153,103 @@ class TRLParserTests(unittest.TestCase):
                                        r"구성요소 검증을 근거로 한다.\cite{WEB_RDKV_OPERATIONS}")
         candidate = candidate.replace(r"\end{thebibliography}",
                                       r"\bibitem{WEB_RDKV_OPERATIONS} 운영 검증 자료." + "\n" + r"\end{thebibliography}")
+        result = validate_latex(candidate, parsed)
+        self.assertTrue(result.valid, result.issues)
+
+
+class TRLReasonPresentationTests(unittest.TestCase):
+    """Offline Review records; real parser, prompts and visible TRL validation."""
+
+    prefix = "초안 근거의 기술·버전·원문 연결 또는 단계별 검증 방식을 확인할 수 없습니다. 초안 이유: "
+    suffix = "검증되지 않은 초안: 단일 GPU 실험만 존재하고 현장 시연은 보고되지 않음."
+    condition = "운용 HW/SW와 연동한 파일럿 또는 현장 시연 기록"
+    public_reason = "다음 단계의 필수 조건인 운용 HW/SW와 연동한 파일럿 또는 현장 시연 기록을 이번 평가 자료로 확인하지 못했다."
+
+    def setUp(self):
+        self.records = trl_records()
+        self.records["SW-01"]["level"] = 6
+        pending = {"level": 7, "status": "unknown", "required_evidence": self.condition,
+                   "reason": self.prefix + self.suffix, "evidence_ids": [],
+                   "generation_method": "model", "semantic_validation_status": "not_required",
+                   "semantic_reason": None}
+        self.records["SW-01"]["next_unconfirmed"] = pending
+        self.records["SW-01"]["checks"].append(deepcopy(pending))
+        self.source = trl_input(self.records)
+
+    def candidate(self, reason=None):
+        return trl_latex().replace("추정 TRL: 4", "추정 TRL: 6").replace(
+            "대표 QA 워크로드의 요구 성능 검증", self.condition).replace(
+            "목표 서비스의 동시성 조건 미확인.", self.public_reason if reason is None else reason)
+
+    def test_parser_separates_public_pending_state_without_changing_raw_review(self):
+        parsed = parse_report_input(self.source)
+        record = parsed.trl_assessments["SW-01"]
+        for field, value in self.records["SW-01"].items():
+            self.assertEqual(record[field], value)
+        self.assertEqual(parsed.raw_markdown, self.source)
+        self.assertEqual(record["next_reason"], self.prefix + self.suffix)
+        self.assertEqual(record["next_reason_view"], {"kind": "internal_diagnostic",
+            "public_text": self.public_reason, "internal_text": self.prefix + self.suffix})
+        self.assertEqual(record["citation_keys"], ["SW01_RDKV"])
+        self.assertNotIn(self.suffix, record["next_reason_view"]["public_text"])
+
+    def test_public_pending_reason_passes_but_changed_trl_or_missing_reason_fails(self):
+        parsed = parse_report_input(self.source)
+        result = validate_latex(self.candidate(), parsed)
+        self.assertTrue(result.valid, result.issues)
+        for candidate in (self.candidate().replace("추정 TRL: 6", "추정 TRL: 7"),
+                          self.candidate("추가 확인 필요."),
+                          self.candidate(self.public_reason.replace("확인하지 못했다", "확인했다"))):
+            with self.subTest(candidate=candidate):
+                self.assertFalse(validate_latex(candidate, parsed).valid)
+
+    def test_internal_diagnostic_is_rejected_even_beside_public_text_or_in_another_section(self):
+        parsed = parse_report_input(self.source)
+        for candidate in (self.candidate(self.prefix + self.suffix),
+                          self.candidate(self.public_reason + "\n" + self.prefix + self.suffix),
+                          self.candidate().replace(r"\subsection{현재 자료의 한계}",
+                              r"\subsection{현재 자료의 한계}" + "\n" + self.prefix + self.suffix)):
+            with self.subTest(candidate=candidate):
+                result = validate_latex(candidate, parsed)
+                self.assertFalse(result.valid)
+                self.assertTrue(any("내부 진단" in issue for issue in result.issues))
+
+    def test_generation_and_repair_require_public_text_without_forcing_diagnostics(self):
+        parsed = parse_report_input(self.source)
+        for prompt in (build_generation_prompt(parsed),
+                       build_repair_prompt(parsed, self.candidate(), ["미확인 범위를 보존하라."])):
+            self.assertIn(parsed.raw_markdown, prompt)
+            self.assertIn(self.prefix + self.suffix, prompt)
+            self.assertIn("미확인 이유: " + self.public_reason, prompt)
+            self.assertNotIn("미확인 이유: " + self.prefix, prompt)
+            self.assertIn("internal_text", prompt)
+            self.assertIn("내부 진단", prompt)
+
+    def test_supplied_view_near_prefix_and_unowned_diagnostic_do_not_hide_authentic_reason(self):
+        reasons = ("목표 서비스의 동시성 조건 미확인", "인용된 문구: " + self.prefix + self.suffix,
+                   self.prefix.replace("초안 근거", "초안의 근거") + self.suffix, self.prefix + self.suffix)
+        for index, reason in enumerate(reasons):
+            with self.subTest(reason=reason):
+                records = deepcopy(self.records)
+                pending = records["SW-01"]["next_unconfirmed"]
+                pending.update(reason=reason, generation_method="provided" if index == 3 else "model")
+                records["SW-01"]["next_reason_view"] = {"kind": "internal_diagnostic",
+                    "public_text": "이 조건을 충족했다.", "internal_text": reason}
+                parsed = parse_report_input(trl_input(records))
+                record = parsed.trl_assessments["SW-01"]
+                self.assertEqual(record["next_reason_view"], {"kind": "review_reason",
+                    "public_text": reason, "internal_text": None})
+                result = validate_latex(self.candidate(reason), parsed)
+                self.assertTrue(result.valid, result.issues)
+                self.assertFalse(validate_latex(self.candidate("이 조건을 충족했다."), parsed).valid)
+
+    def test_diagnostic_pending_condition_with_latex_special_characters_is_preserved(self):
+        records = deepcopy(self.records)
+        records["SW-01"]["next_unconfirmed"]["required_evidence"] = "QA_1의 품질 99% & 비용 조건 검증"
+        parsed = parse_report_input(trl_input(records))
+        public_reason = "다음 단계의 필수 조건인 QA_1의 품질 99% & 비용 조건 검증을 이번 평가 자료로 확인하지 못했다."
+        escaped = public_reason.replace("_", r"\_").replace("%", r"\%").replace("&", r"\&")
+        candidate = self.candidate(escaped).replace(self.condition, r"QA\_1의 품질 99\% \& 비용 조건 검증")
         result = validate_latex(candidate, parsed)
         self.assertTrue(result.valid, result.issues)
 

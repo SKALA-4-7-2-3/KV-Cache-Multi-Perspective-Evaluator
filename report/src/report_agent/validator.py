@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .parser import MARKET_CRITERIA, ParsedReportInput
+from .parser import MARKET_CRITERIA, ParsedReportInput, TRL_DIAGNOSTIC_PREFIX, trl_public_reason
 from .prompt import REQUIRED_OUTLINE, REQUIRED_SUBSECTIONS
 from .layout import normalize_numeric_ranges
 
@@ -60,6 +60,10 @@ def _trl_issues(latex: str, parsed: ParsedReportInput) -> list[str]:
     maturity = following[:end.start()] if end else following
     visible_maturity = _visible_text(maturity)
     issues = []
+    if (any(record.get("next_reason_view", {}).get("kind") == "internal_diagnostic"
+            for record in parsed.trl_assessments.values())
+            and _compact(TRL_DIAGNOSTIC_PREFIX) in _compact(_visible_text(latex))):
+        issues.append("TRL: 내부 진단을 보이는 본문이나 부록에 출력할 수 없습니다.")
     if not (re.search(r"공개\s*정보", visible_maturity)
             and re.search(r"팀\s*추정", visible_maturity)
             and re.search(r"공식\s*인증.{0,12}(?:아니|아님)", visible_maturity)):
@@ -99,7 +103,7 @@ def _trl_issues(latex: str, parsed: ParsedReportInput) -> list[str]:
         if "다음미확인조건:" not in _compact(plain).replace("：", ":"):
             issues.append(f"TRL {tech}: 다음 미확인 조건: 표시가 필요합니다.")
         for field in ("next_condition", "next_reason"):
-            expected_text = record[field]
+            expected_text = trl_public_reason(record) if field == "next_reason" else record[field]
             preserved = (_reason_preserved(expected_text, plain) if field == "next_reason"
                          else _compact(expected_text) in _compact(plain))
             if expected_text and not preserved:

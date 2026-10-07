@@ -232,6 +232,89 @@ def rendered_units(blocks: list[dict]) -> list[dict]:
     return units
 
 
+def mark_verified_reference_metadata(units: list[dict], citation_numbers: dict[str, str],
+                                     tex: str, reference_records: dict) -> None:
+    """Mark a complete rendered reference only after its canonical TeX body is exact."""
+    from report_agent.references import format_reference
+    entries = re.findall(
+        r"\\bibitem(?:\[[^\]]*\])?\{([^{}]+)\}\s*([\s\S]*?)(?=\\bibitem|\\end\{thebibliography\})", tex)
+    if [key for key, _ in entries] != [citation_numbers[str(index)] for index in range(1, len(entries) + 1)]:
+        return
+    for key, body in entries:
+        record = reference_records.get(key)
+        if not isinstance(record, dict) or body.strip() != format_reference(record).strip():
+            return  # Any noncanonical or augmented entry remains subject to semantic audit.
+    starts = []
+    for index, key in enumerate((key for key, _ in entries), 1):
+        matches = [position for position, unit in enumerate(units)
+                   if re.match(rf"\s*\[{index}\](?:\s|$)", unit["text"])
+                   and unit.get("literal_citation_keys") == [key]]
+        if len(matches) != 1 or starts and matches[0] <= starts[-1]:
+            return
+        starts.append(matches[0])
+    def visible(value: object) -> str:
+        return re.sub(r"[^0-9a-z가-힣]+", "", str(value or "").casefold())
+    def canonical_visible(number: int, body: str) -> str:
+        # format_reference emits href with an escaped URL argument and a visible
+        # texttt label. Drop the non-rendered href argument, then strip TeX-only
+        # commands while retaining their visible arguments.
+        rendered = re.sub(r"\\href\{(?:\\.|[^{}])*\}\{", "{", body)
+        rendered = re.sub(r"\\allowbreak\{\}", "", rendered)
+        rendered = re.sub(r"\\(?:textit|texttt)\{", "{", rendered)
+        rendered = re.sub(r"\\([%&_#{}])", r"\1", rendered)
+        rendered = re.sub(r"\\[A-Za-z]+\*?", "", rendered).replace("{", "").replace("}", "")
+        return visible(f"[{number}] " + rendered)
+    for entry_index, start in enumerate(starts):
+        candidate_end = starts[entry_index + 1] if entry_index + 1 < len(starts) else len(units)
+        expected = canonical_visible(entry_index + 1, entries[entry_index][1])
+        accumulated, end = "", None
+        for position in range(start, candidate_end):
+            if units[position].get("required_non_claim_reason") != "페이지 번호":
+                accumulated += visible(units[position]["text"])
+            if accumulated == expected:
+                end = position + 1
+                break
+            if not expected.startswith(accumulated):
+                break
+        if end is None:
+            continue  # The visible PDF did not preserve the complete canonical identity.
+        for unit in units[start:end]:
+            if unit.get("required_non_claim_reason") != "페이지 번호":
+                unit["required_non_claim_reason"] = "검증된 등록 출처의 참고문헌 식별정보"
+
+
+def _drop_governed_trl_claims(claims: list[dict], approved_levels: dict[str, str]) -> list[dict]:
+    """Route the exact Review-owned TRL field to the deterministic rendered-TRL gate."""
+    technology_names = {"SW-01": "RDKV", "HW-01": "Photonic-CXL"}
+    kept = []
+    for claim in claims:
+        technologies = claim.get("technology_ids")
+        if claim.get("kind") != "inference" or not isinstance(technologies, list) or len(technologies) != 1:
+            kept.append(claim)
+            continue
+        technology = technologies[0]
+        level = approved_levels.get(technology)
+        name = technology_names.get(technology)
+        normalized = " ".join(str(claim.get("text", "")).split())
+        physical_quote = " ".join(str(claim.get("report_quote", "")).split())
+        pattern = rf"(?:{re.escape(name)}\s*)?추정\s*TRL\s*[:：]\s*{re.escape(str(level))}\.?" if name and level is not None else None
+        if (not pattern or not re.fullmatch(pattern, normalized, re.I)
+                or not re.fullmatch(pattern, physical_quote, re.I)):
+            kept.append(claim)
+    return kept
+
+
+def _route_governed_trl_claims(claims: list[dict], approved_levels: dict[str, str]) -> tuple[list[dict], list[dict]]:
+    kept = _drop_governed_trl_claims(claims, approved_levels)
+    kept_ids = {claim["claim_id"] for claim in kept}
+    governed = [{"claim_id": claim["claim_id"], "block_id": claim["block_id"],
+                 "technology_id": claim["technology_ids"][0],
+                 "approved_level": approved_levels[claim["technology_ids"][0]],
+                 "authority": "Review final TRL preserved by rendered_trl gate"}
+                for claim in claims if claim["claim_id"] not in kept_ids]
+    return kept, governed
+
+
 def bind_rendered_citations(units: list[dict], citation_numbers: dict) -> None:
     """Bind only numbered references physically present in the owning paragraph."""
     paragraphs = {}
@@ -373,6 +456,9 @@ verdict is supported, contradicted, unsupported or uncertain. Audit each claim
 against this complete selected original document set; do not reinterpret a generated assessment
 as a source. supported or contradicted requires exact contiguous source quotes
 and the matching evidence_ids. If these originals lack support, use uncertain.
+For contradicted, reason must contain `Opposing proposition:` followed by the
+explicit opposite established by the quoted original; a quote that matches or
+supports the claim is not a contradiction.
 Check all numbers, negation, attribution, conditions, simulations and inference
 premises. A market forecast must preserve the source's base year AND base value,
 end year AND end value, and CAGR interval together. Correct currency conversion
@@ -984,6 +1070,9 @@ def _audit(answer: dict, claims: list[dict], evidence: list[dict], documents: di
             locations.append({key: source[key] for key in ("evidence_id", "doc_id", "source_hash", "page", "location", "locator")})
         if set(ids) != quote_ids or check["verdict"] in {"supported", "contradicted"} and not quotes:
             raise JudgeContractError("Semantic support requires original quotes for every linked evidence ID")
+        if check["verdict"] == "contradicted" and not re.search(
+                r"(?:Opposing proposition|반대 명제)\s*:\s*\S", check["reason"], re.I):
+            raise JudgeContractError("Contradicted audit has no explicit opposing proposition")
         claim = claim_map[check["claim_id"]]
         claim_technologies = set(claim["technology_ids"])
         actual_keys = set(claim["citation_keys"])
@@ -1304,8 +1393,9 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
             r"추정\s*TRL\s*[:：]\s*(미확인|[1-9])"
             r"(?!\d|\s*[-–—～]?\s*\d|\.\d|\s*(?:에서|부터)\s*[1-9])(?=$|[\s.,;:()。])",
             "".join(block["text"] for block in blocks)))
-        expected_levels = Counter("미확인" if record["level"] is None else str(record["level"])
-                                  for record in parsed.trl_assessments.values())
+        approved_trl_levels = {technology: "미확인" if record["level"] is None else str(record["level"])
+                               for technology, record in parsed.trl_assessments.items()}
+        expected_levels = Counter(approved_trl_levels.values())
         rendered_trl = bool(expected_levels) and not expected_levels - rendered_levels and set(rendered_levels) <= set(expected_levels)
         gate("rendered_trl", rendered_trl, "Final PDF's explicit TRL fields must preserve Review values")
         evidence = canonical_evidence(review_input)
@@ -1337,13 +1427,26 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
         citation_numbers = {str(index): key for index, key in enumerate(
             re.findall(r"\\bibitem(?:\[[^\]]*\])?\{([^{}]+)\}", tex_bytes.decode()), 1)}
         bind_rendered_citations(units, citation_numbers)
-        claims, unit_dispositions = [], []
+        mark_verified_reference_metadata(units, citation_numbers, tex_bytes.decode(), parsed.reference_records)
+        claims, unit_dispositions, governed_metadata = [], [], []
         for chunk in block_chunks:
             context = [block for block in blocks if block["page"] in {unit["page"] for unit in chunk}]
             atomized, extracted = verified("atomize", {"blocks": chunk, "page_context": context, "citation_numbers": citation_numbers},
                                           lambda answer: _atomize(answer, chunk, parsed.allowed_citation_keys))
-            claims += extracted
-            unit_dispositions += atomized["blocks"]
+            retained, governed = _route_governed_trl_claims(extracted, approved_trl_levels)
+            claims += retained
+            governed_metadata += governed
+            governed_blocks = {record["block_id"] for record in governed}
+            for disposition in atomized["blocks"]:
+                if disposition["block_id"] in governed_blocks:
+                    disposition = {**disposition,
+                        "claims": [claim for claim in disposition["claims"]
+                                   if _drop_governed_trl_claims([{**claim, "claim_id": "temporary"}], approved_trl_levels)],
+                        "governed_metadata": [record for record in governed
+                                              if record["block_id"] == disposition["block_id"]]}
+                    if not disposition["claims"]:
+                        disposition["non_claim_reason"] = "Review 최종 TRL 값은 rendered_trl gate가 검증한다"
+                unit_dispositions.append(disposition)
             result["checked_units"]["checked"] += len(chunk)
         if not claims:
             raise JudgeContractError("No atomic claims were extracted from the final report")
@@ -1362,7 +1465,8 @@ def evaluate_report(*, tex_path: str | Path, pdf_path: str | Path, review_input:
             counts = Counter(check["verdict"] for check in checks)
             for verdict in ("supported", "contradicted", "unsupported", "uncertain"):
                 result["checked_claims"][verdict] = counts[verdict]
-        ledger = {"claims": claims, "checks": checks, "blocks": blocks, "units": units, "unit_dispositions": unit_dispositions}
+        ledger = {"claims": claims, "checks": checks, "blocks": blocks, "units": units,
+                  "unit_dispositions": unit_dispositions, "governed_metadata": governed_metadata}
         ledger_bytes = (json.dumps(ledger, ensure_ascii=False, indent=2) + "\n").encode()
         result["hashes"]["claims"] = sha256(ledger_bytes).hexdigest()
         ledger_path = output / f"quality.claims-{attempt}.json"

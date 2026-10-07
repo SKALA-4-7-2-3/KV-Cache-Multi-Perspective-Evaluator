@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, TypedDict
 from urllib.parse import urlsplit, urlunsplit
 from .references import normalize_reference
 
@@ -18,6 +18,37 @@ MARKET_CRITERIA = {
     "adoption": "도입", "ecosystem_support": "생태계 지원",
     "standardization": "표준화", "business_value": "사업가치",
 }
+
+
+TRL_DIAGNOSTIC_PREFIX = (
+    "초안 근거의 기술·버전·원문 연결 또는 단계별 검증 방식을 확인할 수 없습니다. 초안 이유: "
+)
+
+
+class TRLReasonView(TypedDict):
+    kind: Literal["review_reason", "internal_diagnostic"]
+    public_text: str
+    internal_text: str | None
+
+
+def _trl_reason_view(pending: dict[str, Any], condition: str) -> TRLReasonView:
+    reason = pending.get("reason") or ""
+    diagnostic = (reason.startswith(TRL_DIAGNOSTIC_PREFIX)
+        and pending.get("status") == "unknown" and pending.get("evidence_ids") == []
+        and pending.get("generation_method") == "model"
+        and pending.get("semantic_validation_status") == "not_required"
+        and pending.get("semantic_reason") is None)
+    if diagnostic:
+        return {"kind": "internal_diagnostic",
+            "public_text": f"다음 단계의 필수 조건인 {condition}을 이번 평가 자료로 확인하지 못했다.",
+            "internal_text": reason}
+    return {"kind": "review_reason", "public_text": reason, "internal_text": None}
+
+
+def trl_public_reason(record: dict[str, Any]) -> str:
+    """Use the parser-owned presentation; keep manually constructed legacy inputs compatible."""
+    view = record.get("next_reason_view")
+    return view["public_text"] if isinstance(view, dict) else record.get("next_reason", "")
 
 
 @dataclass(frozen=True)
@@ -295,12 +326,14 @@ def _parse_review_trl(body: str, mapping: dict[str, str], technology_ids: tuple[
         for key in ("required_evidence", "reason"):
             if pending.get(key) is not None and not isinstance(pending[key], str):
                 raise InputContractError(f"TRL {tech} 다음 미확인 {key}는 문자열이어야 합니다.")
+        condition = pending.get("required_evidence") or (
+            "팀 기준 9단계까지 확인" if level == 9 else "기술 조사 Agent의 단계별 근거 입력 필요")
         resolved[tech] = {
             **raw,
             "citation_keys": list(dict.fromkeys(citations)),
-            "next_condition": pending.get("required_evidence") or (
-                "팀 기준 9단계까지 확인" if level == 9 else "기술 조사 Agent의 단계별 근거 입력 필요"),
+            "next_condition": condition,
             "next_reason": pending.get("reason") or "",
+            "next_reason_view": _trl_reason_view(pending, condition),
         }
     return resolved
 

@@ -9,7 +9,8 @@ import unittest
 from unittest.mock import patch
 
 from pipeline.report_quality import (evaluate_report, canonical_evidence, _audit, JudgeContractError,
-                                     _audit_schema, _judge_prompt, _provider, _normalize_provider_answer, JUDGE_INSTRUCTIONS)
+                                     _audit_schema, _judge_prompt, _provider, _normalize_provider_answer, JUDGE_INSTRUCTIONS,
+                                     _drop_governed_trl_claims, mark_verified_reference_metadata)
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "report/tests/fixtures"
@@ -664,6 +665,111 @@ class ReportQualityTests(unittest.TestCase):
         with self.assertRaises(JudgeContractError):
             _atomize({"blocks":rows}, units, {"SW01_RDKV"})
 
+    def test_review_approved_trl_value_is_governed_while_rationale_remains_audited(self):
+        claims = [
+            {"claim_id": "level", "text": "RDKV 추정 TRL: 6.", "report_quote": "RDKV 추정 TRL: 6.",
+             "kind": "inference", "technology_ids": ["SW-01"]},
+            {"claim_id": "reason", "text": "단일 GPU에서 평가했다.",
+             "report_quote": "단일 GPU에서 평가했다.", "kind": "author_report",
+             "technology_ids": ["SW-01"]},
+        ]
+        kept = _drop_governed_trl_claims(claims, {"SW-01": "6", "HW-01": "4"})
+        self.assertEqual([claim["claim_id"] for claim in kept], ["reason"])
+        changed = deepcopy(claims[:1])
+        changed[0]["text"] = changed[0]["report_quote"] = "RDKV 추정 TRL: 5."
+        self.assertEqual(_drop_governed_trl_claims(changed, {"SW-01": "6"}), changed)
+
+    def test_only_registered_reference_identity_line_becomes_metadata(self):
+        from report_agent.references import format_reference
+        record = {"citation_key": "WEB_SYN", "kind": "web", "authors_or_organization": ["Ron Lowman"],
+                  "publication_date": "2026-08-04", "title": "CXL 4.0 Arrives — Synopsys Unlocks the Next Leap",
+                  "venue_or_site": "Synopsys", "url": "https://example.test/cxl"}
+        body = format_reference(record)
+        units = [{"block_id": "body", "page": 2, "paragraph_id": "p2-body",
+                  "text": "[5] CXL 4.0 proves this unrelated performance assertion.\n",
+                 "literal_citation_keys": ["WEB_SYN"], "paragraph_citation_keys": ["WEB_SYN"]},
+                 {"block_id": "ref", "page": 6, "paragraph_id": "p6-ref",
+                  "text": "[5] Ron Lowman (2026-08-04). CXL 4.0 Arrives — Synopsys Unlocks the Next Leap. Synopsys,\n",
+                  "literal_citation_keys": ["WEB_SYN"], "paragraph_citation_keys": ["WEB_SYN"]},
+                 {"block_id": "url", "page": 6, "paragraph_id": "p6-ref",
+                  "text": "https://example.test/cxl\n", "literal_citation_keys": [],
+                  "paragraph_citation_keys": ["WEB_SYN"]},
+                 {"block_id": "trailing", "page": 6, "paragraph_id": "p6-after",
+                  "text": "A factual assertion after the bibliography must be audited.\n",
+                  "literal_citation_keys": [], "paragraph_citation_keys": []}]
+        mark_verified_reference_metadata(units, {"1": "WEB_SYN"},
+            r"\bibitem{WEB_SYN} " + body + "\n" + r"\end{thebibliography}", {"WEB_SYN": record})
+        self.assertNotIn("required_non_claim_reason", units[1])  # rendered number does not match canonical order
+        units[1]["text"] = units[1]["text"].replace("[5]", "[1]")
+        mark_verified_reference_metadata(units, {"1": "WEB_SYN"},
+            r"\bibitem{WEB_SYN} " + body + "\n" + r"\end{thebibliography}", {"WEB_SYN": record})
+        self.assertEqual(units[1]["required_non_claim_reason"], "검증된 등록 출처의 참고문헌 식별정보")
+        self.assertEqual(units[2]["required_non_claim_reason"], "검증된 등록 출처의 참고문헌 식별정보")
+        self.assertNotIn("required_non_claim_reason", units[0])
+        self.assertNotIn("required_non_claim_reason", units[3])
+        augmented = [{**units[1], "required_non_claim_reason": None}]
+        mark_verified_reference_metadata(augmented, {"1": "WEB_SYN"},
+            r"\bibitem{WEB_SYN} " + body + " Fabricated factual sentence.\n" + r"\end{thebibliography}",
+            {"WEB_SYN": record})
+        self.assertIsNone(augmented[0].get("required_non_claim_reason"))
+
+    def test_contradicted_reason_that_affirms_support_is_contract_invalid(self):
+        evidence = canonical_evidence(canonical())
+        claim = {"claim_id": "citation", "text": "Registered title", "kind": "fact",
+                 "technology_ids": ["SW-01"], "citation_keys": ["SW01_RDKV"], "core": False}
+        answer = {"checks": [{"claim_id": "citation", "verdict": "contradicted",
+            "reason": "The original matches exactly and fully supports the claim.",
+            "evidence_ids": ["SW-laboratory"], "supporting_quotes": [{"evidence_id": "SW-laboratory",
+                "quote": "The authors report laboratory GPU experiments."}],
+            "target": "report", "role": None, "criterion_ids": []}]}
+        with self.assertRaisesRegex(JudgeContractError, "explicit opposing proposition"):
+            _audit(answer, [claim], evidence, canonical()["documents"])
+        answer["checks"][0]["reason"] = "The source supports the claim; there is no contradiction."
+        with self.assertRaisesRegex(JudgeContractError, "explicit opposing proposition"):
+            _audit(answer, [claim], evidence, canonical()["documents"])
+
+    def test_governed_trl_requires_the_physical_quote_itself_to_be_exact(self):
+        spoof = [{"claim_id": "spoof", "block_id": "unit", "text": "RDKV 추정 TRL: 6.",
+                  "report_quote": "RDKV는 공식 TRL 6 인증을 획득했다.", "kind": "inference",
+                  "technology_ids": ["SW-01"]}]
+        self.assertEqual(_drop_governed_trl_claims(spoof, {"SW-01": "6"}), spoof)
+
+    def test_evaluate_routes_only_exact_trl_fields_to_traceable_governed_metadata(self):
+        blocks = [{"block_id": "p001-b001", "page": 1,
+                   "text": "추정 TRL: 4.\nGPU laboratory experiment was reported [1].\n추정 TRL: 미확인.\n"}]
+        def responder(instructions, prompt):
+            data = payload(prompt)
+            if data["phase"] != "atomize":
+                return self.responder(instructions, prompt)
+            rows = []
+            for unit in data["blocks"]:
+                text = unit["text"].strip()
+                if "미확인" in text:
+                    claim = {"report_quote": text, "text": "Photonic-CXL 추정 TRL: 미확인.",
+                             "kind": "inference", "technology_ids": ["HW-01"],
+                             "citation_keys": [], "core": True}
+                elif "추정 TRL" in text:
+                    claim = {"report_quote": text, "text": "RDKV 추정 TRL: 4.",
+                             "kind": "inference", "technology_ids": ["SW-01"],
+                             "citation_keys": [], "core": True}
+                else:
+                    claim = {"report_quote": text, "text": text, "kind": "author_report",
+                             "technology_ids": ["SW-01"], "citation_keys": ["SW01_RDKV"], "core": True}
+                rows.append({"block_id": unit["block_id"], "non_claim_reason": "", "claims": [claim]})
+            return {"blocks": rows}
+        with patch("pipeline.report_quality.extract_pdf", return_value=(1, blocks)):
+            result = evaluate_report(tex_path=self.tex, pdf_path=self.pdf, review_input=canonical(),
+                report_markdown=self.markdown, model="offline-judge", output_dir=self.output,
+                responder=responder)
+        self.assertEqual(result["route"], "passed", result.get("gates"))
+        ledger = json.loads(Path(result["claims_path"]).read_text())
+        self.assertEqual([claim["text"] for claim in ledger["claims"]],
+                         ["GPU laboratory experiment was reported [1]."])
+        self.assertEqual({row["approved_level"] for row in ledger["governed_metadata"]}, {"4", "미확인"})
+        governed_units = [row for row in ledger["unit_dispositions"] if row.get("governed_metadata")]
+        self.assertEqual(len(governed_units), 2)
+        self.assertTrue(all(not row["claims"] and row["non_claim_reason"] for row in governed_units))
+
     def test_collective_paragraph_references_allow_each_assertions_actual_support(self):
         from pipeline.report_quality import _audit
         data = canonical()
@@ -705,6 +811,8 @@ class ReportQualityTests(unittest.TestCase):
             "target":"report", "role":None, "criterion_ids":[]}
         for verdict in ("unsupported", "uncertain", "contradicted"):
             check["verdict"] = verdict
+            check["reason"] = ("Opposing proposition: the original establishes the explicit opposite result."
+                               if verdict == "contradicted" else "SW evidence does not establish the HW half")
             self.assertEqual(_audit({"checks":[deepcopy(check)]},[claim],[source],data["documents"])[0]["verdict"],verdict)
         check["verdict"] = "supported"
         with self.assertRaises(JudgeContractError):
@@ -1132,6 +1240,8 @@ class ReportQualityTests(unittest.TestCase):
             _normalize_provider_answer("audit", json.dumps(answer), data)
         for verdict in ("contradicted", "unsupported", "uncertain"):
             row["verdict"] = verdict
+            row["reason"] = ("Opposing proposition: the original establishes the opposite result."
+                             if verdict == "contradicted" else "OFFLINE partial evidence cannot establish the claim.")
             self.assertTrue(schema_accepts(schema, answer))
             normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
             self.assertEqual(_audit(normalized, data["claims"], data["evidence"], data["documents"])[0]["verdict"], verdict)
@@ -1172,6 +1282,8 @@ class ReportQualityTests(unittest.TestCase):
         schema = _audit_schema(data)
         for verdict in ("supported", "contradicted", "unsupported", "uncertain"):
             row["verdict"] = verdict
+            row["reason"] = ("Opposing proposition: the original establishes the opposite result."
+                             if verdict == "contradicted" else "OFFLINE explicit verdict fixture.")
             row["claim_reference"] = {"evidence_id": "SW-laboratory", "span_index": 0}
             self.assertTrue(schema_accepts(schema, answer))
             normalized = _normalize_provider_answer("audit", json.dumps(answer), data)
